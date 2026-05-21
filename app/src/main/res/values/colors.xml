@@ -7,4 +7,15 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- function/password/eunseo 화면용. 팀 디자인 토큰이 확정되면 통합. -->
+    <color name="password_text_primary">#FF1A1A1A</color>
+    <color name="password_text_secondary">#FF6B6B6B</color>
+    <color name="password_text_hint">#FFB0B0B0</color>
+    <color name="password_text_error">#FFE53935</color>
+    <color name="password_divider">#FFE0E0E0</color>
+    <color name="password_button_enabled">#FF6200EE</color>
+    <color name="password_button_disabled">#FFD0D0D0</color>
+    <color name="password_button_text">#FFFFFFFF</color>
+    <color name="password_screen_bg">#FFFFFFFF</color>
 </resources>

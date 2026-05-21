@@ -22,6 +22,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- function/password/eunseo : 비밀번호 변경 전 확인 화면 -->
+        <activity
+            android:name=".function.password.eunseo.PasswordVerifyActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AIONapp" />
     </application>
 
 </manifest>

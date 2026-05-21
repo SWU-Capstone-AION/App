@@ -1,3 +1,24 @@
 <resources>
     <string name="app_name">AION-app</string>
+
+    <!-- ============================================== -->
+    <!-- function/password/eunseo                       -->
+    <!-- ============================================== -->
+
+    <!-- 화면 1: 비밀번호 변경 전 확인 -->
+    <string name="password_verify_title">비밀번호 확인</string>
+    <string name="password_verify_description">본인 확인을 위해 아이디와 현재 비밀번호를 입력해주세요.</string>
+    <string name="password_verify_hint_id">아이디</string>
+    <string name="password_verify_hint_current_pw">현재 비밀번호</string>
+    <string name="password_verify_btn_next">다음</string>
+
+    <!-- 공통 에러 메시지 -->
+    <string name="password_error_empty_id">아이디를 입력해주세요.</string>
+    <string name="password_error_empty_pw">비밀번호를 입력해주세요.</string>
+    <string name="password_error_user_not_found">존재하지 않는 아이디입니다.</string>
+    <string name="password_error_mismatch">비밀번호가 일치하지 않습니다.</string>
+    <string name="password_error_unknown">오류가 발생했습니다. 다시 시도해주세요.</string>
+
+    <!-- 접근성 -->
+    <string name="cd_back">뒤로 가기</string>
 </resources>

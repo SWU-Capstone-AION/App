@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- function/password/eunseo 화면 dimens. 팀 dimens가 확정되면 통합. -->
+    <dimen name="password_screen_padding_horizontal">24dp</dimen>
+    <dimen name="password_header_height">56dp</dimen>
+    <dimen name="password_input_height">52dp</dimen>
+    <dimen name="password_button_height">52dp</dimen>
+    <dimen name="password_corner_radius">8dp</dimen>
+    <dimen name="password_text_title">22sp</dimen>
+    <dimen name="password_text_description">14sp</dimen>
+    <dimen name="password_text_input">15sp</dimen>
+    <dimen name="password_text_button">16sp</dimen>
+    <dimen name="password_text_error">12sp</dimen>
+    <dimen name="password_spacing_xs">4dp</dimen>
+    <dimen name="password_spacing_s">8dp</dimen>
+    <dimen name="password_spacing_m">16dp</dimen>
+    <dimen name="password_spacing_l">24dp</dimen>
+    <dimen name="password_spacing_xl">32dp</dimen>
+</resources>
