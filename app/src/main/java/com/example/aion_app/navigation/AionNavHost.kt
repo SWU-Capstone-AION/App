@@ -4,10 +4,21 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+
+import com.example.aion_app.ui.screen.mypage.MyInfoScreen
+import com.example.aion_app.ui.screen.mypage.MyInfoEditScreen
+import com.example.aion_app.ui.screen.mypage.MyPageScreen
+
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.aion_app.ui.screen.mypage.MyInfoViewModel
+import androidx.compose.runtime.remember
+
 import com.example.aion_app.ui.screen.password.PasswordChangeCheckScreen
 import com.example.aion_app.ui.screen.password.PasswordChangeScreen
 import com.example.aion_app.ui.screen.password.PasswordFindResultScreen
 import com.example.aion_app.ui.screen.password.PasswordFindScreen
+
+import com.example.aion_app.ui.screen.mypage.calculateAge
 
 @Composable
 fun AionNavHost() {
@@ -15,8 +26,80 @@ fun AionNavHost() {
 
     NavHost(
         navController = navController,
-        startDestination = Route.PASSWORD_FIND
+        //startDestination = Route.PASSWORD_FIND
+        startDestination = Route.MYPAGE //임시 수정
     ) {
+        composable(Route.MYPAGE) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.MYPAGE)
+            }
+            val viewModel: MyInfoViewModel = viewModel(parentEntry)
+
+            val info = viewModel.myInfo
+            MyPageScreen(
+                userName = info.name,
+                userGender = info.gender.first().toString(),  // "남자" → "남"
+                userAge = calculateAge(info.birthDate),       // "2019.12.21" → 6 (또는 나이)
+                profileImageUri = info.profileImageUri,
+                onEditProfileClick = {
+                    navController.navigate(Route.MY_INFO)
+                },
+                onFindIdPasswordClick = {
+                    navController.navigate(Route.PASSWORD_FIND)
+                },
+                onChangePasswordClick = {
+                    navController.navigate(Route.PASSWORD_CHANGE_CHECK)
+                },
+                onLogoutClick = {
+                    // TODO: 로그아웃 처리
+                }
+            )
+        }
+
+        composable(Route.MY_INFO) {
+            // ViewModel을 NavBackStackEntry에 연결 → 같은 그래프 안에서 공유됨
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.MYPAGE)
+            }
+            val viewModel: MyInfoViewModel = viewModel(parentEntry)
+
+            val info = viewModel.myInfo
+            MyInfoScreen(
+                userName = info.name,
+                userGender = info.gender,
+                userBirthDate = info.birthDate,
+                sensitiveStimuli = info.sensitiveStimuli,
+                behaviorTraits = info.behaviorTraits,
+                profileImageUri = info.profileImageUri,
+                onBackClick = { navController.popBackStack() },
+                onEditClick = {
+                    navController.navigate(Route.MY_INFO_EDIT)
+                }
+            )
+        }
+
+        composable(Route.MY_INFO_EDIT) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.MYPAGE)
+            }
+            val viewModel: MyInfoViewModel = viewModel(parentEntry)
+
+            val info = viewModel.myInfo
+            MyInfoEditScreen(
+                initialName = info.name,
+                initialGender = info.gender,
+                initialBirthDate = info.birthDate,
+                initialSensitiveStimuli = info.sensitiveStimuli,
+                initialBehaviorTraits = info.behaviorTraits,
+                initialProfileImageUri = info.profileImageUri,
+                onBackClick = { navController.popBackStack() },
+                onSaveClick = { newInfo ->
+                    viewModel.updateMyInfo(newInfo)
+                    navController.popBackStack()
+                }
+            )
+        }
+
         // 1. 비밀번호 찾기 화면
         composable(Route.PASSWORD_FIND) {
             PasswordFindScreen(

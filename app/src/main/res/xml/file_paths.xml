@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 카메라로 찍은 임시 사진을 저장할 폴더 -->
+    <cache-path
+        name="camera_images"
+        path="images/" />
+</paths>
