@@ -172,7 +172,7 @@ private fun MenuItem(
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7")
 @Composable
 fun MyPageScreenPreview() {
     MaterialTheme {

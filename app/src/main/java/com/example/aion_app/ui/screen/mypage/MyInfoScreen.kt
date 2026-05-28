@@ -235,7 +235,7 @@ private fun InfoDivider() {
     HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7")
 @Composable
 fun MyInfoScreenPreview() {
     MaterialTheme {

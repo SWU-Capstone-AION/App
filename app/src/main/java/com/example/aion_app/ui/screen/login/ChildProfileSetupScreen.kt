@@ -401,38 +401,38 @@ private fun BehaviorStep(currentBehaviors: Set<String>, onNext: (Set<String>) ->
 // ============================================
 // Preview - 각 단계별 미리보기
 // ============================================
-@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "1. 이름")
+@Preview(showBackground = true, device = "id:pixel_7", name = "1. 이름")
 @Composable
 private fun NameStepPreview() {
     NameStep(currentName = "", onNext = {})
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "2. 성별")
+@Preview(showBackground = true, device = "id:pixel_7", name = "2. 성별")
 @Composable
 private fun GenderStepPreview() {
     GenderStep(currentGender = null, onNext = {})
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "3. 생년월일")
+@Preview(showBackground = true, device = "id:pixel_7", name = "3. 생년월일")
 @Composable
 private fun BirthDateStepPreview() {
     BirthDateStep(2019, 12, 21, onNext = { _, _, _ -> })
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "4. 감각")
+@Preview(showBackground = true, device = "id:pixel_7", name = "4. 감각")
 @Composable
 private fun SensoryStepPreview() {
     SensoryStep(currentTraits = emptySet(), onNext = {})
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "5. 상동행동")
+@Preview(showBackground = true, device = "id:pixel_7", name = "5. 상동행동")
 @Composable
 private fun BehaviorStepPreview() {
     BehaviorStep(currentBehaviors = emptySet(), onNext = {})
 }
 
 // 전체 플로우 (Interactive Mode로 단계 이동 테스트 가능)
-@Preview(showBackground = true, widthDp = 360, heightDp = 800, name = "전체 플로우")
+@Preview(showBackground = true, device = "id:pixel_7", name = "전체 플로우")
 @Composable
 private fun ChildProfileSetupScreenPreview() {
     ChildProfileSetupScreen()

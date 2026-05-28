@@ -62,7 +62,7 @@ fun PasswordFindResultScreen(
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Preview(showBackground = true, device = "id:pixel_7")
 @Composable
 fun PasswordFindResultScreenPreview() {
     AionTheme { PasswordFindResultScreen() }

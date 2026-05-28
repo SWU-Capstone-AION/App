@@ -85,7 +85,7 @@ fun isValidPassword(pw: String): Boolean {
             pw.any { it.isDigit() }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Preview(showBackground = true, device = "id:pixel_7")
 @Composable
 fun PasswordChangeCheckScreenPreview() {
     AionTheme { PasswordChangeCheckScreen() }

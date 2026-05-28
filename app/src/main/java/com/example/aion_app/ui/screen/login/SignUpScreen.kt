@@ -190,7 +190,7 @@ private fun SignUpField(
     )
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 800)
+@Preview(showBackground = true, device = "id:pixel_7")
 @Composable
 fun SignUpScreenPreview() {
     SignUpScreen()
