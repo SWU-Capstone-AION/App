@@ -129,7 +129,7 @@ private fun StepScaffold(
         // ===== 제목 =====
         Text(
             text = title,
-            fontSize = 17.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = Color(0xFF333333),
             textAlign = TextAlign.Center
@@ -167,7 +167,7 @@ private fun StepScaffold(
             ),
             shape = RoundedCornerShape(8.dp)
         ) {
-            Text("다음", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text("다음", fontSize = 18.sp, fontWeight = FontWeight.Medium)
         }
 
         Spacer(modifier = Modifier.height(40.dp))

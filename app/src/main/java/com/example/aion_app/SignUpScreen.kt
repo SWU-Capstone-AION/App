@@ -123,7 +123,7 @@ fun SignUpScreen() {
             ),
             shape = RoundedCornerShape(8.dp)
         ) {
-            Text("로그인", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text("로그인", fontSize = 18.sp, fontWeight = FontWeight.Medium)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -138,7 +138,7 @@ fun SignUpScreen() {
             ),
             shape = RoundedCornerShape(8.dp)
         ) {
-            Text("회원가입", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text("회원가입", fontSize = 18.sp, fontWeight = FontWeight.Medium)
         }
 
         Spacer(modifier = Modifier.height(60.dp))

@@ -57,7 +57,7 @@ fun OnboardingCompleteScreen(
             ),
             shape = RoundedCornerShape(8.dp)
         ) {
-            Text("확인", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text("확인", fontSize = 18.sp, fontWeight = FontWeight.Medium)
         }
 
         Spacer(modifier = Modifier.height(40.dp))
