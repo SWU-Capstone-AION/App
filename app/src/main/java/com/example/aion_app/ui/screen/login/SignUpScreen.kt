@@ -1,4 +1,4 @@
-package com.example.aion_app  // ← 본인 패키지명
+package com.example.aion_app.ui.screen.login  // ← 본인 패키지명
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,15 +18,11 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-// ===== 팀 공통 색상 (회의 확정) =====
-private val AionBlue = Color(0xFF6495ED)        // 로그인 버튼
-private val AionOnBlue = Color(0xFFF2F7FB)      // 로그인 버튼 텍스트
-private val AionFieldBg = Color(0xFFF6F7F8)     // 입력칸 & 회원가입 버튼 배경
-private val AionTextDark = Color(0xFF2D3C4A)    // 기본 텍스트
-private val AionSelected = Color(0xFFE8EFFC)    // 선택/hover 색
-private val AionTextGray = Color(0xFF8E8E8E)    // 안내 텍스트 (회색)
-
+import com.example.aion_app.ui.theme.AionBlue
+import com.example.aion_app.ui.theme.AionOnBlue
+import com.example.aion_app.ui.theme.AionFieldBg
+import com.example.aion_app.ui.theme.AionTextDark
+import com.example.aion_app.ui.theme.AionTextGray
 @Composable
 fun SignUpScreen() {
     var selectedType by remember { mutableStateOf("아동용") }

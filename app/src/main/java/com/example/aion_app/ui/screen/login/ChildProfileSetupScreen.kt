@@ -1,7 +1,6 @@
-package com.example.aion_app
+package com.example.aion_app.ui.screen.login
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,14 +15,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
+import com.example.aion_app.ui.theme.AionBlue
+import com.example.aion_app.ui.theme.AionOnBlue
+import com.example.aion_app.ui.theme.AionFieldBg
+import com.example.aion_app.ui.theme.AionSelected
+import com.example.aion_app.ui.theme.AionTextDark
+import com.example.aion_app.ui.theme.AionTextGray
 // 색상
-private val AionBlue = Color(0xFF6495ED)        // 다음 버튼
-private val AionOnBlue = Color(0xFFF2F7FB)      // 다음 버튼 텍스트
-private val AionFieldBg = Color(0xFFF6F7F8)     // 선택지 기본 배경
-private val AionSelected = Color(0xFFE8EFFC)    // 선택된 선택지 배경
-private val AionTextDark = Color(0xFF2D3C4A)    // 기본 텍스트
-private val AionTextGray = Color(0xFF8E8E8E)    // 안내 텍스트
+
 // ============================================
 // 아동 프로필 데이터 (모든 단계의 입력값을 한곳에 저장)
 // ============================================

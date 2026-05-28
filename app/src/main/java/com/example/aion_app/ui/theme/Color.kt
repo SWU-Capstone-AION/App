@@ -11,3 +11,11 @@ val RedError = Color(0xFFE53935)           // 에러 메시지/테두리
 val GreenSuccess = Color(0xFF4CAF50)       // 통과 체크 아이콘
 val TextPrimary = Color(0xFF222222)
 val White = Color(0xFFFFFFFF)
+
+// AION 공통 색상
+val AionBlue = Color(0xFF6495ED)
+val AionOnBlue = Color(0xFFF2F7FB)
+val AionFieldBg = Color(0xFFF6F7F8)
+val AionSelected = Color(0xFFE8EFFC)
+val AionTextDark = Color(0xFF2D3C4A)
+val AionTextGray = Color(0xFF8E8E8E)

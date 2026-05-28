@@ -1,4 +1,4 @@
-package com.example.aion_app  // ← 본인 패키지명
+package com.example.aion_app.ui.screen.login  // ← 본인 패키지명
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -13,10 +13,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-private val AionBlue = Color(0xFF6495ED)
-private val AionOnBlue = Color(0xFFF2F7FB)
-private val AionTextDark = Color(0xFF2D3C4A)
+import com.example.aion_app.ui.theme.AionBlue
+import com.example.aion_app.ui.theme.AionOnBlue
+import com.example.aion_app.ui.theme.AionTextDark
 
 @Composable
 fun OnboardingCompleteScreen(
