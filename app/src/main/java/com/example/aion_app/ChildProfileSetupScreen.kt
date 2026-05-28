@@ -18,11 +18,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 // 색상
-private val AionBlue = Color(0xFF8AB4DB)
-private val AionFieldBg = Color(0xFFEEF3F8)        // 옅은 푸른 배경
-private val AionBorderBlue = Color(0xFFB8CFE3)     // 선택된 항목 테두리
-private val AionTextGray = Color(0xFF8E8E8E)
-
+private val AionBlue = Color(0xFF6495ED)        // 다음 버튼
+private val AionOnBlue = Color(0xFFF2F7FB)      // 다음 버튼 텍스트
+private val AionFieldBg = Color(0xFFF6F7F8)     // 선택지 기본 배경
+private val AionSelected = Color(0xFFE8EFFC)    // 선택된 선택지 배경
+private val AionTextDark = Color(0xFF2D3C4A)    // 기본 텍스트
+private val AionTextGray = Color(0xFF8E8E8E)    // 안내 텍스트
 // ============================================
 // 아동 프로필 데이터 (모든 단계의 입력값을 한곳에 저장)
 // ============================================
@@ -108,7 +109,7 @@ private fun StepScaffold(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
-            .padding(horizontal = 32.dp),
+            .padding(horizontal = 46.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // ===== 상단 여백 =====
@@ -187,23 +188,16 @@ private fun SelectablePill(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
-            .clip(RoundedCornerShape(26.dp))           // 알약 모양 (높이의 절반)
-            .background(AionFieldBg)
-            // 선택됐을 때만 테두리 표시
-            .then(
-                if (isSelected) Modifier.border(
-                    width = 1.5.dp,
-                    color = AionBorderBlue,
-                    shape = RoundedCornerShape(26.dp)
-                ) else Modifier
-            )
+            .clip(RoundedCornerShape(26.dp))
+            // 선택되면 연파랑(E8EFFC), 아니면 기본 회색(F6F7F8)
+            .background(if (isSelected) AionSelected else AionFieldBg)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
             fontSize = 15.sp,
-            color = Color(0xFF555555),
+            color = AionTextDark,
             fontWeight = FontWeight.Medium
         )
     }
