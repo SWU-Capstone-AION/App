@@ -13,18 +13,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.aion_app.ui.theme.AionBlue
-import com.example.aion_app.ui.theme.AionOnBlue
-import com.example.aion_app.ui.theme.AionFieldBg
-import com.example.aion_app.ui.theme.AionTextDark
-import com.example.aion_app.ui.theme.AionTextGray
+import com.example.aion_app.ui.component.AionPasswordField
+import com.example.aion_app.ui.component.AionPrimaryButton
+import com.example.aion_app.ui.component.AionTextField
+import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.GrayBackground
+import com.example.aion_app.ui.theme.TextPrimary
+import com.example.aion_app.ui.theme.White
+
 @Composable
-fun SignUpScreen() {
+fun SignUpScreen(
+    onLoginClick: () -> Unit = {},
+    onSignUpClick: (type: String, email: String, password: String) -> Unit = { _, _, _ -> }
+) {
     var selectedType by remember { mutableStateOf("아동용") }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -37,15 +41,16 @@ fun SignUpScreen() {
             .padding(horizontal = 46.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // ===== 원래 로고 헤더 그대로 (온보딩 플로우는 메인 화면 TopBar와 톤이 달라도 됨) =====
         Spacer(modifier = Modifier.height(120.dp))
 
         Box(modifier = Modifier.size(80.dp), contentAlignment = Alignment.Center) {
-            Text("AION", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AionBlue)
+            Text("AION", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = BluePrimary)
         }
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        Text("회원가입", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = AionTextDark)
+        Text("회원가입", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
 
         Spacer(modifier = Modifier.height(30.dp))
 
@@ -53,7 +58,7 @@ fun SignUpScreen() {
             "가입 유형 선택",
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = AionTextDark,
+            color = TextPrimary,
             modifier = Modifier.fillMaxWidth()
         )
 
@@ -73,13 +78,18 @@ fun SignUpScreen() {
             "이메일을 입력하세요",
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = AionTextDark,
+            color = TextPrimary,
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        SignUpField(value = email, onValueChange = { email = it }, isPassword = false)
+        // ===== 공용 AionTextField (필드/버튼은 헤더 스타일과 무관하게 통일) =====
+        AionTextField(
+            value = email,
+            onValueChange = { email = it },
+            placeholder = "이메일"
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -87,55 +97,35 @@ fun SignUpScreen() {
             "비밀번호를 입력하세요",
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = AionTextDark,
+            color = TextPrimary,
             modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        SignUpField(value = password, onValueChange = { password = it }, isPassword = true)
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            "영문, 숫자 포함 8자 이상 입력해 주세요.",
-            fontSize = 11.sp,
-            color = AionTextGray,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            )
+        AionPasswordField(
+            value = password,
+            onValueChange = { password = it },
+            placeholder = "비밀번호"
+        )
 
         Spacer(modifier = Modifier.weight(1f))
         Spacer(modifier = Modifier.height(40.dp))
 
-        // 로그인 버튼 (파란색)
-        Button(
-            onClick = { /* TODO: 로그인 화면 이동 */ },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = AionBlue,
-                contentColor = AionOnBlue
-            ),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text("로그인", fontSize = 18.sp, fontWeight = FontWeight.Medium)
-        }
+        AionPrimaryButton(
+            text = "로그인",
+            onClick = onLoginClick,
+            isPrimary = true
+        )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 회원가입 버튼 (연회색)
-        Button(
-            onClick = { /* TODO: 회원가입 처리 */ },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = AionFieldBg,
-                contentColor = AionTextDark
-            ),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text("회원가입", fontSize = 18.sp, fontWeight = FontWeight.Medium)
-        }
+        AionPrimaryButton(
+            text = "회원가입",
+            onClick = { onSignUpClick(selectedType, email, password) },
+            isPrimary = false,
+            enabled = email.isNotBlank() && password.isNotBlank()
+        )
 
         Spacer(modifier = Modifier.height(60.dp))
     }
@@ -152,42 +142,17 @@ private fun TypeSelectButton(
         modifier = modifier
             .height(48.dp)
             .clip(RoundedCornerShape(8.dp))
-            // 선택되면 파란색, 아니면 연회색
-            .background(if (isSelected) AionBlue else AionFieldBg)
+            .background(if (isSelected) BluePrimary else GrayBackground)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            color = if (isSelected) AionOnBlue else AionTextDark,
+            color = if (isSelected) White else TextPrimary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium
         )
     }
-}
-
-@Composable
-private fun SignUpField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    isPassword: Boolean
-) {
-    TextField(
-        value = value,
-        onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth().height(52.dp),
-        singleLine = true,
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-        shape = RoundedCornerShape(8.dp),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = AionFieldBg,
-            unfocusedContainerColor = AionFieldBg,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            focusedTextColor = AionTextDark,
-            unfocusedTextColor = AionTextDark
-        )
-    )
 }
 
 @Preview(showBackground = true, device = "id:pixel_7")
