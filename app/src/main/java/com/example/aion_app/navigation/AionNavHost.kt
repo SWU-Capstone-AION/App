@@ -5,6 +5,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
+import com.example.aion_app.ui.screen.home.HomeScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoEditScreen
 import com.example.aion_app.ui.screen.mypage.MyPageScreen
@@ -26,9 +27,26 @@ fun AionNavHost() {
 
     NavHost(
         navController = navController,
+        startDestination = Route.HOME  // ← 홈으로 임시 변경 (테스트용)
         //startDestination = Route.PASSWORD_FIND
-        startDestination = Route.MYPAGE //임시 수정
+        //startDestination = Route.MYPAGE //임시 수정
     ) {
+        // ===== 홈 =====
+        composable(Route.HOME) {
+            HomeScreen(
+                onNotificationClick = {
+                    // TODO: 알림 화면으로 이동
+                },
+                onAlertClick = {
+                    // TODO: 알림 상세로 이동
+                },
+                onStudentClick = { student ->
+                    // TODO: 학생 상세로 이동
+                }
+            )
+        }
+
+        // ===== 마이페이지 =====
         composable(Route.MYPAGE) {
             val parentEntry = remember(it) {
                 navController.getBackStackEntry(Route.MYPAGE)

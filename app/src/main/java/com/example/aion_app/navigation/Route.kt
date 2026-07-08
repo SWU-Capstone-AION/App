@@ -10,4 +10,7 @@ object Route {
     const val MYPAGE = "mypage"
     const val MY_INFO = "my_info"
     const val MY_INFO_EDIT = "my_info_edit"
+
+    // 홈
+    const val HOME = "home"
 }
