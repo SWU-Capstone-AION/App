@@ -1,5 +1,7 @@
 package com.example.aion_app.navigation
 
+import com.example.aion_app.ui.screen.notification.NotificationScreen
+
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -34,9 +36,7 @@ fun AionNavHost() {
         navController = navController,
         startDestination = Route.HOME  // ← 홈으로 임시 변경 (테스트용)
         //startDestination = Route.PASSWORD_FIND
-
-     
-      startDestination = Route.SIGN_UP // 회원가입 플로우부터 시작 (팀원 작업 화면 테스트용)
+        //startDestination = Route.SIGN_UP // 회원가입 플로우부터 시작 (팀원 작업 화면 테스트용)
         // startDestination = Route.HOME // 홈 테스트용 (임시)
         // startDestination = Route.MYPAGE // 마이페이지 테스트용 (임시)
     ) {
@@ -101,7 +101,7 @@ fun AionNavHost() {
         composable(Route.HOME) {
             HomeScreen(
                 onNotificationClick = {
-                    // TODO: 알림 화면으로 이동
+                    navController.navigate(Route.NOTIFICATION)
                 },
                 onAlertClick = {
                     // TODO: 알림 상세로 이동
@@ -109,6 +109,12 @@ fun AionNavHost() {
                 onStudentClick = { student ->
                     // TODO: 학생 상세로 이동
                 }
+            )
+        }
+        // ===== 알림센터 =====
+        composable(Route.NOTIFICATION) {
+            NotificationScreen(
+                onBackClick = { navController.popBackStack() }
             )
         }
         // ===== 마이페이지 =====

@@ -18,4 +18,5 @@ object Route {
 
     // 홈
     const val HOME = "home"
+    const val NOTIFICATION = "notification"
 }
