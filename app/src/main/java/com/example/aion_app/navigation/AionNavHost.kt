@@ -5,6 +5,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 
+import com.example.aion_app.ui.screen.home.HomeScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoEditScreen
 import com.example.aion_app.ui.screen.mypage.MyPageScreen
@@ -31,8 +32,13 @@ fun AionNavHost() {
 
     NavHost(
         navController = navController,
+        startDestination = Route.HOME  // ← 홈으로 임시 변경 (테스트용)
         //startDestination = Route.PASSWORD_FIND
-        startDestination = Route.SIGN_UP // 회원가입 플로우부터 시작 (본인 작업 화면들 연결 테스트용)
+
+     
+      startDestination = Route.SIGN_UP // 회원가입 플로우부터 시작 (팀원 작업 화면 테스트용)
+        // startDestination = Route.HOME // 홈 테스트용 (임시)
+        // startDestination = Route.MYPAGE // 마이페이지 테스트용 (임시)
     ) {
         // ===== 회원가입 플로우 =====
         // 세 화면이 같은 SignUpViewModel을 공유하도록 SIGN_UP 진입점을 parentEntry로 묶음
@@ -42,7 +48,6 @@ fun AionNavHost() {
                 navController.getBackStackEntry(Route.SIGN_UP)
             }
             val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
-
             SignUpScreen(
                 onLoginClick = {
                     // TODO: 로그인(이메일/비번 입력) 화면이 아직 없음 — 별도 화면 만들면 여기 연결
@@ -53,13 +58,11 @@ fun AionNavHost() {
                 }
             )
         }
-
         composable(Route.CHILD_PROFILE_SETUP) {
             val parentEntry = remember(it) {
                 navController.getBackStackEntry(Route.SIGN_UP)
             }
             val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
-
             ChildProfileSetupScreen(
                 onBackClick = { navController.popBackStack() },
                 onComplete = { profile ->
@@ -69,13 +72,11 @@ fun AionNavHost() {
                 }
             )
         }
-
         composable(Route.ONBOARDING_COMPLETE) {
             val parentEntry = remember(it) {
                 navController.getBackStackEntry(Route.SIGN_UP)
             }
             val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
-
             OnboardingCompleteScreen(
                 isSubmitting = signUpViewModel.isSubmitting,
                 onConfirmClick = {
@@ -96,6 +97,21 @@ fun AionNavHost() {
             )
         }
 
+        // ===== 홈 =====
+        composable(Route.HOME) {
+            HomeScreen(
+                onNotificationClick = {
+                    // TODO: 알림 화면으로 이동
+                },
+                onAlertClick = {
+                    // TODO: 알림 상세로 이동
+                },
+                onStudentClick = { student ->
+                    // TODO: 학생 상세로 이동
+                }
+            )
+        }
+        // ===== 마이페이지 =====
         composable(Route.MYPAGE) {
             val parentEntry = remember(it) {
                 navController.getBackStackEntry(Route.MYPAGE)
