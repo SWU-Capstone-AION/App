@@ -10,6 +10,11 @@ import com.example.aion_app.ui.screen.mypage.MyInfoScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoEditScreen
 import com.example.aion_app.ui.screen.mypage.MyPageScreen
 
+import com.example.aion_app.ui.screen.login.SignUpScreen
+import com.example.aion_app.ui.screen.login.SignUpViewModel
+import com.example.aion_app.ui.screen.login.ChildProfileSetupScreen
+import com.example.aion_app.ui.screen.login.OnboardingCompleteScreen
+
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aion_app.ui.screen.mypage.MyInfoViewModel
 import androidx.compose.runtime.remember
@@ -29,8 +34,69 @@ fun AionNavHost() {
         navController = navController,
         startDestination = Route.HOME  // ← 홈으로 임시 변경 (테스트용)
         //startDestination = Route.PASSWORD_FIND
-        //startDestination = Route.MYPAGE //임시 수정
+
+     
+      startDestination = Route.SIGN_UP // 회원가입 플로우부터 시작 (팀원 작업 화면 테스트용)
+        // startDestination = Route.HOME // 홈 테스트용 (임시)
+        // startDestination = Route.MYPAGE // 마이페이지 테스트용 (임시)
     ) {
+        // ===== 회원가입 플로우 =====
+        // 세 화면이 같은 SignUpViewModel을 공유하도록 SIGN_UP 진입점을 parentEntry로 묶음
+        // (MyInfoViewModel을 MYPAGE 그래프에서 공유하는 방식과 동일한 패턴)
+        composable(Route.SIGN_UP) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.SIGN_UP)
+            }
+            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+            SignUpScreen(
+                onLoginClick = {
+                    // TODO: 로그인(이메일/비번 입력) 화면이 아직 없음 — 별도 화면 만들면 여기 연결
+                },
+                onSignUpClick = { type, email, password ->
+                    signUpViewModel.updateSignUpInput(type, email, password)
+                    navController.navigate(Route.CHILD_PROFILE_SETUP)
+                }
+            )
+        }
+        composable(Route.CHILD_PROFILE_SETUP) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.SIGN_UP)
+            }
+            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+            ChildProfileSetupScreen(
+                onBackClick = { navController.popBackStack() },
+                onComplete = { profile ->
+                    signUpViewModel.updateChildProfile(profile)
+                    // 아직 SIGN_UP을 스택에서 안 지움 — ViewModel을 OnboardingComplete에서도 써야 해서
+                    navController.navigate(Route.ONBOARDING_COMPLETE)
+                }
+            )
+        }
+        composable(Route.ONBOARDING_COMPLETE) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.SIGN_UP)
+            }
+            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+            OnboardingCompleteScreen(
+                isSubmitting = signUpViewModel.isSubmitting,
+                onConfirmClick = {
+                    // ===== 백엔드 연결 지점 =====
+                    // submit() 내부에서 AuthRepository.register()를 호출함.
+                    // 지금은 FakeAuthRepository라 거의 항상 성공으로 옴.
+                    signUpViewModel.submit { success ->
+                        if (success) {
+                            navController.navigate(Route.MYPAGE) {
+                                // 여기서야 회원가입 플로우 전체를 스택/ViewModel에서 정리
+                                popUpTo(Route.SIGN_UP) { inclusive = true }
+                            }
+                        } else {
+                            // TODO: 실패 시 에러 메시지 노출 (signUpViewModel.submitError 사용)
+                        }
+                    }
+                }
+            )
+        }
+
         // ===== 홈 =====
         composable(Route.HOME) {
             HomeScreen(
@@ -45,7 +111,6 @@ fun AionNavHost() {
                 }
             )
         }
-
         // ===== 마이페이지 =====
         composable(Route.MYPAGE) {
             val parentEntry = remember(it) {
