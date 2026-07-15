@@ -55,7 +55,9 @@ fun HomeScreen(
     ),
     onNotificationClick: () -> Unit = {},
     onAlertClick: () -> Unit = {},
-    onStudentClick: (Student) -> Unit = {}
+    onStudentClick: (Student) -> Unit = {},
+    onTabSelect: (String) -> Unit = {}
+
 ) {
     Scaffold(
         topBar = {
@@ -64,7 +66,7 @@ fun HomeScreen(
                 onNotificationClick = onNotificationClick
             )
         },
-        bottomBar = { AionBottomNavBar(selected = "home") },
+        bottomBar = { AionBottomNavBar(selected = "home", onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
         // 나중에 여기에 콘텐츠 채울 거예요

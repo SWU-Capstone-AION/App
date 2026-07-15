@@ -43,6 +43,22 @@ fun AionNavHost() {
         // startDestination = Route.HOME // 홈 테스트용 (임시)
         // startDestination = Route.MYPAGE // 마이페이지 테스트용 (임시)
     ) {
+        // ===== 하단탭 공용 이동 로직 =====
+        // (지역변수라 선언보다 아래에서만 참조 가능 → NavHost 블록 맨 위에 둠)
+        val onTabSelect: (String) -> Unit = { tab ->
+            val route = when (tab) {
+                "home" -> Route.HOME
+                "report" -> Route.REPORT
+                "mypage" -> Route.MYPAGE
+                else -> Route.HOME
+            }
+            navController.navigate(route) {
+                popUpTo(Route.HOME) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+
         // ===== 회원가입 플로우 =====
         // 세 화면이 같은 SignUpViewModel을 공유하도록 SIGN_UP 진입점을 parentEntry로 묶음
         // (MyInfoViewModel을 MYPAGE 그래프에서 공유하는 방식과 동일한 패턴)
@@ -111,24 +127,12 @@ fun AionNavHost() {
                 },
                 onStudentClick = { student ->
                     // TODO: 학생 상세로 이동
-                }
+                },
+                onTabSelect = onTabSelect
             )
         }
-        // 하단탭 공용 이동 로직
-        val onTabSelect: (String) -> Unit = { tab ->
-            val route = when (tab) {
-                "home" -> Route.HOME
-                "report" -> Route.REPORT
-                "mypage" -> Route.MYPAGE
-                else -> Route.HOME
-            }
-            navController.navigate(route) {
-                popUpTo(Route.HOME) { saveState = true }
-                launchSingleTop = true
-                restoreState = true
-            }
-        }
-// ===== 리포트 =====
+
+        // ===== 리포트 =====
         composable(Route.REPORT) {
             ReportListScreen(
                 onStudentClick = { student ->
@@ -145,12 +149,14 @@ fun AionNavHost() {
                 onTabSelect = onTabSelect
             )
         }
+
         // ===== 알림센터 =====
         composable(Route.NOTIFICATION) {
             NotificationScreen(
                 onBackClick = { navController.popBackStack() }
             )
         }
+
         // ===== 마이페이지 =====
         composable(Route.MYPAGE) {
             val parentEntry = remember(it) {
@@ -175,7 +181,8 @@ fun AionNavHost() {
                 },
                 onLogoutClick = {
                     // TODO: 로그아웃 처리
-                }
+                },
+                onTabSelect = onTabSelect
             )
         }
 

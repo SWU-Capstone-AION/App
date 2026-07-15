@@ -10,12 +10,14 @@ import com.example.aion_app.ui.theme.BluePrimary
 import com.example.aion_app.ui.theme.GrayText
 
 @Composable
-fun AionBottomNavBar(selected: String = "mypage",
-                     onSelect: (String) -> Unit = {}) {
+fun AionBottomNavBar(
+    selected: String = "mypage",
+    onSelect: (String) -> Unit = {}
+) {
     NavigationBar(containerColor = androidx.compose.ui.graphics.Color.White) {
         NavigationBarItem(
             selected = selected == "home",
-            onClick = {},
+            onClick = { onSelect("home") },        // ← 연결
             icon = { Icon(Icons.Default.Home, contentDescription = null) },
             label = { Text("홈") },
             colors = NavigationBarItemDefaults.colors(
@@ -25,13 +27,17 @@ fun AionBottomNavBar(selected: String = "mypage",
         )
         NavigationBarItem(
             selected = selected == "report",
-            onClick = {},
+            onClick = { onSelect("report") },      // ← 연결
             icon = { Icon(Icons.Default.Description, contentDescription = null) },
-            label = { Text("리포트") }
+            label = { Text("리포트") },
+            colors = NavigationBarItemDefaults.colors(   // ← 빠져 있던 색상도 추가
+                selectedIconColor = BluePrimary,
+                unselectedIconColor = GrayText
+            )
         )
         NavigationBarItem(
             selected = selected == "mypage",
-            onClick = {},
+            onClick = { onSelect("mypage") },      // ← 연결
             icon = { Icon(Icons.Default.Person, contentDescription = null) },
             label = { Text("마이페이지") },
             colors = NavigationBarItemDefaults.colors(

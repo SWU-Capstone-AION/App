@@ -57,6 +57,16 @@ fun ReportDetailScreen(
     var showSavedDialog by remember { mutableStateOf(false) }
     var saveSuccess by remember { mutableStateOf(true) }
 
+    // 날짜 이동용 offset (0 = 최신/오늘, 음수 = 과거). 미래(양수)는 막음.
+    var dayOffset by remember { mutableStateOf(0) }
+    var weekOffset by remember { mutableStateOf(0) }
+    var monthOffset by remember { mutableStateOf(0) }
+
+    // offset 이 바뀔 때만 재생성 (같은 offset 이면 항상 같은 데이터)
+    val daily = remember(dayOffset) { dailyReportFor(dayOffset) }
+    val weekly = remember(weekOffset) { weeklyReportFor(weekOffset) }
+    val monthly = remember(monthOffset) { monthlyReportFor(monthOffset) }
+
     Scaffold(
         topBar = { AionTopBar(title = "상세 리포트", onBackClick = onBackClick) },
         bottomBar = { AionBottomNavBar(selected = "report", onSelect = onTabSelect) },
@@ -78,13 +88,27 @@ fun ReportDetailScreen(
 
             // ↓↓↓ 이미지로 저장할 영역 (날짜 + 프로필 + 그래프 + 인사이트) ↓↓↓
             Column(modifier = Modifier.capturable(captureController)) {
-                // 날짜 네비게이터 (기간별 라벨)
-                val dateLabel = when (period) {
-                    ReportPeriod.DAILY -> report.daily.dateLabel
-                    ReportPeriod.WEEKLY -> report.weekly.dateLabel
-                    ReportPeriod.MONTHLY -> report.monthly.monthLabel
+                // 날짜 네비게이터 (기간별 라벨 + 이전/다음 이동)
+                when (period) {
+                    ReportPeriod.DAILY -> DateNavigator(
+                        label = daily.dateLabel,
+                        onPrev = { dayOffset-- },
+                        onNext = { if (dayOffset < 0) dayOffset++ },
+                        nextEnabled = dayOffset < 0
+                    )
+                    ReportPeriod.WEEKLY -> DateNavigator(
+                        label = weekly.dateLabel,
+                        onPrev = { weekOffset-- },
+                        onNext = { if (weekOffset < 0) weekOffset++ },
+                        nextEnabled = weekOffset < 0
+                    )
+                    ReportPeriod.MONTHLY -> DateNavigator(
+                        label = monthly.monthLabel,
+                        onPrev = { monthOffset-- },
+                        onNext = { if (monthOffset < 0) monthOffset++ },
+                        nextEnabled = monthOffset < 0
+                    )
                 }
-                DateNavigator(label = dateLabel)
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -95,9 +119,12 @@ fun ReportDetailScreen(
 
                 // 기간별 본문
                 when (period) {
-                    ReportPeriod.DAILY -> DailyContent(report.daily)
-                    ReportPeriod.WEEKLY -> WeeklyContent(report.weekly)
-                    ReportPeriod.MONTHLY -> MonthlyContent(report.monthly)
+                    ReportPeriod.DAILY -> DailyContent(daily)
+                    ReportPeriod.WEEKLY -> WeeklyContent(weekly)
+                    ReportPeriod.MONTHLY -> MonthlyContent(monthly) { day ->
+                        dayOffset = dayOffsetForCalendar(monthOffset, day).coerceAtMost(0)
+                        period = ReportPeriod.DAILY
+                    }
                 }
             }
             // ↑↑↑ 저장 영역 끝 ↑↑↑
@@ -114,10 +141,15 @@ fun ReportDetailScreen(
                         showSavedDialog = true
                     } else {
                         scope.launch {
+                            val datePart = when (period) {
+                                ReportPeriod.DAILY -> daily.detailDateLabel
+                                ReportPeriod.WEEKLY -> weekly.detailDateLabel.replace(" ", "")
+                                ReportPeriod.MONTHLY -> monthly.detailDateLabel
+                            }
                             saveSuccess = saveBitmapToGallery(
                                 context = context,
                                 bitmap = bitmap,
-                                displayName = "AION_리포트_${report.student.name}_${report.daily.detailDateLabel}"
+                                displayName = "AION_리포트_${report.student.name}_$datePart"
                             )
                             showSavedDialog = true
                         }
@@ -154,9 +186,7 @@ private fun DailyContent(daily: DailyReport) {
 
     SectionTitle(main = "상세 리포트", sub = daily.detailDateLabel)
     Spacer(modifier = Modifier.height(12.dp))
-    ChartCard(title = "시간대별 평균 위험 점수") {
-        RiskBarChart(risks = daily.hourlyRisks)
-    }
+    RiskBarChartCard(title = "시간대별 평균 위험 점수", risks = daily.hourlyRisks)
 
     Spacer(modifier = Modifier.height(24.dp))
 
@@ -177,9 +207,7 @@ private fun WeeklyContent(weekly: WeeklyReport) {
 
     SectionTitle(main = "상세 리포트", sub = weekly.detailDateLabel)
     Spacer(modifier = Modifier.height(12.dp))
-    ChartCard(title = "진할수록 위험점수가 높습니다.") {
-        WeeklyHeatmap(cells = weekly.heatCells)
-    }
+    WeeklyHeatmapCard(title = "진할수록 위험점수가 높습니다.", cells = weekly.heatCells)
 
     Spacer(modifier = Modifier.height(24.dp))
 
@@ -187,7 +215,7 @@ private fun WeeklyContent(weekly: WeeklyReport) {
 }
 
 @Composable
-private fun MonthlyContent(monthly: MonthlyReport) {
+private fun MonthlyContent(monthly: MonthlyReport, onDayClick: (Int) -> Unit) {
     SectionTitle(main = "이번 달 요약")
     Spacer(modifier = Modifier.height(12.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -200,15 +228,13 @@ private fun MonthlyContent(monthly: MonthlyReport) {
 
     SectionTitle(main = monthly.monthLabel)
     Spacer(modifier = Modifier.height(12.dp))
-    MonthCalendar(days = monthly.calendarDays)
+    MonthCalendar(days = monthly.calendarDays, onDayClick = onDayClick)
 
     Spacer(modifier = Modifier.height(24.dp))
 
     SectionTitle(main = "상세 리포트", sub = monthly.detailDateLabel)
     Spacer(modifier = Modifier.height(12.dp))
-    ChartCard(title = "시간대별 평균 위험 점수") {
-        RiskBarChart(risks = monthly.hourlyRisks)
-    }
+    RiskBarChartCard(title = "시간대별 평균 위험 점수", risks = monthly.hourlyRisks)
 
     Spacer(modifier = Modifier.height(24.dp))
 
@@ -254,12 +280,17 @@ private fun PeriodTabs(
 }
 
 @Composable
-private fun DateNavigator(label: String) {
+private fun DateNavigator(
+    label: String,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    nextEnabled: Boolean
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = { /* TODO: 이전 기간 */ }) {
+        IconButton(onClick = onPrev) {
             Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "이전", tint = GrayText)
         }
         Text(
@@ -270,8 +301,12 @@ private fun DateNavigator(label: String) {
             fontWeight = FontWeight.Bold,
             color = TextPrimary
         )
-        IconButton(onClick = { /* TODO: 다음 기간 */ }) {
-            Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "다음", tint = GrayText)
+        IconButton(onClick = onNext, enabled = nextEnabled) {
+            Icon(
+                Icons.Filled.KeyboardArrowRight,
+                contentDescription = "다음",
+                tint = if (nextEnabled) GrayText else Color(0xFFDDDDDD)
+            )
         }
     }
 }
@@ -504,9 +539,47 @@ private fun InsightCard(insight: AiInsight) {
 // 차트: 막대그래프 / 히트맵 / 달력
 // ============================================================
 
-// 시간대별 평균 위험 점수 막대그래프 (일간·월간 공용)
+// 시간대별 평균 위험 점수 막대그래프 카드 (일간·월간 공용) — 막대 탭 시 값 표시
 @Composable
-private fun RiskBarChart(risks: List<HourlyRisk>) {
+private fun RiskBarChartCard(title: String, risks: List<HourlyRisk>) {
+    var selectedHour by remember(risks) { mutableStateOf<Int?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = GrayText,
+                modifier = Modifier.weight(1f)
+            )
+            val sel = selectedHour
+            if (sel != null) {
+                val score = risks.firstOrNull { it.hour == sel }?.score ?: 0
+                SelectedValuePill(text = "${sel}\uc2dc \u00b7 ${score}\uc810", color = scoreColor(score))
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        RiskBarChart(
+            risks = risks,
+            selectedHour = selectedHour,
+            onBarClick = { hour -> selectedHour = if (selectedHour == hour) null else hour }
+        )
+    }
+}
+
+@Composable
+private fun RiskBarChart(
+    risks: List<HourlyRisk>,
+    selectedHour: Int?,
+    onBarClick: (Int) -> Unit
+) {
     val chartHeight = 170.dp
     val startPad = 26.dp
 
@@ -516,7 +589,7 @@ private fun RiskBarChart(risks: List<HourlyRisk>) {
                 .fillMaxWidth()
                 .height(chartHeight)
         ) {
-            // 위험/주의 점선
+            // \uc704\ud5d8/\uc8fc\uc758 \uc810\uc120
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val dangerY = size.height * (1f - RiskThreshold.DANGER / 100f)
                 val cautionY = size.height * (1f - RiskThreshold.CAUTION / 100f)
@@ -538,22 +611,10 @@ private fun RiskBarChart(risks: List<HourlyRisk>) {
                 )
             }
 
-            // Y축 라벨
+            Text("100", fontSize = 10.sp, color = GrayText, modifier = Modifier.align(Alignment.TopStart))
+            Text("0", fontSize = 10.sp, color = GrayText, modifier = Modifier.align(Alignment.BottomStart))
             Text(
-                text = "100",
-                fontSize = 10.sp,
-                color = GrayText,
-                modifier = Modifier.align(Alignment.TopStart)
-            )
-            Text(
-                text = "0",
-                fontSize = 10.sp,
-                color = GrayText,
-                modifier = Modifier.align(Alignment.BottomStart)
-            )
-            // 임계선 라벨
-            Text(
-                text = "위험",
+                text = "\uc704\ud5d8",
                 fontSize = 9.sp,
                 color = Color(0xFFE57373),
                 modifier = Modifier
@@ -561,7 +622,7 @@ private fun RiskBarChart(risks: List<HourlyRisk>) {
                     .offset(y = chartHeight * (1f - RiskThreshold.DANGER / 100f) - 6.dp)
             )
             Text(
-                text = "주의",
+                text = "\uc8fc\uc758",
                 fontSize = 9.sp,
                 color = Color(0xFF90A4C4),
                 modifier = Modifier
@@ -569,7 +630,7 @@ private fun RiskBarChart(risks: List<HourlyRisk>) {
                     .offset(y = chartHeight * (1f - RiskThreshold.CAUTION / 100f) - 6.dp)
             )
 
-            // 막대
+            // \ub9c9\ub300 (\ud0ed \uc601\uc5ed = \uc138\ub85c \uc804\uccb4, \ub118\uac8c)
             Row(
                 modifier = Modifier
                     .fillMaxSize()
@@ -578,20 +639,28 @@ private fun RiskBarChart(risks: List<HourlyRisk>) {
                 verticalAlignment = Alignment.Bottom
             ) {
                 risks.forEach { risk ->
+                    val isSelected = risk.hour == selectedHour
                     Box(
                         modifier = Modifier
-                            .width(16.dp)
-                            .fillMaxHeight((risk.score / 100f).coerceIn(0f, 1f))
-                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                            .background(barColor(risk.score))
-                    )
+                            .width(24.dp)
+                            .fillMaxHeight()
+                            .clickable { onBarClick(risk.hour) },
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(16.dp)
+                                .fillMaxHeight((risk.score / 100f).coerceIn(0f, 1f))
+                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                .background(barColor(risk.score, isSelected))
+                        )
+                    }
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // X축 시간 라벨
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -599,11 +668,13 @@ private fun RiskBarChart(risks: List<HourlyRisk>) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             risks.forEach { risk ->
+                val isSelected = risk.hour == selectedHour
                 Text(
                     text = risk.hour.toString().padStart(2, '0'),
                     fontSize = 10.sp,
-                    color = GrayText,
-                    modifier = Modifier.width(16.dp),
+                    color = if (isSelected) TextPrimary else GrayText,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    modifier = Modifier.width(24.dp),
                     textAlign = TextAlign.Center
                 )
             }
@@ -611,50 +682,82 @@ private fun RiskBarChart(risks: List<HourlyRisk>) {
     }
 }
 
-private fun barColor(score: Int): Color = when {
-    score >= RiskThreshold.DANGER -> Color(0xFF6C90DC)
-    score >= RiskThreshold.CAUTION -> Color(0xFF9FBDEA)
-    else -> Color(0xFFC7D8F0)
+private fun barColor(score: Int, isSelected: Boolean): Color {
+    if (isSelected) return Color(0xFF2F5FBF)
+    return when {
+        score >= RiskThreshold.DANGER -> Color(0xFF6C90DC)
+        score >= RiskThreshold.CAUTION -> Color(0xFF9FBDEA)
+        else -> Color(0xFFC7D8F0)
+    }
 }
 
-// 주간 히트맵 (요일 × 시간)
+// \uc8fc\uac04 \ud788\ud2b8\ub9f5 \uce74\ub4dc — \uc140 \ud0ed \uc2dc \uc694\uc77c\u00b7\uc2dc\uac04\u00b7\ub808\ubca8 \ud45c\uc2dc
 @Composable
-private fun WeeklyHeatmap(cells: List<HeatCell>) {
-    val days = listOf("월", "화", "수", "목", "금")
+private fun WeeklyHeatmapCard(title: String, cells: List<HeatCell>) {
+    val dayLabels = listOf("\uc6d4", "\ud654", "\uc218", "\ubaa9", "\uae08")
+    var selected by remember(cells) { mutableStateOf<Pair<Int, Int>?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = GrayText,
+                modifier = Modifier.weight(1f)
+            )
+            val sel = selected
+            if (sel != null) {
+                val cell = cells.firstOrNull { it.dayIndex == sel.first && it.hour == sel.second }
+                val level = intensityLevel(cell?.intensity ?: 0f)
+                SelectedValuePill(
+                    text = "${dayLabels[sel.first]} ${sel.second}\uc2dc \u00b7 ${levelText(level)}",
+                    color = levelColor(level)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        WeeklyHeatmap(
+            cells = cells,
+            selected = selected,
+            onCellClick = { d, h -> selected = if (selected == (d to h)) null else (d to h) }
+        )
+    }
+}
+
+@Composable
+private fun WeeklyHeatmap(
+    cells: List<HeatCell>,
+    selected: Pair<Int, Int>?,
+    onCellClick: (Int, Int) -> Unit
+) {
+    val days = listOf("\uc6d4", "\ud654", "\uc218", "\ubaa9", "\uae08")
     val hours = (8..15).toList()
     val gutter = 28.dp
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        // 요일 헤더
         Row(modifier = Modifier.fillMaxWidth()) {
             Spacer(modifier = Modifier.width(gutter))
             days.forEach { d ->
-                Text(
-                    text = d,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    fontSize = 12.sp,
-                    color = GrayText
-                )
+                Text(d, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontSize = 12.sp, color = GrayText)
             }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
         hours.forEach { hour ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = hour.toString().padStart(2, '0'),
-                    modifier = Modifier.width(gutter),
-                    fontSize = 11.sp,
-                    color = GrayText
-                )
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(hour.toString().padStart(2, '0'), modifier = Modifier.width(gutter), fontSize = 11.sp, color = GrayText)
                 for (day in 0..4) {
                     val cell = cells.firstOrNull { it.dayIndex == day && it.hour == hour }
                     val intensity = cell?.intensity ?: 0f
+                    val isSelected = selected == (day to hour)
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -662,6 +765,12 @@ private fun WeeklyHeatmap(cells: List<HeatCell>) {
                             .padding(3.dp)
                             .clip(RoundedCornerShape(6.dp))
                             .background(heatColor(intensity))
+                            .then(
+                                if (isSelected)
+                                    Modifier.border(2.dp, Color(0xFF2F5FBF), RoundedCornerShape(6.dp))
+                                else Modifier
+                            )
+                            .clickable { onCellClick(day, hour) }
                     )
                 }
             }
@@ -672,21 +781,15 @@ private fun WeeklyHeatmap(cells: List<HeatCell>) {
 private fun heatColor(intensity: Float): Color =
     lerp(Color(0xFFEFF3FA), Color(0xFF4A79D0), intensity.coerceIn(0f, 1f))
 
-// 월간 달력
+// \uc6d4\uac04 \ub2ec\ub825 — \uc774\ubc88 \ub2ec \ub0a0\uc9dc \ud0ed \uc2dc \ud574\ub2f9 \ub0a0\uc9dc\uc758 \uc77c\uac04 \ub9ac\ud3ec\ud2b8\ub85c \uc774\ub3d9
 @Composable
-private fun MonthCalendar(days: List<CalendarDay>) {
-    val weekdays = listOf("월", "화", "수", "목", "금", "토", "일")
+private fun MonthCalendar(days: List<CalendarDay>, onDayClick: (Int) -> Unit) {
+    val weekdays = listOf("\uc6d4", "\ud654", "\uc218", "\ubaa9", "\uae08", "\ud1a0", "\uc77c")
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth()) {
             weekdays.forEach { w ->
-                Text(
-                    text = w,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    fontSize = 12.sp,
-                    color = GrayText
-                )
+                Text(w, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, fontSize = 12.sp, color = GrayText)
             }
         }
 
@@ -698,6 +801,11 @@ private fun MonthCalendar(days: List<CalendarDay>) {
                     Column(
                         modifier = Modifier
                             .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .then(
+                                if (day.inMonth) Modifier.clickable { onDayClick(day.day) }
+                                else Modifier
+                            )
                             .padding(vertical = 6.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
@@ -716,7 +824,6 @@ private fun MonthCalendar(days: List<CalendarDay>) {
                         )
                     }
                 }
-                // 마지막 주가 7칸이 안 되면 빈칸으로 채워 정렬 유지
                 repeat(7 - week.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
@@ -724,6 +831,44 @@ private fun MonthCalendar(days: List<CalendarDay>) {
             Spacer(modifier = Modifier.height(4.dp))
         }
     }
+}
+
+// ---------- \uc120\ud0dd \uac12 \ud45c\uc2dc pill & \ub808\ubca8 \ud5ec\ud37c ----------
+
+@Composable
+private fun SelectedValuePill(text: String, color: Color) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(color.copy(alpha = 0.12f))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(text = text, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = color)
+    }
+}
+
+private fun scoreColor(score: Int): Color = when {
+    score >= RiskThreshold.DANGER -> Color(0xFFE53935)
+    score >= RiskThreshold.CAUTION -> Color(0xFFFF9800)
+    else -> Color(0xFF4CAF50)
+}
+
+private fun intensityLevel(intensity: Float): RiskLevel = when {
+    intensity >= 0.66f -> RiskLevel.DANGER
+    intensity >= 0.33f -> RiskLevel.CAUTION
+    else -> RiskLevel.SAFE
+}
+
+private fun levelText(level: RiskLevel): String = when (level) {
+    RiskLevel.DANGER -> "\uc704\ud5d8"
+    RiskLevel.CAUTION -> "\uc8fc\uc758"
+    RiskLevel.SAFE -> "\uc548\uc804"
+}
+
+private fun levelColor(level: RiskLevel): Color = when (level) {
+    RiskLevel.DANGER -> Color(0xFFE53935)
+    RiskLevel.CAUTION -> Color(0xFFFF9800)
+    RiskLevel.SAFE -> Color(0xFF4CAF50)
 }
 
 private fun dotColor(level: RiskLevel?): Color = when (level) {

@@ -40,11 +40,12 @@ fun MyPageScreen(
     onEditProfileClick: () -> Unit = {},
     onFindIdPasswordClick: () -> Unit = {},
     onChangePasswordClick: () -> Unit = {},
-    onLogoutClick: () -> Unit = {}
+    onLogoutClick: () -> Unit = {},
+    onTabSelect: (String) -> Unit = {}
 ) {
     Scaffold(
         topBar = { MyPageTopBar() },
-        bottomBar = { AionBottomNavBar(selected = "mypage") },
+        bottomBar = { AionBottomNavBar(selected = "mypage", onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
         Column(
