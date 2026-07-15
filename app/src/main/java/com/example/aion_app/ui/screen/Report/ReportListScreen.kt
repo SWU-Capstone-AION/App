@@ -27,11 +27,12 @@ import com.example.aion_app.ui.theme.White
 @Composable
 fun ReportListScreen(
     students: List<ReportStudent> = defaultReportStudents(),
-    onStudentClick: (ReportStudent) -> Unit = {}
+    onStudentClick: (ReportStudent) -> Unit = {},
+    onTabSelect: (String) -> Unit = {}
 ) {
     Scaffold(
         topBar = { ReportListTopBar() },
-        bottomBar = { AionBottomNavBar(selected = "report") },
+        bottomBar = { AionBottomNavBar(selected = "report", onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
         Column(

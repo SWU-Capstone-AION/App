@@ -10,7 +10,8 @@ import com.example.aion_app.ui.theme.BluePrimary
 import com.example.aion_app.ui.theme.GrayText
 
 @Composable
-fun AionBottomNavBar(selected: String = "mypage") {
+fun AionBottomNavBar(selected: String = "mypage",
+                     onSelect: (String) -> Unit = {}) {
     NavigationBar(containerColor = androidx.compose.ui.graphics.Color.White) {
         NavigationBarItem(
             selected = selected == "home",

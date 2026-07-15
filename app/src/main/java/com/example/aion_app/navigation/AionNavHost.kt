@@ -30,6 +30,7 @@ import com.example.aion_app.ui.screen.mypage.calculateAge
 import com.example.aion_app.ui.screen.report.ReportListScreen
 import com.example.aion_app.ui.screen.report.ReportDetailScreen
 import com.example.aion_app.ui.screen.report.sampleStudentReport
+
 @Composable
 fun AionNavHost() {
     val navController = rememberNavController()
@@ -113,19 +114,35 @@ fun AionNavHost() {
                 }
             )
         }
-        // ===== 리포트 =====
+        // 하단탭 공용 이동 로직
+        val onTabSelect: (String) -> Unit = { tab ->
+            val route = when (tab) {
+                "home" -> Route.HOME
+                "report" -> Route.REPORT
+                "mypage" -> Route.MYPAGE
+                else -> Route.HOME
+            }
+            navController.navigate(route) {
+                popUpTo(Route.HOME) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+// ===== 리포트 =====
         composable(Route.REPORT) {
             ReportListScreen(
                 onStudentClick = { student ->
                     navController.navigate("${Route.REPORT_DETAIL}/${student.id}")
-                }
+                },
+                onTabSelect = onTabSelect
             )
         }
-        composable("${Route.REPORT_DETAIL}/{studentId}") { backStackEntry ->
-            val studentId = backStackEntry.arguments?.getString("studentId") ?: "2"
+        composable("${Route.REPORT_DETAIL}/{studentId}") { entry ->
+            val studentId = entry.arguments?.getString("studentId") ?: "2"
             ReportDetailScreen(
                 report = sampleStudentReport(studentId),
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                onTabSelect = onTabSelect
             )
         }
         // ===== 알림센터 =====

@@ -17,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +26,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -39,18 +41,25 @@ import com.example.aion_app.ui.theme.BluePrimary
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
+import kotlinx.coroutines.launch
 
 @Composable
 fun ReportDetailScreen(
     report: StudentReport = sampleStudentReport(),
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onTabSelect: (String) -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val captureController = rememberCaptureController()
+
     var period by remember { mutableStateOf(ReportPeriod.DAILY) }
     var showSavedDialog by remember { mutableStateOf(false) }
+    var saveSuccess by remember { mutableStateOf(true) }
 
     Scaffold(
         topBar = { AionTopBar(title = "상세 리포트", onBackClick = onBackClick) },
-        bottomBar = { AionBottomNavBar(selected = "report") },
+        bottomBar = { AionBottomNavBar(selected = "report", onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
         Column(
@@ -67,35 +76,53 @@ fun ReportDetailScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 날짜 네비게이터 (기간별 라벨)
-            val dateLabel = when (period) {
-                ReportPeriod.DAILY -> report.daily.dateLabel
-                ReportPeriod.WEEKLY -> report.weekly.dateLabel
-                ReportPeriod.MONTHLY -> report.monthly.monthLabel
+            // ↓↓↓ 이미지로 저장할 영역 (날짜 + 프로필 + 그래프 + 인사이트) ↓↓↓
+            Column(modifier = Modifier.capturable(captureController)) {
+                // 날짜 네비게이터 (기간별 라벨)
+                val dateLabel = when (period) {
+                    ReportPeriod.DAILY -> report.daily.dateLabel
+                    ReportPeriod.WEEKLY -> report.weekly.dateLabel
+                    ReportPeriod.MONTHLY -> report.monthly.monthLabel
+                }
+                DateNavigator(label = dateLabel)
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // 학생 프로필 카드 (공통)
+                StudentHeaderCard(student = report.student)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // 기간별 본문
+                when (period) {
+                    ReportPeriod.DAILY -> DailyContent(report.daily)
+                    ReportPeriod.WEEKLY -> WeeklyContent(report.weekly)
+                    ReportPeriod.MONTHLY -> MonthlyContent(report.monthly)
+                }
             }
-            DateNavigator(label = dateLabel)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 학생 프로필 카드 (공통)
-            StudentHeaderCard(student = report.student)
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // 기간별 본문
-            when (period) {
-                ReportPeriod.DAILY -> DailyContent(report.daily)
-                ReportPeriod.WEEKLY -> WeeklyContent(report.weekly)
-                ReportPeriod.MONTHLY -> MonthlyContent(report.monthly)
-            }
+            // ↑↑↑ 저장 영역 끝 ↑↑↑
 
             Spacer(modifier = Modifier.height(24.dp))
 
             // 이미지 다운로드
             AionPrimaryButton(
                 text = "이미지 다운로드",
-                onClick = { showSavedDialog = true }
-                // TODO(다음 단계): 실제 화면 캡처 후 갤러리 저장 연결
+                onClick = {
+                    val bitmap = captureController.toBitmap()
+                    if (bitmap == null) {
+                        saveSuccess = false
+                        showSavedDialog = true
+                    } else {
+                        scope.launch {
+                            saveSuccess = saveBitmapToGallery(
+                                context = context,
+                                bitmap = bitmap,
+                                displayName = "AION_리포트_${report.student.name}_${report.daily.detailDateLabel}"
+                            )
+                            showSavedDialog = true
+                        }
+                    }
+                }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -103,7 +130,10 @@ fun ReportDetailScreen(
     }
 
     if (showSavedDialog) {
-        ReportSavedDialog(onConfirm = { showSavedDialog = false })
+        ReportSavedDialog(
+            success = saveSuccess,
+            onConfirm = { showSavedDialog = false }
+        )
     }
 }
 
@@ -708,7 +738,7 @@ private fun dotColor(level: RiskLevel?): Color = when (level) {
 // ============================================================
 
 @Composable
-private fun ReportSavedDialog(onConfirm: () -> Unit) {
+private fun ReportSavedDialog(success: Boolean, onConfirm: () -> Unit) {
     Dialog(onDismissRequest = onConfirm) {
         Surface(
             shape = RoundedCornerShape(16.dp),
@@ -722,7 +752,8 @@ private fun ReportSavedDialog(onConfirm: () -> Unit) {
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "리포트 이미지가 저장되었습니다.",
+                        text = if (success) "리포트 이미지가 저장되었습니다."
+                        else "저장에 실패했어요. 잠시 후 다시 시도해 주세요.",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
                         color = TextPrimary,
