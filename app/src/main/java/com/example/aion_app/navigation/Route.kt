@@ -19,4 +19,8 @@ object Route {
     // 홈
     const val HOME = "home"
     const val NOTIFICATION = "notification"
+
+    // 리포트
+    const val REPORT = "report"
+    const val REPORT_DETAIL = "report_detail"   // 사용: "report_detail/{studentId}"
 }

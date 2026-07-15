@@ -27,7 +27,9 @@ import com.example.aion_app.ui.screen.password.PasswordFindResultScreen
 import com.example.aion_app.ui.screen.password.PasswordFindScreen
 
 import com.example.aion_app.ui.screen.mypage.calculateAge
-
+import com.example.aion_app.ui.screen.report.ReportListScreen
+import com.example.aion_app.ui.screen.report.ReportDetailScreen
+import com.example.aion_app.ui.screen.report.sampleStudentReport
 @Composable
 fun AionNavHost() {
     val navController = rememberNavController()
@@ -109,6 +111,21 @@ fun AionNavHost() {
                 onStudentClick = { student ->
                     // TODO: 학생 상세로 이동
                 }
+            )
+        }
+        // ===== 리포트 =====
+        composable(Route.REPORT) {
+            ReportListScreen(
+                onStudentClick = { student ->
+                    navController.navigate("${Route.REPORT_DETAIL}/${student.id}")
+                }
+            )
+        }
+        composable("${Route.REPORT_DETAIL}/{studentId}") { backStackEntry ->
+            val studentId = backStackEntry.arguments?.getString("studentId") ?: "2"
+            ReportDetailScreen(
+                report = sampleStudentReport(studentId),
+                onBackClick = { navController.popBackStack() }
             )
         }
         // ===== 알림센터 =====
