@@ -36,10 +36,9 @@ import androidx.compose.ui.window.Dialog
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionPrimaryButton
 import com.example.aion_app.ui.component.AionTopBar
-import com.example.aion_app.ui.theme.BlueLight
-import com.example.aion_app.ui.theme.BlueNormal
-import com.example.aion_app.ui.theme.BlueDark
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Light
+import com.example.aion_app.ui.theme.Normal
+import com.example.aion_app.ui.theme.Dark
 import com.example.aion_app.ui.theme.Red
 import com.example.aion_app.ui.theme.Orange
 import com.example.aion_app.ui.theme.Green
@@ -268,7 +267,7 @@ private fun PeriodTabs(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSelected) BluePrimary else Color.Transparent)
+                    .background(if (isSelected) Normal else Color.Transparent)
                     .clickable { onSelect(p) }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center
@@ -391,7 +390,7 @@ private fun ActiveBadge() {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(BlueLight)
+            .background(Light)
             .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -399,14 +398,14 @@ private fun ActiveBadge() {
             modifier = Modifier
                 .size(6.dp)
                 .clip(CircleShape)
-                .background(BluePrimary)
+                .background(Normal)
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = "활동중",
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            color = BluePrimary
+            color = Normal
         )
     }
 }
@@ -513,14 +512,14 @@ private fun InsightCard(insight: AiInsight) {
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .background(BlueLight)
+                .background(Light)
                 .padding(horizontal = 8.dp, vertical = 3.dp)
         ) {
             Text(
                 text = insight.tag,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = BluePrimary
+                color = Normal
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
@@ -688,11 +687,11 @@ private fun RiskBarChart(
 }
 
 private fun barColor(score: Int, isSelected: Boolean): Color {
-    if (isSelected) return BlueDark
+    if (isSelected) return Dark
     return when {
-        score >= RiskThreshold.DANGER -> BlueNormal
-        score >= RiskThreshold.CAUTION -> BlueNormal.copy(alpha = 0.6f)
-        else -> BlueNormal.copy(alpha = 0.35f)
+        score >= RiskThreshold.DANGER -> Normal
+        score >= RiskThreshold.CAUTION -> Normal.copy(alpha = 0.6f)
+        else -> Normal.copy(alpha = 0.35f)
     }
 }
 
@@ -772,7 +771,7 @@ private fun WeeklyHeatmap(
                             .background(heatColor(intensity))
                             .then(
                                 if (isSelected)
-                                    Modifier.border(2.dp, BlueDark, RoundedCornerShape(6.dp))
+                                    Modifier.border(2.dp, Dark, RoundedCornerShape(6.dp))
                                 else Modifier
                             )
                             .clickable { onCellClick(day, hour) }
@@ -784,7 +783,7 @@ private fun WeeklyHeatmap(
 }
 
 private fun heatColor(intensity: Float): Color =
-    lerp(BlueLight, BlueDark, intensity.coerceIn(0f, 1f))
+    lerp(Light, Dark, intensity.coerceIn(0f, 1f))
 
 // \uc6d4\uac04 \ub2ec\ub825 — \uc774\ubc88 \ub2ec \ub0a0\uc9dc \ud0ed \uc2dc \ud574\ub2f9 \ub0a0\uc9dc\uc758 \uc77c\uac04 \ub9ac\ud3ec\ud2b8\ub85c \uc774\ub3d9
 @Composable
@@ -914,7 +913,7 @@ private fun ReportSavedDialog(success: Boolean, onConfirm: () -> Unit) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
-                        .background(BluePrimary)
+                        .background(Normal)
                         .clickable(onClick = onConfirm)
                         .padding(vertical = 16.dp),
                     contentAlignment = Alignment.Center
