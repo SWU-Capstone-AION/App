@@ -37,7 +37,12 @@ import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionPrimaryButton
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.theme.BlueLight
+import com.example.aion_app.ui.theme.BlueNormal
+import com.example.aion_app.ui.theme.BlueDark
 import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Red
+import com.example.aion_app.ui.theme.Orange
+import com.example.aion_app.ui.theme.Green
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
@@ -344,7 +349,7 @@ private fun StudentHeaderCard(student: ReportStudent) {
                         modifier = Modifier
                             .fillMaxSize()
                             .clip(CircleShape)
-                            .background(Color(0xFF4CAF50))
+                            .background(Green)
                     )
                 }
             }
@@ -596,14 +601,14 @@ private fun RiskBarChart(
                 val dash = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
                 val left = startPad.toPx()
                 drawLine(
-                    color = Color(0xFFE0A9A9),
+                    color = Red.copy(alpha = 0.45f),
                     start = Offset(left, dangerY),
                     end = Offset(size.width, dangerY),
                     strokeWidth = 2f,
                     pathEffect = dash
                 )
                 drawLine(
-                    color = Color(0xFFCBD5E6),
+                    color = Orange.copy(alpha = 0.4f),
                     start = Offset(left, cautionY),
                     end = Offset(size.width, cautionY),
                     strokeWidth = 2f,
@@ -616,7 +621,7 @@ private fun RiskBarChart(
             Text(
                 text = "\uc704\ud5d8",
                 fontSize = 9.sp,
-                color = Color(0xFFE57373),
+                color = Red,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .offset(y = chartHeight * (1f - RiskThreshold.DANGER / 100f) - 6.dp)
@@ -624,7 +629,7 @@ private fun RiskBarChart(
             Text(
                 text = "\uc8fc\uc758",
                 fontSize = 9.sp,
-                color = Color(0xFF90A4C4),
+                color = Orange,
                 modifier = Modifier
                     .align(Alignment.TopStart)
                     .offset(y = chartHeight * (1f - RiskThreshold.CAUTION / 100f) - 6.dp)
@@ -683,11 +688,11 @@ private fun RiskBarChart(
 }
 
 private fun barColor(score: Int, isSelected: Boolean): Color {
-    if (isSelected) return Color(0xFF2F5FBF)
+    if (isSelected) return BlueDark
     return when {
-        score >= RiskThreshold.DANGER -> Color(0xFF6C90DC)
-        score >= RiskThreshold.CAUTION -> Color(0xFF9FBDEA)
-        else -> Color(0xFFC7D8F0)
+        score >= RiskThreshold.DANGER -> BlueNormal
+        score >= RiskThreshold.CAUTION -> BlueNormal.copy(alpha = 0.6f)
+        else -> BlueNormal.copy(alpha = 0.35f)
     }
 }
 
@@ -767,7 +772,7 @@ private fun WeeklyHeatmap(
                             .background(heatColor(intensity))
                             .then(
                                 if (isSelected)
-                                    Modifier.border(2.dp, Color(0xFF2F5FBF), RoundedCornerShape(6.dp))
+                                    Modifier.border(2.dp, BlueDark, RoundedCornerShape(6.dp))
                                 else Modifier
                             )
                             .clickable { onCellClick(day, hour) }
@@ -779,7 +784,7 @@ private fun WeeklyHeatmap(
 }
 
 private fun heatColor(intensity: Float): Color =
-    lerp(Color(0xFFEFF3FA), Color(0xFF4A79D0), intensity.coerceIn(0f, 1f))
+    lerp(BlueLight, BlueDark, intensity.coerceIn(0f, 1f))
 
 // \uc6d4\uac04 \ub2ec\ub825 — \uc774\ubc88 \ub2ec \ub0a0\uc9dc \ud0ed \uc2dc \ud574\ub2f9 \ub0a0\uc9dc\uc758 \uc77c\uac04 \ub9ac\ud3ec\ud2b8\ub85c \uc774\ub3d9
 @Composable
@@ -848,9 +853,9 @@ private fun SelectedValuePill(text: String, color: Color) {
 }
 
 private fun scoreColor(score: Int): Color = when {
-    score >= RiskThreshold.DANGER -> Color(0xFFE53935)
-    score >= RiskThreshold.CAUTION -> Color(0xFFFF9800)
-    else -> Color(0xFF4CAF50)
+    score >= RiskThreshold.DANGER -> Red
+    score >= RiskThreshold.CAUTION -> Orange
+    else -> Green
 }
 
 private fun intensityLevel(intensity: Float): RiskLevel = when {
@@ -866,15 +871,15 @@ private fun levelText(level: RiskLevel): String = when (level) {
 }
 
 private fun levelColor(level: RiskLevel): Color = when (level) {
-    RiskLevel.DANGER -> Color(0xFFE53935)
-    RiskLevel.CAUTION -> Color(0xFFFF9800)
-    RiskLevel.SAFE -> Color(0xFF4CAF50)
+    RiskLevel.DANGER -> Red
+    RiskLevel.CAUTION -> Orange
+    RiskLevel.SAFE -> Green
 }
 
 private fun dotColor(level: RiskLevel?): Color = when (level) {
-    RiskLevel.DANGER -> Color(0xFFE53935)
-    RiskLevel.CAUTION -> Color(0xFFFF9800)
-    RiskLevel.SAFE -> Color(0xFF4CAF50)
+    RiskLevel.DANGER -> Red
+    RiskLevel.CAUTION -> Orange
+    RiskLevel.SAFE -> Green
     null -> Color.Transparent
 }
 
