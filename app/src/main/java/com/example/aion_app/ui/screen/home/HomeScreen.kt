@@ -17,6 +17,7 @@ import com.example.aion_app.ui.theme.GrayBackground
 
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.graphics.Brush
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,7 +36,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionBottomNavBar
+import com.example.aion_app.ui.theme.Dark
 import com.example.aion_app.ui.theme.GrayText
+import com.example.aion_app.ui.theme.Green
+import com.example.aion_app.ui.theme.LightActive
+import com.example.aion_app.ui.theme.LightHover
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 
@@ -173,16 +179,18 @@ private fun HomeTopBar(
         // 알림 아이콘 (박스 안에)
         Box(
             modifier = Modifier
-                .size(40.dp),
+                .size(40.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFFF9FAFA))
+                .clickable(onClick = onNotificationClick),
             contentAlignment = Alignment.Center
         ) {
-            IconButton(onClick = onNotificationClick) {
-                Icon(
-                    imageVector = Icons.Outlined.Notifications,
-                    contentDescription = "알림",
-                    tint = TextPrimary
-                )
-            }
+            Icon(
+                imageVector = Icons.Outlined.Notifications,
+                contentDescription = "알림",
+                tint = TextPrimary,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }
@@ -196,7 +204,11 @@ private fun RecentAlertBanner(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(BlueLight)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(White, LightHover)
+                )
+            )
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -205,7 +217,7 @@ private fun RecentAlertBanner(
             modifier = Modifier
                 .width(4.dp)
                 .height(64.dp)
-                .background(BluePrimary)
+                .background(Normal)
         )
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -231,12 +243,12 @@ private fun RecentAlertBanner(
                     text = "NEW",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = BluePrimary
+                    color = Normal
                 )
                 Text(
                     text = " · ${alert.timeText}",
                     fontSize = 12.sp,
-                    color = BluePrimary
+                    color = Normal
                 )
             }
             Spacer(modifier = Modifier.height(2.dp))
@@ -252,8 +264,10 @@ private fun RecentAlertBanner(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = GrayText,
-            modifier = Modifier.padding(end = 12.dp)
+            tint = Normal,
+            modifier = Modifier
+                .padding(end = 12.dp)
+                .size(24.dp)
         )
     }
 }
@@ -269,8 +283,13 @@ private fun StudentCard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(GrayBackground.copy(alpha = 0.3f))
+            .clip(RoundedCornerShape(10.dp))
+            .background(White)
+            .border(
+                width = 1.dp,
+                color = LightActive,
+                shape = RoundedCornerShape(10.dp)
+            )
             .clickable(onClick = onClick)
             .padding(16.dp)
             .alpha(cardAlpha)
@@ -286,17 +305,22 @@ private fun StudentCard(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 // 이름 + 성별·나이
-                Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.Bottom
+                ) {
                     Text(
                         text = student.name,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "${student.gender} · ${student.age}세",
                         fontSize = 12.sp,
-                        color = GrayText
+                        color = GrayText,
+                        modifier = Modifier.padding(bottom = 1.dp)
                     )
                 }
 
@@ -316,39 +340,43 @@ private fun StudentCard(
             // 심박수 (활동중일 때만)
             if (isActive && student.heartRate != null) {
                 Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 0.5.dp)
+                HorizontalDivider(color = LightActive, thickness = 1.dp)
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center  // ← 가운데 정렬
+                ) {
                     Icon(
                         imageVector = Icons.Filled.Favorite,
                         contentDescription = null,
-                        tint = Color(0xFFE57373),
-                        modifier = Modifier.size(16.dp)
+                        tint = Color(0xFFC05C47),
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "심박수",
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         color = TextPrimary
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.Filled.MonitorHeart,
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Image(
+                        painter = painterResource(id = R.drawable.heart_graph),
                         contentDescription = null,
-                        tint = Color(0xFFE57373),
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(60.dp, 24.dp)  // ← 크게
                     )
-                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "${student.heartRate} ",
-                        fontSize = 18.sp,
+                        text = "${student.heartRate}",
+                        fontSize = 22.sp,  // ← 크게
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "bpm",
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         color = GrayText
                     )
                 }
@@ -361,9 +389,9 @@ private fun StudentCard(
 private fun ProfileWithIndicator(isActive: Boolean) {
     Box(
         modifier = Modifier.size(52.dp),
-        contentAlignment = Alignment.BottomStart
+        contentAlignment = Alignment.BottomEnd
     ) {
-        // 프로필 자리 (기본 회색 원, 이미지가 있으면 여기 대체)
+        // 프로필 자리
         Box(
             modifier = Modifier
                 .size(48.dp)
@@ -371,32 +399,37 @@ private fun ProfileWithIndicator(isActive: Boolean) {
                 .background(Color(0xFFE0E0E0))
         )
 
-        // 좌하단 상태 점 (활동중일 때만 초록)
-        if (isActive) {
+        // 우하단 활동 인디케이터 (활동/비활동 모두 표시, 색만 다름)
+        val indicatorColor = if (isActive) Green else GrayText
+
+        Box(
+            modifier = Modifier.size(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            // 뒷 원 (큰, 반투명)
             Box(
                 modifier = Modifier
-                    .size(12.dp)
+                    .size(16.dp)
                     .clip(CircleShape)
-                    .background(White)
-                    .padding(2.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape)
-                        .background(Color(0xFF4CAF50))
-                )
-            }
+                    .background(indicatorColor.copy(alpha = 0.5f))
+            )
+            // 앞 원 (작은, 진한)
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(indicatorColor)
+            )
         }
     }
 }
 
 @Composable
 private fun StatusBadge(isActive: Boolean) {
-    val bgColor = if (isActive) BlueLight else Color(0xFFF5F5F5)
-    val textColor = if (isActive) BluePrimary else GrayText
+    val bgColor = if (isActive) LightActive else Color(0xFFF5F5F5)
+    val textColor = if (isActive) Dark else GrayText
     val label = if (isActive) "활동중" else "비활동"
-    val dotColor = if (isActive) BluePrimary else GrayText
+    val dotColor = if (isActive) Dark else GrayText
 
     Row(
         modifier = Modifier
@@ -539,23 +572,32 @@ private fun StatsCard(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(GrayBackground.copy(alpha = 0.3f))
-            .padding(vertical = 16.dp, horizontal = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(White, LightHover)
+                )
+            )
+            .border(
+                width = 1.dp,
+                color = LightActive,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(vertical = 20.dp, horizontal = 16.dp),
+        horizontalAlignment = Alignment.Start
     ) {
         Text(
             text = label,
-            fontSize = 12.sp,
+            fontSize = 13.sp,
             color = GrayText
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         Row(
             verticalAlignment = Alignment.Bottom
         ) {
             Text(
                 text = value,
-                fontSize = 22.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )
@@ -563,7 +605,7 @@ private fun StatsCard(
                 text = suffix,
                 fontSize = 13.sp,
                 color = GrayText,
-                modifier = Modifier.padding(bottom = 3.dp, start = 2.dp)
+                modifier = Modifier.padding(bottom = 4.dp, start = 2.dp)
             )
         }
     }
