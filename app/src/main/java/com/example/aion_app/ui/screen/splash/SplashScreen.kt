@@ -1,19 +1,18 @@
 package com.example.aion_app.ui.screen.splash
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.aion_app.ui.theme.GrayText
-import com.example.aion_app.ui.theme.Normal
+import com.example.aion_app.R
 import com.example.aion_app.ui.theme.White
 import kotlinx.coroutines.delay
 
@@ -32,17 +31,20 @@ fun SplashScreen(onFinish: () -> Unit = {}) {
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "AION",
-                fontSize = 44.sp,
-                fontWeight = FontWeight.Bold,
-                color = Normal
+            // 무한대 심볼 로고
+            Image(
+                painter = painterResource(R.drawable.logo_symbol),
+                contentDescription = "AION 로고",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.width(140.dp)
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "아이온",
-                fontSize = 15.sp,
-                color = GrayText
+            Spacer(modifier = Modifier.height(20.dp))
+            // AION 워드마크
+            Image(
+                painter = painterResource(R.drawable.logo_text),
+                contentDescription = "AION",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.width(160.dp)
             )
         }
     }
