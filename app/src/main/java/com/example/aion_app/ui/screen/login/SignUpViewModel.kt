@@ -21,7 +21,7 @@ class SignUpViewModel(
     private val authRepository: AuthRepository = FakeAuthRepository()
 ) : ViewModel() {
 
-    // 회원가입 화면(이메일/비번/유형) 입력값
+    // 로그인·회원가입 화면(아이디/비번/유형) 입력값
     var signUpInput by mutableStateOf(SignUpInput())
         private set
 
@@ -37,8 +37,14 @@ class SignUpViewModel(
     var submitError by mutableStateOf<String?>(null)
         private set
 
-    fun updateSignUpInput(type: String, email: String, password: String) {
-        signUpInput = SignUpInput(type = type, email = email, password = password)
+    // 로그인 화면(1p)에서 고른 가입 유형만 먼저 저장
+    fun updateType(type: String) {
+        signUpInput = signUpInput.copy(type = type)
+    }
+
+    // 회원가입 화면(2p)에서 입력한 아이디/비밀번호 저장
+    fun updateAccount(userId: String, password: String) {
+        signUpInput = signUpInput.copy(userId = userId, password = password)
     }
 
     fun updateChildProfile(profile: ChildProfile) {

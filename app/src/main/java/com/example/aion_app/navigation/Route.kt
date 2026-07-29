@@ -4,6 +4,7 @@ object Route {
     const val SPLASH = "splash"
     // 회원가입 플로우
     const val SIGN_UP = "sign_up"
+    const val SIGN_UP_ACCOUNT = "sign_up_account"   // 시안 2p: 아이디 + 비밀번호 입력
     const val CHILD_PROFILE_SETUP = "child_profile_setup"
     const val ONBOARDING_COMPLETE = "onboarding_complete"
 

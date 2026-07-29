@@ -13,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionTopBar
-import com.example.aion_app.ui.theme.AionTextDark
+import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.BluePrimary
 import com.example.aion_app.ui.theme.GrayBackground
 import com.example.aion_app.ui.theme.GrayText
@@ -47,7 +48,8 @@ import com.example.aion_app.ui.theme.White
 fun NotificationScreen(
     studentNames: List<String> = listOf("김지우", "이주미"),
     notifications: List<NotificationItem> = defaultNotifications(),
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onTabSelect: (String) -> Unit = {}     // 하단탭 이동 콜백 (이 화면만 빠져 있었음)
 ) {
     // 현재 선택된 필터
     var selectedFilter: NotificationFilter by remember {
@@ -59,13 +61,14 @@ fun NotificationScreen(
 
     Scaffold(
         topBar = {
+            // 구분선은 상세 리포트 화면과 동일하게 기본값(연회색 0.5dp) 사용
             AionTopBar(
                 title = "알림센터",
                 onBackClick = onBackClick,
                 iconStartPadding = 8.dp   // 아이콘 꼭짓점을 칩 왼쪽(20dp)에 맞춤
             )
         },
-        bottomBar = { AionBottomNavBar(selected = "home") },
+        bottomBar = { AionBottomNavBar(selected = "home", onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
         Column(
@@ -120,10 +123,11 @@ fun NotificationScreen(
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+// 프리뷰도 AionTheme 로 감싸야 Pretendard 가 적용된 상태로 보인다.
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7")
 @Composable
 fun NotificationScreenPreview() {
-    MaterialTheme {
+    AionTheme {
         NotificationScreen()
     }
 }
@@ -168,7 +172,6 @@ private fun FilterChip(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
             .background(if (isSelected) BluePrimary else GrayBackground)
-            .border(1.dp, AionTextDark, RoundedCornerShape(20.dp))   // 칩 스트로크 (#2D3C4A)
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 8.dp)
     ) {
@@ -199,16 +202,16 @@ private fun SwipeableNotificationCard(
     onDelete: () -> Unit
 ) {
     val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else {
-                false
-            }
-        },
         positionalThreshold = { totalDistance -> totalDistance * 0.3f }
     )
+
+    // confirmValueChange 안에서 곧바로 리스트를 수정하면 스와이프 애니메이션 도중
+    // 아이템이 사라져 컴포지션이 흔들릴 수 있어, 상태가 확정된 뒤에 삭제한다.
+    LaunchedEffect(dismissState.currentValue) {
+        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+            onDelete()
+        }
+    }
 
     SwipeToDismissBox(
         state = dismissState,
@@ -269,6 +272,7 @@ private fun NotificationCard(item: NotificationItem) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Min)
             .clip(RoundedCornerShape(12.dp))
             .background(White)
             .border(
@@ -279,10 +283,12 @@ private fun NotificationCard(item: NotificationItem) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 왼쪽 색상 세로 바
+        // 72.dp 고정이면 문구가 두 줄로 넘어갈 때 바가 카드보다 짧아져서,
+        // 카드 높이를 따라가도록 변경 (한 줄일 때 보이는 모습은 동일)
         Box(
             modifier = Modifier
                 .width(4.dp)
-                .height(72.dp)
+                .fillMaxHeight()
                 .background(barColor)
         )
 

@@ -9,8 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,10 +21,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.aion_app.ui.component.AionPrimaryButton
+import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.component.AionTextField
+import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.BluePrimary
 import com.example.aion_app.ui.theme.GrayBackground
+import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.TextPrimary
 // 색상
@@ -38,10 +40,11 @@ import com.example.aion_app.ui.theme.TextPrimary
 // 단계별 입력값을 따로따로 변수로 두지 않고 하나의 객체에 모아둠.
 data class ChildProfile(
     val name: String = "",
-    val gender: String? = null,           // "남성" or "여성"
-    val birthYear: Int = 2019,
-    val birthMonth: Int = 12,
-    val birthDay: Int = 21,
+    val gender: String? = null,           // "남자" or "여자"
+    // 아직 고르지 않은 상태를 구분하려고 nullable. 선택 전에는 "년도/월/일" placeholder 표시.
+    val birthYear: Int? = null,
+    val birthMonth: Int? = null,
+    val birthDay: Int? = null,
     val sensoryTraits: Set<String> = emptySet(),    // 다중 선택이라 Set
     val behaviors: Set<String> = emptySet()         // 다중 선택이라 Set
 )
@@ -54,7 +57,7 @@ fun ChildProfileSetupScreen(
     onBackClick: () -> Unit = {},     // 1단계에서 뒤로가기 누르면 호출 (이전 화면으로)
     onComplete: (ChildProfile) -> Unit = {}    // 마지막 단계 통과 시 호출
 ) {
-    // 현재 단계 (1~5)
+    // 현재 단계 (1~3) — 시안 3p/4p/5p
     var step by remember { mutableIntStateOf(1) }
     // 입력값 누적
     var profile by remember { mutableStateOf(ChildProfile()) }
@@ -66,41 +69,26 @@ fun ChildProfileSetupScreen(
 
     // 단계에 따라 다른 화면 보여주기
     when (step) {
-        1 -> NameStep(
-            currentName = profile.name,
+        // 시안 3p: 이름 + 성별 + 생년월일이 한 화면
+        1 -> BasicInfoStep(
+            current = profile,
             onBackClick = handleBack,
-            onNext = { name ->
-                profile = profile.copy(name = name)   // copy: 일부만 바꿔서 새 객체 만들기
+            onNext = { updated ->
+                profile = updated
                 step = 2
             }
         )
-        2 -> GenderStep(
-            currentGender = profile.gender,
-            onBackClick = handleBack,
-            onNext = { gender ->
-                profile = profile.copy(gender = gender)
-                step = 3
-            }
-        )
-        3 -> BirthDateStep(
-            currentYear = profile.birthYear,
-            currentMonth = profile.birthMonth,
-            currentDay = profile.birthDay,
-            onBackClick = handleBack,
-            onNext = { y, m, d ->
-                profile = profile.copy(birthYear = y, birthMonth = m, birthDay = d)
-                step = 4
-            }
-        )
-        4 -> SensoryStep(
+        // 시안 4p
+        2 -> SensoryStep(
             currentTraits = profile.sensoryTraits,
             onBackClick = handleBack,
             onNext = { traits ->
                 profile = profile.copy(sensoryTraits = traits)
-                step = 5
+                step = 3
             }
         )
-        5 -> BehaviorStep(
+        // 시안 5p
+        3 -> BehaviorStep(
             currentBehaviors = profile.behaviors,
             onBackClick = handleBack,
             onNext = { behaviors ->
@@ -115,9 +103,12 @@ fun ChildProfileSetupScreen(
 // 공용 부품 1: 화면 전체 레이아웃 (TopBar + 제목 + 내용 + 다음 버튼)
 // ============================================
 // 모든 단계가 비슷한 구조라서 이걸로 통일. TopBar는 공용 AionTopBar 사용.
+// 상단바 아래 ~ 제목 사이 간격 (이 값만 바꾸면 5단계 전부 반영됨)
+private val HeaderToTitleGap = 48.dp
+
 @Composable
 private fun StepScaffold(
-    title: String,
+    title: String? = null,                  // null 이면 큰 제목 없이 본문만 (시안 3p)
     subtitle: String? = null,              // 작은 안내 (선택지 단계에만 있음)
     nextEnabled: Boolean,                   // 다음 버튼 활성화 여부
     onBackClick: () -> Unit,
@@ -127,70 +118,62 @@ private fun StepScaffold(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
-            .padding(horizontal = 46.dp),
+            .background(Color.White),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ===== 작은 뒤로가기 아이콘 + 로고 (단계 이동엔 뒤로가기가 필요해서 최소한으로 추가) =====
-        Box(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier.align(Alignment.CenterStart)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                    contentDescription = "뒤로가기"
-                )
-            }
-        }
+        // ===== 상단바 =====
+        // 시안 2~5p: 회원가입 단계 화면엔 로고가 없고 "회원가입" 타이틀 바가 들어간다.
+        // 상단바는 화면 끝까지 닿아야 해서 가로 패딩(46dp) 바깥에 둔다.
+        AionTopBar(title = "회원가입", onBackClick = onBackClick)
 
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // ===== 로고 =====
-        Box(
-            modifier = Modifier.size(80.dp),
-            contentAlignment = Alignment.Center
+        // ===== 본문 (기존과 동일하게 좌우 46dp) =====
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(horizontal = 46.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("AION", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = BluePrimary)
-        }
+            Spacer(modifier = Modifier.height(HeaderToTitleGap))
 
-        Spacer(modifier = Modifier.height(8.dp))
+            // ===== 제목 (있을 때만) =====
+            if (title != null) {
+                Text(
+                    text = title,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    textAlign = TextAlign.Center
+                )
 
-        // ===== 제목 =====
-        Text(
-            text = title,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary,
-            textAlign = TextAlign.Center
-        )
+                // ===== 부제목 (있을 때만) =====
+                if (subtitle != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = subtitle,
+                        fontSize = 12.sp,
+                        color = GrayText
+                    )
+                }
 
-        // ===== 부제목 (있을 때만) =====
-        if (subtitle != null) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = subtitle,
-                fontSize = 12.sp,
-                color = GrayText
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+
+            // ===== 본문 (단계마다 다른 부분) =====
+            content()
+
+            // ===== 남는 공간 다 차지 (다음 버튼을 아래로) =====
+            Spacer(modifier = Modifier.weight(1f))
+
+            // ===== 공용 AionPrimaryButton으로 통일 =====
+            AionPrimaryButton(
+                text = "다음",
+                onClick = onNext,
+                enabled = nextEnabled
             )
+
+            Spacer(modifier = Modifier.height(40.dp))
         }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // ===== 본문 (단계마다 다른 부분) =====
-        content()
-
-        // ===== 남는 공간 다 차지 (다음 버튼을 아래로) =====
-        Spacer(modifier = Modifier.weight(1f))
-
-        // ===== 공용 AionPrimaryButton으로 통일 =====
-        AionPrimaryButton(
-            text = "다음",
-            onClick = onNext,
-            enabled = nextEnabled
-        )
-
-        Spacer(modifier = Modifier.height(40.dp))
     }
 }
 
@@ -202,15 +185,16 @@ private fun StepScaffold(
 private fun SelectablePill(
     text: String,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier          // 성별처럼 좌우로 나란히 놓을 때 weight 전달용
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(52.dp)
             .clip(RoundedCornerShape(26.dp))
-            // 선택되면 연파랑, 아니면 기본 회색 (공용 색상 토큰 사용)
-            .background(if (isSelected) BluePrimary.copy(alpha = 0.15f) else GrayBackground)
+            // 선택 상태 = Blue Light:hover (#E8EFFC) — 교사용/아동용 토글과 동일한 토큰
+            .background(if (isSelected) LightHover else GrayBackground)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
@@ -218,78 +202,177 @@ private fun SelectablePill(
             text = text,
             fontSize = 15.sp,
             color = TextPrimary,
-            fontWeight = FontWeight.Medium
+            // 선택된 항목은 Bold 로 강조
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
         )
     }
 }
 
 // ============================================
-// 단계 1: 이름 입력
+// 단계 1: 기본 정보 (이름 + 성별 + 생년월일) — 시안 3p
 // ============================================
+// 시안에서 세 항목이 한 화면에 모여 있어, 큰 제목 없이 섹션 라벨만 왼쪽 정렬로 둔다.
 @Composable
-private fun NameStep(currentName: String, onBackClick: () -> Unit, onNext: (String) -> Unit) {
-    var name by remember { mutableStateOf(currentName) }
+private fun BasicInfoStep(
+    current: ChildProfile,
+    onBackClick: () -> Unit,
+    onNext: (ChildProfile) -> Unit
+) {
+    var name by remember { mutableStateOf(current.name) }
+    var gender by remember { mutableStateOf(current.gender) }
+    var year by remember { mutableStateOf(current.birthYear) }
+    var month by remember { mutableStateOf(current.birthMonth) }
+    var day by remember { mutableStateOf(current.birthDay) }
+
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    val birthChosen = year != null && month != null && day != null
 
     StepScaffold(
-        title = "이름을 입력해 주세요",
-        nextEnabled = name.isNotBlank(),    // 비어있으면 다음 비활성화
+        title = null,                       // 시안 3p는 큰 제목이 없음
+        nextEnabled = name.isNotBlank() && gender != null && birthChosen,
         onBackClick = onBackClick,
-        onNext = { onNext(name) }
+        onNext = {
+            onNext(
+                current.copy(
+                    name = name,
+                    gender = gender,
+                    birthYear = year,
+                    birthMonth = month,
+                    birthDay = day
+                )
+            )
+        }
     ) {
-        // ===== 공용 AionTextField로 통일 =====
+        // ===== 이름 =====
+        SectionLabel("이름을 입력해주세요.")
+        Spacer(modifier = Modifier.height(8.dp))
         AionTextField(
             value = name,
             onValueChange = { name = it },
             placeholder = "이름"
         )
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // ===== 성별 (좌우로 나란히) =====
+        SectionLabel("성별을 선택해주세요.")
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SelectablePill(
+                text = "남자",
+                isSelected = gender == "남자",
+                onClick = { gender = "남자" },
+                modifier = Modifier.weight(1f)
+            )
+            SelectablePill(
+                text = "여자",
+                isSelected = gender == "여자",
+                onClick = { gender = "여자" },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // ===== 생년월일 (칸을 누르면 피커 다이얼로그) =====
+        SectionLabel("생년월일을 입력해주세요.")
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            DateFieldBox(
+                text = year?.let { "${it}년" } ?: "년도",
+                isPlaceholder = year == null,
+                onClick = { showDatePicker = true },
+                modifier = Modifier.weight(1f)
+            )
+            DateFieldBox(
+                text = month?.let { "${it}월" } ?: "월",
+                isPlaceholder = month == null,
+                onClick = { showDatePicker = true },
+                modifier = Modifier.weight(1f)
+            )
+            DateFieldBox(
+                text = day?.let { "${it}일" } ?: "일",
+                isPlaceholder = day == null,
+                onClick = { showDatePicker = true },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+
+    if (showDatePicker) {
+        BirthDatePickerDialog(
+            initialYear = year ?: 2019,
+            initialMonth = month ?: 12,
+            initialDay = day ?: 21,
+            onDismiss = { showDatePicker = false },
+            onConfirm = { y, m, d ->
+                year = y; month = m; day = d
+                showDatePicker = false
+            }
+        )
     }
 }
 
-// ============================================
-// 단계 2: 성별 선택 (단일 선택)
-// ============================================
+// 섹션 라벨 (왼쪽 정렬)
 @Composable
-private fun GenderStep(currentGender: String?, onBackClick: () -> Unit, onNext: (String) -> Unit) {
-    var selected by remember { mutableStateOf(currentGender) }
-
-    StepScaffold(
-        title = "성별을 선택해 주세요",
-        nextEnabled = selected != null,
-        onBackClick = onBackClick,
-        onNext = { onNext(selected!!) }
-    ) {
-        SelectablePill(
-            text = "남성",
-            isSelected = selected == "남성",
-            onClick = { selected = "남성" }
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        SelectablePill(
-            text = "여성",
-            isSelected = selected == "여성",
-            onClick = { selected = "여성" }
-        )
-    }
+private fun SectionLabel(text: String) {
+    Text(
+        text = text,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Bold,
+        color = TextPrimary,
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
-// ============================================
-// 단계 3: 생년월일 선택 (진짜 휠 피커)
-// ============================================
-// LazyColumn + Compose 내장 snap fling만 사용 (외부 라이브러리/서버 호출 없음).
-// 위아래로 굴리면 스냅되면서 가운데 값이 선택됨.
+// 년도/월/일 표시 칸 — 누르면 피커가 열린다
 @Composable
-private fun BirthDateStep(
-    currentYear: Int,
-    currentMonth: Int,
-    currentDay: Int,
-    onBackClick: () -> Unit,
-    onNext: (Int, Int, Int) -> Unit
+private fun DateFieldBox(
+    text: String,
+    isPlaceholder: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    var year by remember { mutableIntStateOf(currentYear) }
-    var month by remember { mutableIntStateOf(currentMonth) }
-    var day by remember { mutableIntStateOf(currentDay) }
+    Box(
+        modifier = modifier
+            .height(52.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(GrayBackground)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 15.sp,
+            fontWeight = if (isPlaceholder) FontWeight.Normal else FontWeight.Bold,
+            color = if (isPlaceholder) GrayText else TextPrimary
+        )
+    }
+}
 
-    // 월/년이 바뀌어서 해당 월의 마지막 날보다 day가 커지면 보정 (예: 31일 선택 후 2월로 바꾸면 28/29일로)
+// ============================================
+// 생년월일 피커 다이얼로그 (년/월/일 휠 3개 + 취소/확인)
+// ============================================
+@Composable
+private fun BirthDatePickerDialog(
+    initialYear: Int,
+    initialMonth: Int,
+    initialDay: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, Int, Int) -> Unit
+) {
+    var year by remember { mutableIntStateOf(initialYear) }
+    var month by remember { mutableIntStateOf(initialMonth) }
+    var day by remember { mutableIntStateOf(initialDay) }
+
+    // 2월 30일 같은 조합이 되지 않도록 보정
     LaunchedEffect(year, month) {
         val maxDay = daysInMonth(year, month)
         if (day > maxDay) day = maxDay
@@ -299,57 +382,82 @@ private fun BirthDateStep(
     val months = remember { (1..12).toList() }
     val days = remember(year, month) { (1..daysInMonth(year, month)).toList() }
 
-    StepScaffold(
-        title = "생년월일을 입력해 주세요",
-        nextEnabled = true,
-        onBackClick = onBackClick,
-        onNext = { onNext(year, month, day) }
-    ) {
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-            contentAlignment = Alignment.Center
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                WheelPicker(
-                    items = years,
-                    selectedValue = year,
-                    onValueChange = { year = it },
-                    valueToLabel = { "${it}년" },
-                    modifier = Modifier.weight(1f)
-                )
-                WheelPicker(
-                    items = months,
-                    selectedValue = month,
-                    onValueChange = { month = it },
-                    valueToLabel = { "${it}월" },
-                    modifier = Modifier.weight(1f)
-                )
-                WheelPicker(
-                    items = days,
-                    selectedValue = day,
-                    onValueChange = { day = it },
-                    valueToLabel = { "${it}일" },
-                    modifier = Modifier.weight(1f)
-                )
-            }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(shape = RoundedCornerShape(16.dp), color = Color.White) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        WheelPicker(
+                            items = years,
+                            selectedValue = year,
+                            onValueChange = { year = it },
+                            valueToLabel = { "${it}년" },
+                            modifier = Modifier.weight(1f)
+                        )
+                        WheelPicker(
+                            items = months,
+                            selectedValue = month,
+                            onValueChange = { month = it },
+                            valueToLabel = { "${it}월" },
+                            modifier = Modifier.weight(1f)
+                        )
+                        WheelPicker(
+                            items = days,
+                            selectedValue = day,
+                            onValueChange = { day = it },
+                            valueToLabel = { "${it}일" },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
 
-            // 가운데 선택 영역 표시선 (위/아래 구분선)
-            val itemHeight = 44.dp
-            HorizontalDivider(
-                modifier = Modifier
-                    .fillMaxWidth(0.95f)
-                    .padding(bottom = itemHeight),
-                color = Color.LightGray
-            )
-            HorizontalDivider(
-                modifier = Modifier
-                    .fillMaxWidth(0.95f)
-                    .padding(top = itemHeight),
-                color = Color.LightGray
-            )
+                    // 가운데 선택 영역 표시선
+                    val itemHeight = 44.dp
+                    HorizontalDivider(
+                        modifier = Modifier
+                            .fillMaxWidth(0.95f)
+                            .padding(bottom = itemHeight),
+                        color = Color.LightGray
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier
+                            .fillMaxWidth(0.95f)
+                            .padding(top = itemHeight),
+                        color = Color.LightGray
+                    )
+                }
+
+                // ===== 취소 / 확인 =====
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(GrayBackground)
+                            .clickable { onDismiss() }
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("취소", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(BluePrimary)
+                            .clickable { onConfirm(year, month, day) }
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("확인", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            }
         }
     }
 }
@@ -507,39 +615,35 @@ private fun BehaviorStep(currentBehaviors: Set<String>, onBackClick: () -> Unit,
 // ============================================
 // Preview - 각 단계별 미리보기
 // ============================================
-@Preview(showBackground = true, device = "id:pixel_7", name = "1. 이름")
+@Preview(showBackground = true, device = "id:pixel_7", name = "1. 기본 정보")
 @Composable
-private fun NameStepPreview() {
-    NameStep(currentName = "", onBackClick = {}, onNext = {})
+private fun BasicInfoStepPreview() {
+    AionTheme {
+        BasicInfoStep(current = ChildProfile(), onBackClick = {}, onNext = {})
+    }
 }
 
-@Preview(showBackground = true, device = "id:pixel_7", name = "2. 성별")
-@Composable
-private fun GenderStepPreview() {
-    GenderStep(currentGender = null, onBackClick = {}, onNext = {})
-}
-
-@Preview(showBackground = true, device = "id:pixel_7", name = "3. 생년월일")
-@Composable
-private fun BirthDateStepPreview() {
-    BirthDateStep(2019, 12, 21, onBackClick = {}, onNext = { _, _, _ -> })
-}
-
-@Preview(showBackground = true, device = "id:pixel_7", name = "4. 감각")
+@Preview(showBackground = true, device = "id:pixel_7", name = "2. 감각")
 @Composable
 private fun SensoryStepPreview() {
-    SensoryStep(currentTraits = emptySet(), onBackClick = {}, onNext = {})
+    AionTheme {
+        SensoryStep(currentTraits = emptySet(), onBackClick = {}, onNext = {})
+    }
 }
 
-@Preview(showBackground = true, device = "id:pixel_7", name = "5. 상동행동")
+@Preview(showBackground = true, device = "id:pixel_7", name = "3. 상동행동")
 @Composable
 private fun BehaviorStepPreview() {
-    BehaviorStep(currentBehaviors = emptySet(), onBackClick = {}, onNext = {})
+    AionTheme {
+        BehaviorStep(currentBehaviors = emptySet(), onBackClick = {}, onNext = {})
+    }
 }
 
 // 전체 플로우 (Interactive Mode로 단계 이동 테스트 가능)
 @Preview(showBackground = true, device = "id:pixel_7", name = "전체 플로우")
 @Composable
 private fun ChildProfileSetupScreenPreview() {
-    ChildProfileSetupScreen()
+    AionTheme {
+        ChildProfileSetupScreen()
+    }
 }
