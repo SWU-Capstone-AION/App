@@ -1,21 +1,20 @@
 package com.example.aion_app.ui.component
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.example.aion_app.R
 import com.example.aion_app.ui.theme.BlueLight
-import com.example.aion_app.ui.theme.GreenSuccess
 import com.example.aion_app.ui.theme.RedError
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,20 +43,26 @@ fun AionPasswordField(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             isError = isError,
             trailingIcon = {
-                Row {
-                    if (showValidCheck && !isError) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "유효함",
-                            tint = GreenSuccess
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 유효성 표시 아이콘 (유효=초록 체크 / 에러=회색)
+                    if (showValidCheck) {
+                        Image(
+                            painter = painterResource(
+                                if (isError) R.drawable.pw_incorrect else R.drawable.pw_correct
+                            ),
+                            contentDescription = if (isError) "유효하지 않음" else "유효함",
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(6.dp))
                     }
+                    // 비밀번호 표시/숨김 토글
                     IconButton(onClick = { visible = !visible }) {
-                        Icon(
-                            imageVector = if (visible) Icons.Default.Visibility
-                            else Icons.Default.VisibilityOff,
-                            contentDescription = null
+                        Image(
+                            painter = painterResource(
+                                if (visible) R.drawable.pw_visible else R.drawable.pw_masked
+                            ),
+                            contentDescription = if (visible) "비밀번호 숨기기" else "비밀번호 보기",
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }

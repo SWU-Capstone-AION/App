@@ -1,5 +1,6 @@
 package com.example.aion_app.ui.screen.login  // ← 본인 패키지명
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -12,10 +13,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionPasswordField
 import com.example.aion_app.ui.component.AionPrimaryButton
 import com.example.aion_app.ui.component.AionTextField
@@ -41,12 +45,15 @@ fun SignUpScreen(
             .padding(horizontal = 46.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ===== 원래 로고 헤더 그대로 (온보딩 플로우는 메인 화면 TopBar와 톤이 달라도 됨) =====
+        // ===== 로고 헤더 =====
         Spacer(modifier = Modifier.height(120.dp))
 
-        Box(modifier = Modifier.size(80.dp), contentAlignment = Alignment.Center) {
-            Text("AION", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = BluePrimary)
-        }
+        Image(
+            painter = painterResource(R.drawable.logo_text),
+            contentDescription = "AION",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.width(120.dp)
+        )
 
         Spacer(modifier = Modifier.height(30.dp))
 
