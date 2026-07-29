@@ -8,10 +8,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.PriorityHigh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,11 +23,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.theme.AionTextDark
@@ -247,24 +248,21 @@ private fun SwipeableNotificationCard(
 @Composable
 private fun NotificationCard(item: NotificationItem) {
     // 위험 #C05C47(Red) / 주의 #CC8D42(Orange) / 안정 #629F7D(Green)
-    val (barColor, iconBgColor, iconColor, icon) = when (item.type) {
+    val (barColor, iconBgColor, iconRes) = when (item.type) {
         NotificationType.DANGER -> NotificationStyle(
             barColor = Red,
             iconBgColor = Red.copy(alpha = 0.14f),
-            iconColor = Red,
-            icon = Icons.Filled.PriorityHigh   // TODO: 드라이브 아이콘 받으면 교체
+            iconRes = R.drawable.noti_danger
         )
         NotificationType.CAUTION -> NotificationStyle(
             barColor = Orange,
             iconBgColor = Orange.copy(alpha = 0.14f),
-            iconColor = Orange,
-            icon = Icons.Filled.PriorityHigh   // TODO: 드라이브 아이콘 받으면 교체
+            iconRes = R.drawable.noti_caution
         )
         NotificationType.STABLE -> NotificationStyle(
             barColor = Green,
             iconBgColor = Green.copy(alpha = 0.14f),
-            iconColor = Green,
-            icon = Icons.Filled.Check
+            iconRes = R.drawable.noti_stable
         )
     }
 
@@ -298,11 +296,11 @@ private fun NotificationCard(item: NotificationItem) {
                 .background(iconBgColor),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = icon,
+            Image(
+                painter = painterResource(iconRes),
                 contentDescription = null,
-                tint = iconColor,
-                modifier = Modifier.size(20.dp)
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(22.dp)
             )
         }
 
@@ -344,8 +342,7 @@ private fun NotificationCard(item: NotificationItem) {
 private data class NotificationStyle(
     val barColor: Color,
     val iconBgColor: Color,
-    val iconColor: Color,
-    val icon: ImageVector
+    val iconRes: Int
 )
 
 // 테스트용 더미 데이터

@@ -1,15 +1,15 @@
 package com.example.aion_app.ui.component
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.example.aion_app.R
 import com.example.aion_app.ui.theme.BluePrimary
 import com.example.aion_app.ui.theme.GrayText
 
@@ -18,23 +18,27 @@ fun AionBottomNavBar(
     selected: String = "mypage",
     onSelect: (String) -> Unit = {}
 ) {
-    // 활성화 시 아이콘+텍스트 모두 메인 컬러(#6495ED), 선택 알약 배경은 제거
+    // 라벨 색만 지정 (아이콘은 커스텀 PNG라 원본 색 사용), 선택 알약 배경 제거
     val itemColors = NavigationBarItemDefaults.colors(
-        selectedIconColor = BluePrimary,
         selectedTextColor = BluePrimary,
-        unselectedIconColor = GrayText,
         unselectedTextColor = GrayText,
         indicatorColor = Color.Transparent
     )
-    // 아이콘 3개 동일 크기 + 조금 키움
-    val iconSize = 28.dp
+    val iconSize = 26.dp
 
     NavigationBar(containerColor = Color.White) {
         NavigationBarItem(
             selected = selected == "home",
             onClick = { onSelect("home") },
             icon = {
-                Icon(Icons.Default.Home, contentDescription = null, modifier = Modifier.size(iconSize))
+                Image(
+                    painter = painterResource(
+                        if (selected == "home") R.drawable.home_active else R.drawable.home_nonactive
+                    ),
+                    contentDescription = "홈",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(iconSize)
+                )
             },
             label = { Text("홈") },
             colors = itemColors
@@ -43,7 +47,14 @@ fun AionBottomNavBar(
             selected = selected == "report",
             onClick = { onSelect("report") },
             icon = {
-                Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(iconSize))
+                Image(
+                    painter = painterResource(
+                        if (selected == "report") R.drawable.report_active else R.drawable.report_nonactive
+                    ),
+                    contentDescription = "리포트",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(iconSize)
+                )
             },
             label = { Text("리포트") },
             colors = itemColors
@@ -52,7 +63,14 @@ fun AionBottomNavBar(
             selected = selected == "mypage",
             onClick = { onSelect("mypage") },
             icon = {
-                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(iconSize))
+                Image(
+                    painter = painterResource(
+                        if (selected == "mypage") R.drawable.mypage_active else R.drawable.mypage_nonactive
+                    ),
+                    contentDescription = "마이페이지",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(iconSize)
+                )
             },
             label = { Text("마이페이지") },
             colors = itemColors
