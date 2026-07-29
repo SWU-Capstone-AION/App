@@ -1,48 +1,44 @@
 package com.example.aion_app.ui.screen.notification
 
-import androidx.compose.runtime.key
-
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.runtime.toMutableStateList
-
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PriorityHigh
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.Alignment
-
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.draw.clip
-import com.example.aion_app.ui.theme.BluePrimary
-import com.example.aion_app.ui.theme.GrayBackground
-import com.example.aion_app.ui.theme.TextPrimary
-
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.toMutableStateList
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionTopBar
+import com.example.aion_app.ui.theme.AionTextDark
+import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.GrayBackground
 import com.example.aion_app.ui.theme.GrayText
+import com.example.aion_app.ui.theme.Green
+import com.example.aion_app.ui.theme.Orange
+import com.example.aion_app.ui.theme.Red
+import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,7 +60,8 @@ fun NotificationScreen(
         topBar = {
             AionTopBar(
                 title = "알림센터",
-                onBackClick = onBackClick
+                onBackClick = onBackClick,
+                iconStartPadding = 8.dp   // 아이콘 꼭짓점을 칩 왼쪽(20dp)에 맞춤
             )
         },
         bottomBar = { AionBottomNavBar(selected = "home") },
@@ -93,7 +90,6 @@ fun NotificationScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp)
             ) {
-                // 선택된 필터에 따라 알림 필터링
                 val filteredNotifications = when (val f = selectedFilter) {
                     is NotificationFilter.All -> notificationList
                     is NotificationFilter.Student -> notificationList.filter { it.studentName == f.name }
@@ -103,13 +99,11 @@ fun NotificationScreen(
                 val grouped = filteredNotifications.groupBy { it.dateGroup }
 
                 grouped.forEach { (dateGroup, items) ->
-                    // 날짜 그룹 헤더
                     DateGroupHeader(dateText = dateGroup)
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // 해당 날짜의 알림 카드들
                     items.forEach { notification ->
-                        key(notification.id) {  // ← 감쌈
+                        key(notification.id) {
                             SwipeableNotificationCard(
                                 item = notification,
                                 onDelete = { notificationList.remove(notification) }
@@ -145,14 +139,12 @@ private fun FilterChipRow(
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 20.dp)
     ) {
-        // 전체 칩
         FilterChip(
             label = "전체",
             isSelected = selectedFilter is NotificationFilter.All,
             onClick = { onFilterSelect(NotificationFilter.All) }
         )
 
-        // 학생별 칩
         studentNames.forEach { name ->
             Spacer(modifier = Modifier.width(8.dp))
             FilterChip(
@@ -175,6 +167,7 @@ private fun FilterChip(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
             .background(if (isSelected) BluePrimary else GrayBackground)
+            .border(1.dp, AionTextDark, RoundedCornerShape(20.dp))   // 칩 스트로크 (#2D3C4A)
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 8.dp)
     ) {
@@ -218,15 +211,14 @@ private fun SwipeableNotificationCard(
 
     SwipeToDismissBox(
         state = dismissState,
-        enableDismissFromStartToEnd = false,  // 왼→오는 비활성
-        enableDismissFromEndToStart = true,   // 오→왼(왼쪽으로 스와이프)만 활성
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true,
         backgroundContent = {
-            // 스와이프 시 뒤에 나타나는 빨간 배경
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFE53935))
+                    .background(Red)   // 삭제 배경
                     .padding(horizontal = 20.dp),
                 contentAlignment = Alignment.CenterEnd
             ) {
@@ -254,23 +246,24 @@ private fun SwipeableNotificationCard(
 
 @Composable
 private fun NotificationCard(item: NotificationItem) {
+    // 위험 #C05C47(Red) / 주의 #CC8D42(Orange) / 안정 #629F7D(Green)
     val (barColor, iconBgColor, iconColor, icon) = when (item.type) {
         NotificationType.DANGER -> NotificationStyle(
-            barColor = Color(0xFFE53935),         // 빨강
-            iconBgColor = Color(0xFFFDECEA),      // 연한 빨강
-            iconColor = Color(0xFFE53935),
-            icon = Icons.Filled.PriorityHigh
+            barColor = Red,
+            iconBgColor = Red.copy(alpha = 0.14f),
+            iconColor = Red,
+            icon = Icons.Filled.PriorityHigh   // TODO: 드라이브 아이콘 받으면 교체
         )
         NotificationType.CAUTION -> NotificationStyle(
-            barColor = Color(0xFFFF9800),         // 주황
-            iconBgColor = Color(0xFFFFF3E0),      // 연한 주황
-            iconColor = Color(0xFFFF9800),
-            icon = Icons.Filled.PriorityHigh
+            barColor = Orange,
+            iconBgColor = Orange.copy(alpha = 0.14f),
+            iconColor = Orange,
+            icon = Icons.Filled.PriorityHigh   // TODO: 드라이브 아이콘 받으면 교체
         )
         NotificationType.STABLE -> NotificationStyle(
-            barColor = Color(0xFF4CAF50),         // 초록
-            iconBgColor = Color(0xFFE8F5E9),      // 연한 초록
-            iconColor = Color(0xFF4CAF50),
+            barColor = Green,
+            iconBgColor = Green.copy(alpha = 0.14f),
+            iconColor = Green,
             icon = Icons.Filled.Check
         )
     }
@@ -347,23 +340,33 @@ private fun NotificationCard(item: NotificationItem) {
     }
 }
 
-// 알림 스타일을 묶어서 반환하기 위한 헬퍼 (구조 분해용)
+// 알림 스타일 묶음 (구조 분해용)
 private data class NotificationStyle(
     val barColor: Color,
     val iconBgColor: Color,
     val iconColor: Color,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
+    val icon: ImageVector
 )
 
 // 테스트용 더미 데이터
+// - '안정 · 김지우 정상 범위' 알림을 맨 위로
+// - 맨 위 제외하고 n분 전 = 5, 8, 10, 20, 30 순서
 private fun defaultNotifications(): List<NotificationItem> = listOf(
+    NotificationItem(
+        id = "4",
+        type = NotificationType.STABLE,
+        message = "김지우 학생이 정상 범위로 돌아왔어요.",
+        studentName = "김지우",
+        dateGroup = "오늘 · 5월 28일",
+        timeText = "방금 전"
+    ),
     NotificationItem(
         id = "1",
         type = NotificationType.DANGER,
         message = "즉시 상태를 확인하세요.",
         studentName = "김지우",
         dateGroup = "오늘 · 5월 28일",
-        timeText = "2분 전"
+        timeText = "5분 전"
     ),
     NotificationItem(
         id = "2",
@@ -371,7 +374,7 @@ private fun defaultNotifications(): List<NotificationItem> = listOf(
         message = "김지우 학생의 위험점수가 상승 중이에요.",
         studentName = "김지우",
         dateGroup = "오늘 · 5월 28일",
-        timeText = "2분 전"
+        timeText = "8분 전"
     ),
     NotificationItem(
         id = "3",
@@ -379,15 +382,7 @@ private fun defaultNotifications(): List<NotificationItem> = listOf(
         message = "김지우 학생의 위험점수가 상승 중이에요.",
         studentName = "김지우",
         dateGroup = "오늘 · 5월 28일",
-        timeText = "2분 전"
-    ),
-    NotificationItem(
-        id = "4",
-        type = NotificationType.STABLE,
-        message = "김지우 학생이 정상 범위로 돌아왔어요.",
-        studentName = "김지우",
-        dateGroup = "오늘 · 5월 28일",
-        timeText = "2분 전"
+        timeText = "10분 전"
     ),
     NotificationItem(
         id = "5",
@@ -395,7 +390,7 @@ private fun defaultNotifications(): List<NotificationItem> = listOf(
         message = "이주미 학생이 정상 범위로 돌아왔어요.",
         studentName = "이주미",
         dateGroup = "오늘 · 5월 28일",
-        timeText = "2분 전"
+        timeText = "20분 전"
     ),
     NotificationItem(
         id = "6",
@@ -403,7 +398,7 @@ private fun defaultNotifications(): List<NotificationItem> = listOf(
         message = "이주미 학생의 위험점수가 상승 중이에요.",
         studentName = "이주미",
         dateGroup = "오늘 · 5월 28일",
-        timeText = "2분 전"
+        timeText = "30분 전"
     ),
     NotificationItem(
         id = "7",
