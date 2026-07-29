@@ -1,6 +1,7 @@
 package com.example.aion_app.navigation
 
 object Route {
+    const val SPLASH = "splash"
     // 회원가입 플로우
     const val SIGN_UP = "sign_up"
     const val CHILD_PROFILE_SETUP = "child_profile_setup"

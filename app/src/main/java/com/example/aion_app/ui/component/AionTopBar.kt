@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -15,7 +16,8 @@ import androidx.compose.ui.unit.sp
 fun AionTopBar(
     title: String,
     onBackClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    iconStartPadding: Dp = 0.dp   // 뒤로가기 아이콘 오른쪽 미세 이동 (기본 0 → 기존 화면 영향 없음)
 ) {
     Box(
         modifier = modifier
@@ -24,7 +26,9 @@ fun AionTopBar(
     ) {
         IconButton(
             onClick = onBackClick,
-            modifier = Modifier.align(Alignment.CenterStart)
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = iconStartPadding)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
@@ -40,3 +44,4 @@ fun AionTopBar(
     }
     HorizontalDivider(thickness = 0.5.dp)
 }
+

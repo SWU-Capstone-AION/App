@@ -1,6 +1,7 @@
 package com.example.aion_app.navigation
 
 import com.example.aion_app.ui.screen.notification.NotificationScreen
+import com.example.aion_app.ui.screen.splash.SplashScreen
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
@@ -37,11 +38,11 @@ fun AionNavHost() {
 
     NavHost(
         navController = navController,
-        startDestination = Route.HOME  // ← 홈으로 임시 변경 (테스트용)
-        //startDestination = Route.PASSWORD_FIND
-        //startDestination = Route.SIGN_UP // 회원가입 플로우부터 시작 (팀원 작업 화면 테스트용)
-        // startDestination = Route.HOME // 홈 테스트용 (임시)
-        // startDestination = Route.MYPAGE // 마이페이지 테스트용 (임시)
+        // 앱 진입: 스플래시부터 시작
+        startDestination = Route.SPLASH
+        // startDestination = Route.SIGN_UP   // 회원가입 플로우 테스트용
+        // startDestination = Route.HOME       // 홈 테스트용
+        // startDestination = Route.MYPAGE     // 마이페이지 테스트용
     ) {
         // ===== 하단탭 공용 이동 로직 =====
         // (지역변수라 선언보다 아래에서만 참조 가능 → NavHost 블록 맨 위에 둠)
@@ -57,6 +58,17 @@ fun AionNavHost() {
                 launchSingleTop = true
                 restoreState = true
             }
+        }
+
+        // ===== 스플래시 =====
+        composable(Route.SPLASH) {
+            SplashScreen(
+                onFinish = {
+                    navController.navigate(Route.SIGN_UP) {
+                        popUpTo(Route.SPLASH) { inclusive = true }  // 스플래시는 스택에서 제거
+                    }
+                }
+            )
         }
 
         // ===== 회원가입 플로우 =====
@@ -104,8 +116,8 @@ fun AionNavHost() {
                     // 지금은 FakeAuthRepository라 거의 항상 성공으로 옴.
                     signUpViewModel.submit { success ->
                         if (success) {
-                            navController.navigate(Route.MYPAGE) {
-                                // 여기서야 회원가입 플로우 전체를 스택/ViewModel에서 정리
+                            // 회원가입 완료 → 홈으로 (회원가입 플로우 전체를 스택/ViewModel에서 정리)
+                            navController.navigate(Route.HOME) {
                                 popUpTo(Route.SIGN_UP) { inclusive = true }
                             }
                         } else {
