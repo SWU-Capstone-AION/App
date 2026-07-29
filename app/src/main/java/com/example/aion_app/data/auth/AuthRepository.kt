@@ -36,8 +36,8 @@ class FakeAuthRepository : AuthRepository {
         delay(800) // 네트워크 호출 흉내 (로딩 상태 확인용)
 
         // 아주 기초적인 검증만 흉내냄 — 실제 검증은 서버가 하게 될 부분
-        if (signUpInput.email.isBlank() || signUpInput.password.isBlank()) {
-            return Result.failure(IllegalArgumentException("이메일/비밀번호가 비어있습니다."))
+        if (signUpInput.userId.isBlank() || signUpInput.password.isBlank()) {
+            return Result.failure(IllegalArgumentException("아이디/비밀번호가 비어있습니다."))
         }
 
         return Result.success(Unit)

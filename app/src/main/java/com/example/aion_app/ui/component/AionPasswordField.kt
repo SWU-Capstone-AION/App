@@ -14,7 +14,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.aion_app.R
-import com.example.aion_app.ui.theme.BlueLight
+import com.example.aion_app.ui.theme.GrayBackground
 import com.example.aion_app.ui.theme.RedError
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,9 +68,9 @@ fun AionPasswordField(
                 }
             },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = BlueLight,
-                unfocusedContainerColor = BlueLight,
-                errorContainerColor = BlueLight,
+                focusedContainerColor = GrayBackground,
+                unfocusedContainerColor = GrayBackground,
+                errorContainerColor = GrayBackground,
                 focusedBorderColor = if (isError) RedError else Color.Transparent,
                 unfocusedBorderColor = Color.Transparent,
                 errorBorderColor = RedError

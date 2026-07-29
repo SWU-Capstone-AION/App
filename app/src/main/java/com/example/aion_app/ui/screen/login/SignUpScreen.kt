@@ -23,18 +23,25 @@ import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionPasswordField
 import com.example.aion_app.ui.component.AionPrimaryButton
 import com.example.aion_app.ui.component.AionTextField
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.component.AionTopBar
+import com.example.aion_app.ui.theme.AionTheme
+import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.GrayBackground
+import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
+
+// 로고 크기 (프리뷰 보고 이 두 값만 조절하면 됨)
+private val LogoSymbolWidth = 72.dp
+private val LogoTextWidth = 76.dp
 
 @Composable
 fun SignUpScreen(
     onLoginClick: () -> Unit = {},
-    onSignUpClick: (type: String, email: String, password: String) -> Unit = { _, _, _ -> }
+    onSignUpClick: (type: String) -> Unit = { }
 ) {
     var selectedType by remember { mutableStateOf("아동용") }
-    var email by remember { mutableStateOf("") }
+    var userId by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
     Column(
@@ -48,28 +55,28 @@ fun SignUpScreen(
         // ===== 로고 헤더 =====
         Spacer(modifier = Modifier.height(120.dp))
 
+        // ===== 로고: 심볼(∞) + 워드마크(AION) =====
+        // logo_text.png 는 캔버스에 위아래 여백이 포함돼 있어(글자 390x106 / 캔버스 476x268)
+        // 두 이미지 사이에 Spacer 를 두지 않아도 자연스러운 간격이 생긴다.
+        Image(
+            painter = painterResource(R.drawable.logo_symbol),
+            contentDescription = "AION 로고",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.width(LogoSymbolWidth)
+        )
         Image(
             painter = painterResource(R.drawable.logo_text),
-            contentDescription = "AION",
+            contentDescription = null,   // 위 이미지가 이미 "AION 로고"로 읽힘
             contentScale = ContentScale.Fit,
-            modifier = Modifier.width(120.dp)
+            modifier = Modifier.width(LogoTextWidth)
         )
 
         Spacer(modifier = Modifier.height(30.dp))
 
-        Text("회원가입", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        // 시안 1p: 제목은 "로그인". "가입 유형 선택" 라벨 없이 버튼만 노출.
+        Text("로그인", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
 
         Spacer(modifier = Modifier.height(30.dp))
-
-        Text(
-            "가입 유형 선택",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TextPrimary,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -82,7 +89,7 @@ fun SignUpScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            "이메일을 입력하세요",
+            "아이디",
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = TextPrimary,
@@ -93,15 +100,15 @@ fun SignUpScreen(
 
         // ===== 공용 AionTextField (필드/버튼은 헤더 스타일과 무관하게 통일) =====
         AionTextField(
-            value = email,
-            onValueChange = { email = it },
-            placeholder = "이메일"
+            value = userId,
+            onValueChange = { userId = it },
+            placeholder = ""
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            "비밀번호를 입력하세요",
+            "비밀번호",
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = TextPrimary,
@@ -113,7 +120,7 @@ fun SignUpScreen(
         AionPasswordField(
             value = password,
             onValueChange = { password = it },
-            placeholder = "비밀번호"
+            placeholder = ""
         )
 
         Spacer(modifier = Modifier.weight(1f))
@@ -129,12 +136,145 @@ fun SignUpScreen(
 
         AionPrimaryButton(
             text = "회원가입",
-            onClick = { onSignUpClick(selectedType, email, password) },
-            isPrimary = false,
-            enabled = email.isNotBlank() && password.isNotBlank()
+            // 회원가입 화면(시안 2p)으로 '이동'만 한다. 아이디/비번은 거기서 입력.
+            onClick = { onSignUpClick(selectedType) },
+            isPrimary = false
         )
 
         Spacer(modifier = Modifier.height(60.dp))
+    }
+}
+
+// ============================================================
+// 시안 2p: 회원가입 — 아이디 + 비밀번호
+// ============================================================
+// 별도 파일을 만들지 않기 위해 로그인 화면과 같은 파일에 둔다.
+// (원하면 SignUpAccountScreen.kt 로 분리해도 동작은 동일)
+@Composable
+fun SignUpAccountScreen(
+    onBackClick: () -> Unit = {},
+    onCheckDuplicate: (String) -> Unit = {},   // 아이디 중복확인 (백엔드 연결 지점)
+    duplicateMessage: String? = null,          // 중복확인 결과 문구 (없으면 표시 안 함)
+    onNext: (userId: String, password: String) -> Unit = { _, _ -> }
+) {
+    var userId by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AionTopBar(title = "회원가입", onBackClick = onBackClick)
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 46.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // ===== 아이디 + 중복확인 =====
+            Text(
+                "아이디를 입력해 주세요",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AionTextField(
+                    value = userId,
+                    onValueChange = { userId = it },
+                    placeholder = "",
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier
+                        .height(56.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (userId.isBlank()) GrayBackground else LightHover)
+                        .clickable(enabled = userId.isNotBlank()) { onCheckDuplicate(userId) }
+                        .padding(horizontal = 18.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "확인",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
+                }
+            }
+
+            if (duplicateMessage != null) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = duplicateMessage,
+                    fontSize = 12.sp,
+                    color = GrayText,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // ===== 비밀번호 =====
+            Text(
+                "비밀번호를 입력해 주세요",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            AionPasswordField(
+                value = password,
+                onValueChange = { password = it },
+                placeholder = ""
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                "영문, 숫자 포함 8자 이상 입력해 주세요.",
+                fontSize = 11.sp,
+                color = GrayText,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(40.dp))
+
+            AionPrimaryButton(
+                text = "다음",
+                onClick = { onNext(userId, password) },
+                enabled = userId.isNotBlank() && password.isNotBlank()
+            )
+
+            Spacer(modifier = Modifier.height(60.dp))
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7")
+@Composable
+fun SignUpAccountScreenPreview() {
+    AionTheme {
+        SignUpAccountScreen()
     }
 }
 
@@ -149,13 +289,14 @@ private fun TypeSelectButton(
         modifier = modifier
             .height(48.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(if (isSelected) BluePrimary else GrayBackground)
+            // 선택 상태 = Blue Light:hover (#E8EFFC). 배경만 바뀌고 글자색은 동일.
+            .background(if (isSelected) LightHover else GrayBackground)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            color = if (isSelected) White else TextPrimary,
+            color = TextPrimary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium
         )

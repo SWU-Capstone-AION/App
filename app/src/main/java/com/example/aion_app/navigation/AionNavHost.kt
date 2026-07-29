@@ -13,6 +13,7 @@ import com.example.aion_app.ui.screen.mypage.MyInfoScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoEditScreen
 import com.example.aion_app.ui.screen.mypage.MyPageScreen
 
+import com.example.aion_app.ui.screen.login.SignUpAccountScreen
 import com.example.aion_app.ui.screen.login.SignUpScreen
 import com.example.aion_app.ui.screen.login.SignUpViewModel
 import com.example.aion_app.ui.screen.login.ChildProfileSetupScreen
@@ -83,8 +84,26 @@ fun AionNavHost() {
                 onLoginClick = {
                     // TODO: 로그인(이메일/비번 입력) 화면이 아직 없음 — 별도 화면 만들면 여기 연결
                 },
-                onSignUpClick = { type, email, password ->
-                    signUpViewModel.updateSignUpInput(type, email, password)
+                onSignUpClick = { type ->
+                    signUpViewModel.updateType(type)
+                    navController.navigate(Route.SIGN_UP_ACCOUNT)
+                }
+            )
+        }
+
+        // ===== 회원가입: 아이디 + 비밀번호 (시안 2p) =====
+        composable(Route.SIGN_UP_ACCOUNT) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.SIGN_UP)
+            }
+            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+            SignUpAccountScreen(
+                onBackClick = { navController.popBackStack() },
+                onCheckDuplicate = { _ ->
+                    // TODO: 백엔드 아이디 중복확인 API 연결
+                },
+                onNext = { userId, password ->
+                    signUpViewModel.updateAccount(userId, password)
                     navController.navigate(Route.CHILD_PROFILE_SETUP)
                 }
             )
@@ -165,7 +184,8 @@ fun AionNavHost() {
         // ===== 알림센터 =====
         composable(Route.NOTIFICATION) {
             NotificationScreen(
-                onBackClick = { navController.popBackStack() }
+                onBackClick = { navController.popBackStack() },
+                onTabSelect = onTabSelect      // ← 이게 없어서 하단탭이 안 먹혔음
             )
         }
 

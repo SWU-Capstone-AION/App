@@ -1,5 +1,6 @@
 package com.example.aion_app.ui.screen.login  // ← 본인 패키지명
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -7,13 +8,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionPrimaryButton
-import com.example.aion_app.ui.theme.BluePrimary
 import com.example.aion_app.ui.theme.TextPrimary
 
 @Composable
@@ -30,9 +33,19 @@ fun OnboardingCompleteScreen(
     ) {
         Spacer(modifier = Modifier.height(120.dp))
 
-        Box(modifier = Modifier.size(80.dp), contentAlignment = Alignment.Center) {
-            Text("AION", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = BluePrimary)
-        }
+        // ===== 로고: 심볼(∞) + 워드마크(AION) =====
+        Image(
+            painter = painterResource(R.drawable.logo_symbol),
+            contentDescription = "AION 로고",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.width(68.dp)
+        )
+        Image(
+            painter = painterResource(R.drawable.logo_text),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.width(72.dp)
+        )
 
         Spacer(modifier = Modifier.height(100.dp))
 
