@@ -30,6 +30,8 @@ import com.example.aion_app.ui.theme.White
 import android.net.Uri
 import androidx.compose.ui.graphics.painter.Painter
 import coil.compose.rememberAsyncImagePainter
+import com.example.aion_app.ui.theme.AionTextDark
+import com.example.aion_app.ui.theme.DarkHover
 
 @Composable
 fun MyPageScreen(
@@ -100,7 +102,7 @@ fun MyPageScreen(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = BluePrimary
                 ),
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(10.dp),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
             ) {
                 Text(
@@ -111,6 +113,8 @@ fun MyPageScreen(
             }
 
             Spacer(modifier = Modifier.height(40.dp))
+
+            HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
 
             // 메뉴 리스트
             MenuItem(text = "아이디/비밀번호 찾기", onClick = onFindIdPasswordClick)
@@ -168,7 +172,7 @@ private fun MenuItem(
         Icon(
             imageVector = Icons.Default.KeyboardArrowRight,
             contentDescription = null,
-            tint = Color(0xFFBBBBBB)
+            tint = DarkHover
         )
     }
 }
