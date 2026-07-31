@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.lerp
@@ -36,13 +37,18 @@ import androidx.compose.ui.window.Dialog
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionPrimaryButton
 import com.example.aion_app.ui.component.AionTopBar
+import com.example.aion_app.ui.theme.AionTextDark
+import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.Light
+import com.example.aion_app.ui.theme.LightHover
+import com.example.aion_app.ui.theme.LightActive
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.Dark
 import com.example.aion_app.ui.theme.Red
 import com.example.aion_app.ui.theme.Orange
 import com.example.aion_app.ui.theme.Green
 import com.example.aion_app.ui.theme.GrayText
+import com.example.aion_app.ui.theme.GrayDark
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 import kotlinx.coroutines.launch
@@ -72,7 +78,14 @@ fun ReportDetailScreen(
     val monthly = remember(monthOffset) { monthlyReportFor(monthOffset) }
 
     Scaffold(
-        topBar = { AionTopBar(title = "상세 리포트", onBackClick = onBackClick) },
+        topBar = {
+            AionTopBar(
+                title = "상세 리포트",
+                onBackClick = onBackClick,
+                iconStartPadding = 8.dp,      // 아이콘 꼭짓점을 기간 탭 왼쪽(20dp)에 맞춤
+                dividerColor = AionTextDark   // #2D3C4A
+            )
+        },
         bottomBar = { AionBottomNavBar(selected = "report", onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
@@ -263,21 +276,29 @@ private fun PeriodTabs(
     ) {
         ReportPeriod.values().forEach { p ->
             val isSelected = p == selected
+            // 슬롯은 1/3 그대로 두고, 안쪽 선택 pill 만 좌우로 좁힌다.
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSelected) Normal else Color.Transparent)
-                    .clickable { onSelect(p) }
-                    .padding(vertical = 10.dp),
+                    .padding(horizontal = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = p.label,
-                    fontSize = 14.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSelected) White else GrayText
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSelected) Normal else Color.Transparent)
+                        .clickable { onSelect(p) }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = p.label,
+                        fontSize = 14.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) White else GrayText
+                    )
+                }
             }
         }
     }
@@ -295,21 +316,22 @@ private fun DateNavigator(
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onPrev) {
-            Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "이전", tint = GrayText)
+            Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "이전", tint = AionTextDark)
         }
         Text(
             text = label,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Center,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Medium,
             color = TextPrimary
         )
         IconButton(onClick = onNext, enabled = nextEnabled) {
             Icon(
                 Icons.Filled.KeyboardArrowRight,
                 contentDescription = "다음",
-                tint = if (nextEnabled) GrayText else Color(0xFFDDDDDD)
+                // 색상 통일(#2D3C4A). 비활성만 같은 색 30% 로 흐리게.
+                tint = if (nextEnabled) AionTextDark else AionTextDark.copy(alpha = 0.3f)
             )
         }
     }
@@ -321,14 +343,14 @@ private fun StudentHeaderCard(student: ReportStudent) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 프로필 + 상태 점
         Box(
             modifier = Modifier.size(52.dp),
-            contentAlignment = Alignment.BottomStart
+            contentAlignment = Alignment.BottomEnd   // 상태 점을 우측으로
         ) {
             Box(
                 modifier = Modifier
@@ -341,7 +363,7 @@ private fun StudentHeaderCard(student: ReportStudent) {
                     modifier = Modifier
                         .size(12.dp)
                         .clip(CircleShape)
-                        .background(White)
+                        .background(Green.copy(alpha = 0.5f))   // 뒤쪽 원 #629F7D 50%
                         .padding(2.dp)
                 ) {
                     Box(
@@ -389,23 +411,33 @@ private fun StudentHeaderCard(student: ReportStudent) {
 private fun ActiveBadge() {
     Row(
         modifier = Modifier
+            .height(20.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Light)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .background(LightHover)   // 배지 배경 #E8EFFC
+            .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // 시안: #6495ED 점 뒤에 #CFDEF9 원이 한 겹 더 있다 (지름 비율 약 1:2)
         Box(
             modifier = Modifier
-                .size(6.dp)
+                .size(10.dp)
                 .clip(CircleShape)
-                .background(Normal)
-        )
+                .background(LightActive)   // 뒤쪽 원 #CFDEF9
+                .padding(2.5.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .background(Normal)   // #6495ED
+            )
+        }
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = "활동중",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Normal
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            color = Dark   // #4B70B2
         )
     }
 }
@@ -424,10 +456,19 @@ private fun SummaryCard(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFEEF3FB))
+            // 배경 그라데이션 #FFFFFF → #E8EFFC (위 → 아래).
+            // 시안은 60% 지점에서 이미 #E8EFFC 로 포화되고 아래까지 유지된다.
+            .background(
+                Brush.verticalGradient(
+                    0.0f to White,
+                    0.6f to LightHover,
+                    1.0f to LightHover
+                )
+            )
+            .border(1.dp, LightActive, RoundedCornerShape(12.dp))
             .padding(vertical = 16.dp, horizontal = 14.dp)
     ) {
-        Text(text = label, fontSize = 12.sp, color = GrayText)
+        Text(text = label, fontSize = 14.sp, color = GrayDark, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
@@ -438,9 +479,10 @@ private fun SummaryCard(
             )
             Text(
                 text = " $suffix",
-                fontSize = 13.sp,
-                color = GrayText,
-                modifier = Modifier.padding(bottom = 3.dp)
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary,
+                modifier = Modifier.padding(vertical = 3.dp, horizontal = 8.dp)
             )
         }
     }
@@ -456,12 +498,11 @@ private fun SectionTitle(main: String, sub: String? = null) {
             color = TextPrimary
         )
         if (sub != null) {
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = sub,
                 fontSize = 12.sp,
                 color = GrayText,
-                modifier = Modifier.padding(bottom = 2.dp)
             )
         }
     }
@@ -473,7 +514,7 @@ private fun ChartCard(title: String, content: @Composable () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Text(
@@ -505,21 +546,21 @@ private fun InsightCard(insight: AiInsight) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         // 태그 칩
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(Light)
+                .clip(RoundedCornerShape(10.dp))
+                .background(LightHover)   // #E8EFFC
                 .padding(horizontal = 8.dp, vertical = 3.dp)
         ) {
             Text(
                 text = insight.tag,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Normal
+                color = Dark   // #4B70B2
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
@@ -552,7 +593,7 @@ private fun RiskBarChartCard(title: String, risks: List<HourlyRisk>) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -584,82 +625,129 @@ private fun RiskBarChart(
     selectedHour: Int?,
     onBarClick: (Int) -> Unit
 ) {
-    val chartHeight = 170.dp
+// 시안 실측: 100 기준선 ~ 0 기준선 사이 131dp
+    val chartHeight = 131.dp
     val startPad = 26.dp
+    val axisLabel = 14.dp
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(chartHeight)
+                .height(chartHeight + axisLabel)
         ) {
-            // \uc704\ud5d8/\uc8fc\uc758 \uc810\uc120
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val dangerY = size.height * (1f - RiskThreshold.DANGER / 100f)
-                val cautionY = size.height * (1f - RiskThreshold.CAUTION / 100f)
-                val dash = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
-                val left = startPad.toPx()
-                drawLine(
-                    color = Red.copy(alpha = 0.45f),
-                    start = Offset(left, dangerY),
-                    end = Offset(size.width, dangerY),
-                    strokeWidth = 2f,
-                    pathEffect = dash
-                )
-                drawLine(
-                    color = Orange.copy(alpha = 0.4f),
-                    start = Offset(left, cautionY),
-                    end = Offset(size.width, cautionY),
-                    strokeWidth = 2f,
-                    pathEffect = dash
-                )
-            }
-
-            Text("100", fontSize = 10.sp, color = GrayText, modifier = Modifier.align(Alignment.TopStart))
-            Text("0", fontSize = 10.sp, color = GrayText, modifier = Modifier.align(Alignment.BottomStart))
-            Text(
-                text = "\uc704\ud5d8",
-                fontSize = 9.sp,
-                color = Red,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .offset(y = chartHeight * (1f - RiskThreshold.DANGER / 100f) - 6.dp)
-            )
-            Text(
-                text = "\uc8fc\uc758",
-                fontSize = 9.sp,
-                color = Orange,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .offset(y = chartHeight * (1f - RiskThreshold.CAUTION / 100f) - 6.dp)
-            )
-
-            // \ub9c9\ub300 (\ud0ed \uc601\uc5ed = \uc138\ub85c \uc804\uccb4, \ub118\uac8c)
-            Row(
+            // ---------- 플롯 영역 (여기서 0f = 100 선, size.height = 0 선) ----------
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = startPad, end = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                    .padding(vertical = axisLabel / 2)
             ) {
-                risks.forEach { risk ->
-                    val isSelected = risk.hour == selectedHour
-                    Box(
-                        modifier = Modifier
-                            .width(24.dp)
-                            .fillMaxHeight()
-                            .clickable { onBarClick(risk.hour) },
-                        contentAlignment = Alignment.BottomCenter
-                    ) {
+                // 위험/주의 점선 + 100/0 기준선 (전부 1dp)
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val dangerY = size.height * (1f - RiskThreshold.DANGER / 100f)
+                    val cautionY = size.height * (1f - RiskThreshold.CAUTION / 100f)
+                    val left = startPad.toPx()
+                    val stroke = 1.dp.toPx()
+                    val dash = PathEffect.dashPathEffect(
+                        floatArrayOf(3.dp.toPx(), 3.dp.toPx())
+                    )
+
+                    // 100 / 0 기준선 — 선 두께의 절반만큼 안쪽으로 넣어 잘림 방지
+                    drawLine(
+                        color = Light,
+                        start = Offset(left, stroke / 2),
+                        end = Offset(size.width, stroke / 2),
+                        strokeWidth = stroke
+                    )
+                    drawLine(
+                        color = Light,
+                        start = Offset(left, size.height - stroke / 2),
+                        end = Offset(size.width, size.height - stroke / 2),
+                        strokeWidth = stroke
+                    )
+
+                    drawLine(
+                        color = Red.copy(alpha = 0.45f),
+                        start = Offset(left, dangerY),
+                        end = Offset(size.width, dangerY),
+                        strokeWidth = stroke,
+                        pathEffect = dash
+                    )
+                    drawLine(
+                        color = Orange.copy(alpha = 0.4f),
+                        start = Offset(left, cautionY),
+                        end = Offset(size.width, cautionY),
+                        strokeWidth = stroke,
+                        pathEffect = dash
+                    )
+                }
+
+                // 위험 / 주의 라벨
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(y = chartHeight * (1f - RiskThreshold.DANGER / 100f) - 10.dp)
+                        .height(14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "\uc704\ud5d8", fontSize = 9.sp, color = Red)
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(y = chartHeight * (1f - RiskThreshold.CAUTION / 100f) - 10.dp)
+                        .height(14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "\uc8fc\uc758", fontSize = 9.sp, color = Orange)
+                }
+
+                // 막대 (탭 영역 = 세로 전체, 넓게)
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = startPad, end = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    risks.forEach { risk ->
+                        val isSelected = risk.hour == selectedHour
                         Box(
                             modifier = Modifier
-                                .width(16.dp)
-                                .fillMaxHeight((risk.score / 100f).coerceIn(0f, 1f))
-                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                .background(barColor(risk.score, isSelected))
-                        )
+                                .width(24.dp)
+                                .fillMaxHeight()
+                                .clickable { onBarClick(risk.hour) },
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(18.dp)
+                                    .fillMaxHeight((risk.score / 100f).coerceIn(0f, 1f))
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(barColor(risk.score, isSelected))
+                            )
+                        }
                     }
                 }
+            }
+            // ---------- 플롯 영역 끝 ----------
+
+            // 축 라벨은 바깥 Box 기준. 박스 중심이 각 기준선 위에 정확히 놓인다.
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .height(axisLabel),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("100", fontSize = 10.sp, color = GrayText)
+            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .height(axisLabel),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("0", fontSize = 10.sp, color = GrayText)
             }
         }
 
@@ -705,7 +793,7 @@ private fun WeeklyHeatmapCard(title: String, cells: List<HeatCell>) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -933,7 +1021,7 @@ private fun ReportSavedDialog(success: Boolean, onConfirm: () -> Unit) {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ReportDetailScreenPreview() {
-    MaterialTheme {
+    AionTheme {
         ReportDetailScreen()
     }
 }

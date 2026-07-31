@@ -20,7 +20,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.ui.component.AionBottomNavBar
+import com.example.aion_app.ui.theme.AionTextDark
+import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.GrayText
+import com.example.aion_app.ui.theme.LightActive
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 
@@ -68,11 +71,12 @@ private fun ReportListTopBar() {
         Text(
             text = "리포트",
             fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Bold,   // Pretendard Bold (AionTheme 안에서만 적용됨)
             color = TextPrimary
         )
     }
-    HorizontalDivider(thickness = 0.5.dp, color = Color(0xFFEEEEEE))
+    // 하단 스트로크: 디자인 확정 색 #2D3C4A (= AionTextDark), 두께는 기존 0.5dp 유지
+    HorizontalDivider(thickness = 0.5.dp, color = AionTextDark)
 }
 
 @Composable
@@ -87,7 +91,8 @@ private fun StudentReportCard(
             .background(White)
             .border(
                 width = 1.dp,
-                color = Color(0xFFE8EDF3),
+                // 테두리: 디자인 확정 색 #CFDEF9 (= Blue Light :active 토큰과 동일 헥스)
+                color = LightActive,
                 shape = RoundedCornerShape(16.dp)
             )
             .clickable(onClick = onClick)
@@ -108,7 +113,7 @@ private fun StudentReportCard(
         Text(
             text = student.name,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Bold,   // Pretendard Bold
             color = TextPrimary
         )
         Spacer(modifier = Modifier.width(8.dp))
@@ -129,10 +134,12 @@ private fun StudentReportCard(
     }
 }
 
+// 프리뷰도 AionTheme 으로 감싸야 Pretendard 가 적용된다.
+// MaterialTheme 로 두면 시스템 기본 폰트로 떨어져서 볼드가 얇아 보임.
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ReportListScreenPreview() {
-    MaterialTheme {
+    AionTheme {
         ReportListScreen()
     }
 }
