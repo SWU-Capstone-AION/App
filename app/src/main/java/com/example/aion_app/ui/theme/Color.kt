@@ -31,6 +31,7 @@ val BlueLight   = Light    // = Blue Light  (0xFFF0F4FD)
 // ---------- 보조 색 (GreyScale 는 추후 통일 예정) ----------
 val GrayBackground = Color(0xFFF5F5F5)
 val GrayText       = Color(0xFF9E9E9E)
+val GrayDark       = Color(0xFF575A5C)
 val RedError       = Color(0xFFE53935)   // 팀 에러 색
 val GreenSuccess   = Color(0xFF4CAF50)   // 팀 성공 색
 val TextPrimary    = Color(0xFF222222)

@@ -48,6 +48,7 @@ import com.example.aion_app.ui.theme.Red
 import com.example.aion_app.ui.theme.Orange
 import com.example.aion_app.ui.theme.Green
 import com.example.aion_app.ui.theme.GrayText
+import com.example.aion_app.ui.theme.GrayDark
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 import kotlinx.coroutines.launch
@@ -410,9 +411,10 @@ private fun StudentHeaderCard(student: ReportStudent) {
 private fun ActiveBadge() {
     Row(
         modifier = Modifier
+            .height(20.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(LightHover)   // 배지 배경 #E8EFFC
-            .padding(horizontal = 10.dp, vertical = 4.dp),
+            .padding(horizontal = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 시안: #6495ED 점 뒤에 #CFDEF9 원이 한 겹 더 있다 (지름 비율 약 1:2)
@@ -433,8 +435,8 @@ private fun ActiveBadge() {
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = "활동중",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
             color = Dark   // #4B70B2
         )
     }
@@ -466,7 +468,7 @@ private fun SummaryCard(
             .border(1.dp, LightActive, RoundedCornerShape(12.dp))
             .padding(vertical = 16.dp, horizontal = 14.dp)
     ) {
-        Text(text = label, fontSize = 12.sp, color = GrayText)
+        Text(text = label, fontSize = 14.sp, color = GrayDark, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
@@ -477,9 +479,10 @@ private fun SummaryCard(
             )
             Text(
                 text = " $suffix",
-                fontSize = 13.sp,
-                color = GrayText,
-                modifier = Modifier.padding(bottom = 3.dp)
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary,
+                modifier = Modifier.padding(vertical = 3.dp, horizontal = 8.dp)
             )
         }
     }
@@ -622,86 +625,129 @@ private fun RiskBarChart(
     selectedHour: Int?,
     onBarClick: (Int) -> Unit
 ) {
-    val chartHeight = 170.dp
+// 시안 실측: 100 기준선 ~ 0 기준선 사이 131dp
+    val chartHeight = 131.dp
     val startPad = 26.dp
+    val axisLabel = 14.dp
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(chartHeight)
+                .height(chartHeight + axisLabel)
         ) {
-            // \uc704\ud5d8/\uc8fc\uc758 \uc810\uc120
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val dangerY = size.height * (1f - RiskThreshold.DANGER / 100f)
-                val cautionY = size.height * (1f - RiskThreshold.CAUTION / 100f)
-                val dash = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
-                val left = startPad.toPx()
-                drawLine(
-                    color = Red.copy(alpha = 0.45f),
-                    start = Offset(left, dangerY),
-                    end = Offset(size.width, dangerY),
-                    strokeWidth = 2f,
-                    pathEffect = dash
-                )
-                drawLine(
-                    color = Orange.copy(alpha = 0.4f),
-                    start = Offset(left, cautionY),
-                    end = Offset(size.width, cautionY),
-                    strokeWidth = 2f,
-                    pathEffect = dash
-                )
-            }
-
-            Text("100", fontSize = 10.sp, color = GrayText, modifier = Modifier.align(Alignment.TopStart))
-            Text("0", fontSize = 10.sp, color = GrayText, modifier = Modifier.align(Alignment.BottomStart))
-            // 라벨을 높이 14dp 박스로 감싸고 선 위치에서 절반(7dp)만 올린다.
-            // → 텍스트 세로 중심이 점선과 정확히 일치 (기존 -6.dp 는 어림값)
+            // ---------- 플롯 영역 (여기서 0f = 100 선, size.height = 0 선) ----------
             Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .offset(y = chartHeight * (1f - RiskThreshold.DANGER / 100f) - 10.dp)
-                    .height(14.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "\uc704\ud5d8", fontSize = 9.sp, color = Red)
-            }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .offset(y = chartHeight * (1f - RiskThreshold.CAUTION / 100f) - 10.dp)
-                    .height(14.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(text = "\uc8fc\uc758", fontSize = 9.sp, color = Orange)
-            }
-
-            // \ub9c9\ub300 (\ud0ed \uc601\uc5ed = \uc138\ub85c \uc804\uccb4, \ub118\uac8c)
-            Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(start = startPad, end = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                    .padding(vertical = axisLabel / 2)
             ) {
-                risks.forEach { risk ->
-                    val isSelected = risk.hour == selectedHour
-                    Box(
-                        modifier = Modifier
-                            .width(24.dp)
-                            .fillMaxHeight()
-                            .clickable { onBarClick(risk.hour) },
-                        contentAlignment = Alignment.BottomCenter
-                    ) {
+                // 위험/주의 점선 + 100/0 기준선 (전부 1dp)
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val dangerY = size.height * (1f - RiskThreshold.DANGER / 100f)
+                    val cautionY = size.height * (1f - RiskThreshold.CAUTION / 100f)
+                    val left = startPad.toPx()
+                    val stroke = 1.dp.toPx()
+                    val dash = PathEffect.dashPathEffect(
+                        floatArrayOf(3.dp.toPx(), 3.dp.toPx())
+                    )
+
+                    // 100 / 0 기준선 — 선 두께의 절반만큼 안쪽으로 넣어 잘림 방지
+                    drawLine(
+                        color = Light,
+                        start = Offset(left, stroke / 2),
+                        end = Offset(size.width, stroke / 2),
+                        strokeWidth = stroke
+                    )
+                    drawLine(
+                        color = Light,
+                        start = Offset(left, size.height - stroke / 2),
+                        end = Offset(size.width, size.height - stroke / 2),
+                        strokeWidth = stroke
+                    )
+
+                    drawLine(
+                        color = Red.copy(alpha = 0.45f),
+                        start = Offset(left, dangerY),
+                        end = Offset(size.width, dangerY),
+                        strokeWidth = stroke,
+                        pathEffect = dash
+                    )
+                    drawLine(
+                        color = Orange.copy(alpha = 0.4f),
+                        start = Offset(left, cautionY),
+                        end = Offset(size.width, cautionY),
+                        strokeWidth = stroke,
+                        pathEffect = dash
+                    )
+                }
+
+                // 위험 / 주의 라벨
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(y = chartHeight * (1f - RiskThreshold.DANGER / 100f) - 10.dp)
+                        .height(14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "\uc704\ud5d8", fontSize = 9.sp, color = Red)
+                }
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(y = chartHeight * (1f - RiskThreshold.CAUTION / 100f) - 10.dp)
+                        .height(14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "\uc8fc\uc758", fontSize = 9.sp, color = Orange)
+                }
+
+                // 막대 (탭 영역 = 세로 전체, 넓게)
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(start = startPad, end = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    risks.forEach { risk ->
+                        val isSelected = risk.hour == selectedHour
                         Box(
                             modifier = Modifier
-                                .width(18.dp)                    // 가로 소폭 확대 (슬롯 24dp)
-                                .fillMaxHeight((risk.score / 100f).coerceIn(0f, 1f))
-                                .clip(RoundedCornerShape(4.dp))  // 네 모서리 라운딩 4
-                                .background(barColor(risk.score, isSelected))
-                        )
+                                .width(24.dp)
+                                .fillMaxHeight()
+                                .clickable { onBarClick(risk.hour) },
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(18.dp)
+                                    .fillMaxHeight((risk.score / 100f).coerceIn(0f, 1f))
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(barColor(risk.score, isSelected))
+                            )
+                        }
                     }
                 }
+            }
+            // ---------- 플롯 영역 끝 ----------
+
+            // 축 라벨은 바깥 Box 기준. 박스 중심이 각 기준선 위에 정확히 놓인다.
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .height(axisLabel),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("100", fontSize = 10.sp, color = GrayText)
+            }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .height(axisLabel),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("0", fontSize = 10.sp, color = GrayText)
             }
         }
 
