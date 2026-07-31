@@ -229,7 +229,6 @@ fun MyInfoEditScreen(
                 Spacer(modifier = Modifier.height(32.dp))
             }
 
-            // 수정하기 버튼 (고정)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -257,7 +256,7 @@ fun MyInfoEditScreen(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = "수정하기",
+                        text = "저장하기",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = White
