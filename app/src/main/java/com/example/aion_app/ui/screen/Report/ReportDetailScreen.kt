@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.lerp
@@ -36,7 +37,11 @@ import androidx.compose.ui.window.Dialog
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionPrimaryButton
 import com.example.aion_app.ui.component.AionTopBar
+import com.example.aion_app.ui.theme.AionTextDark
+import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.Light
+import com.example.aion_app.ui.theme.LightHover
+import com.example.aion_app.ui.theme.LightActive
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.Dark
 import com.example.aion_app.ui.theme.Red
@@ -72,7 +77,14 @@ fun ReportDetailScreen(
     val monthly = remember(monthOffset) { monthlyReportFor(monthOffset) }
 
     Scaffold(
-        topBar = { AionTopBar(title = "상세 리포트", onBackClick = onBackClick) },
+        topBar = {
+            AionTopBar(
+                title = "상세 리포트",
+                onBackClick = onBackClick,
+                iconStartPadding = 8.dp,      // 아이콘 꼭짓점을 기간 탭 왼쪽(20dp)에 맞춤
+                dividerColor = AionTextDark   // #2D3C4A
+            )
+        },
         bottomBar = { AionBottomNavBar(selected = "report", onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
@@ -263,21 +275,29 @@ private fun PeriodTabs(
     ) {
         ReportPeriod.values().forEach { p ->
             val isSelected = p == selected
+            // 슬롯은 1/3 그대로 두고, 안쪽 선택 pill 만 좌우로 좁힌다.
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSelected) Normal else Color.Transparent)
-                    .clickable { onSelect(p) }
-                    .padding(vertical = 10.dp),
+                    .padding(horizontal = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = p.label,
-                    fontSize = 14.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSelected) White else GrayText
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSelected) Normal else Color.Transparent)
+                        .clickable { onSelect(p) }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = p.label,
+                        fontSize = 14.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) White else GrayText
+                    )
+                }
             }
         }
     }
@@ -295,21 +315,22 @@ private fun DateNavigator(
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onPrev) {
-            Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "이전", tint = GrayText)
+            Icon(Icons.Filled.KeyboardArrowLeft, contentDescription = "이전", tint = AionTextDark)
         }
         Text(
             text = label,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Center,
             fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.Medium,
             color = TextPrimary
         )
         IconButton(onClick = onNext, enabled = nextEnabled) {
             Icon(
                 Icons.Filled.KeyboardArrowRight,
                 contentDescription = "다음",
-                tint = if (nextEnabled) GrayText else Color(0xFFDDDDDD)
+                // 색상 통일(#2D3C4A). 비활성만 같은 색 30% 로 흐리게.
+                tint = if (nextEnabled) AionTextDark else AionTextDark.copy(alpha = 0.3f)
             )
         }
     }
@@ -321,14 +342,14 @@ private fun StudentHeaderCard(student: ReportStudent) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 프로필 + 상태 점
         Box(
             modifier = Modifier.size(52.dp),
-            contentAlignment = Alignment.BottomStart
+            contentAlignment = Alignment.BottomEnd   // 상태 점을 우측으로
         ) {
             Box(
                 modifier = Modifier
@@ -341,7 +362,7 @@ private fun StudentHeaderCard(student: ReportStudent) {
                     modifier = Modifier
                         .size(12.dp)
                         .clip(CircleShape)
-                        .background(White)
+                        .background(Green.copy(alpha = 0.5f))   // 뒤쪽 원 #629F7D 50%
                         .padding(2.dp)
                 ) {
                     Box(
@@ -390,22 +411,31 @@ private fun ActiveBadge() {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(Light)
+            .background(LightHover)   // 배지 배경 #E8EFFC
             .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // 시안: #6495ED 점 뒤에 #CFDEF9 원이 한 겹 더 있다 (지름 비율 약 1:2)
         Box(
             modifier = Modifier
-                .size(6.dp)
+                .size(10.dp)
                 .clip(CircleShape)
-                .background(Normal)
-        )
+                .background(LightActive)   // 뒤쪽 원 #CFDEF9
+                .padding(2.5.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+                    .background(Normal)   // #6495ED
+            )
+        }
         Spacer(modifier = Modifier.width(4.dp))
         Text(
             text = "활동중",
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Normal
+            color = Dark   // #4B70B2
         )
     }
 }
@@ -424,7 +454,16 @@ private fun SummaryCard(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFEEF3FB))
+            // 배경 그라데이션 #FFFFFF → #E8EFFC (위 → 아래).
+            // 시안은 60% 지점에서 이미 #E8EFFC 로 포화되고 아래까지 유지된다.
+            .background(
+                Brush.verticalGradient(
+                    0.0f to White,
+                    0.6f to LightHover,
+                    1.0f to LightHover
+                )
+            )
+            .border(1.dp, LightActive, RoundedCornerShape(12.dp))
             .padding(vertical = 16.dp, horizontal = 14.dp)
     ) {
         Text(text = label, fontSize = 12.sp, color = GrayText)
@@ -456,12 +495,11 @@ private fun SectionTitle(main: String, sub: String? = null) {
             color = TextPrimary
         )
         if (sub != null) {
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = sub,
                 fontSize = 12.sp,
                 color = GrayText,
-                modifier = Modifier.padding(bottom = 2.dp)
             )
         }
     }
@@ -473,7 +511,7 @@ private fun ChartCard(title: String, content: @Composable () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Text(
@@ -505,21 +543,21 @@ private fun InsightCard(insight: AiInsight) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         // 태그 칩
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(Light)
+                .clip(RoundedCornerShape(10.dp))
+                .background(LightHover)   // #E8EFFC
                 .padding(horizontal = 8.dp, vertical = 3.dp)
         ) {
             Text(
                 text = insight.tag,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Normal
+                color = Dark   // #4B70B2
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
@@ -552,7 +590,7 @@ private fun RiskBarChartCard(title: String, risks: List<HourlyRisk>) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -617,22 +655,26 @@ private fun RiskBarChart(
 
             Text("100", fontSize = 10.sp, color = GrayText, modifier = Modifier.align(Alignment.TopStart))
             Text("0", fontSize = 10.sp, color = GrayText, modifier = Modifier.align(Alignment.BottomStart))
-            Text(
-                text = "\uc704\ud5d8",
-                fontSize = 9.sp,
-                color = Red,
+            // 라벨을 높이 14dp 박스로 감싸고 선 위치에서 절반(7dp)만 올린다.
+            // → 텍스트 세로 중심이 점선과 정확히 일치 (기존 -6.dp 는 어림값)
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .offset(y = chartHeight * (1f - RiskThreshold.DANGER / 100f) - 6.dp)
-            )
-            Text(
-                text = "\uc8fc\uc758",
-                fontSize = 9.sp,
-                color = Orange,
+                    .offset(y = chartHeight * (1f - RiskThreshold.DANGER / 100f) - 10.dp)
+                    .height(14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "\uc704\ud5d8", fontSize = 9.sp, color = Red)
+            }
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .offset(y = chartHeight * (1f - RiskThreshold.CAUTION / 100f) - 6.dp)
-            )
+                    .offset(y = chartHeight * (1f - RiskThreshold.CAUTION / 100f) - 10.dp)
+                    .height(14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "\uc8fc\uc758", fontSize = 9.sp, color = Orange)
+            }
 
             // \ub9c9\ub300 (\ud0ed \uc601\uc5ed = \uc138\ub85c \uc804\uccb4, \ub118\uac8c)
             Row(
@@ -653,9 +695,9 @@ private fun RiskBarChart(
                     ) {
                         Box(
                             modifier = Modifier
-                                .width(16.dp)
+                                .width(18.dp)                    // 가로 소폭 확대 (슬롯 24dp)
                                 .fillMaxHeight((risk.score / 100f).coerceIn(0f, 1f))
-                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                                .clip(RoundedCornerShape(4.dp))  // 네 모서리 라운딩 4
                                 .background(barColor(risk.score, isSelected))
                         )
                     }
@@ -705,7 +747,7 @@ private fun WeeklyHeatmapCard(title: String, cells: List<HeatCell>) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFE8EDF3), RoundedCornerShape(16.dp))
+            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -933,7 +975,7 @@ private fun ReportSavedDialog(success: Boolean, onConfirm: () -> Unit) {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ReportDetailScreenPreview() {
-    MaterialTheme {
+    AionTheme {
         ReportDetailScreen()
     }
 }
