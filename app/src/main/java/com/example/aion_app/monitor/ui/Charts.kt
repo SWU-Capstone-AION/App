@@ -14,6 +14,8 @@ import com.example.aion_app.monitor.pose.StereotypyDetector.WristPoint
 
 private val LeftColor = Color(0xFF34C6FF)
 private val RightColor = Color(0xFF3B6DFF)
+private val HeadColor = Color(0xFF16D0C0)
+private val BodyColor = Color(0xFFB47CFF)
 private val ThresholdColor = Color(0xFFFF5A3C)
 private val GridColor = Color(0x1A34C6FF)
 
@@ -62,17 +64,19 @@ fun TimelineChart(timeline: List<TimelinePoint>, modifier: Modifier = Modifier) 
             pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f)),
         )
 
-        // 좌/우 파형
+        // 부위별 파형 (좌팔·우팔·머리·몸통)
         for ((sel, color) in listOf<Pair<(TimelinePoint) -> Double, Color>>(
-            { p: TimelinePoint -> p.l } to LeftColor,
-            { p: TimelinePoint -> p.r } to RightColor,
+            { p: TimelinePoint -> p.leftArm } to LeftColor,
+            { p: TimelinePoint -> p.rightArm } to RightColor,
+            { p: TimelinePoint -> p.head } to HeadColor,
+            { p: TimelinePoint -> p.body } to BodyColor,
         )) {
             val path = Path()
             timeline.forEachIndexed { i, p ->
                 val x = xOf(p.t); val y = yOf(sel(p))
                 if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
             }
-            drawPath(path, color, style = Stroke(width = 2.5f))
+            drawPath(path, color, style = Stroke(width = 2f))
         }
     }
 }

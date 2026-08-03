@@ -6,15 +6,18 @@ import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
- * HTML 원본(monitor.html)의 상동행동 판정 + 운영기록 로직을 Kotlin 으로 1:1 이식.
- * 손목 좌표를 슬라이딩 윈도우로 버퍼링하여 진폭/박자/중심편차 3기준으로 "활성"을 판정하고,
- * 전역 윈도우(3s) 내 누적 활성 시간이 임계값(2.9s)을 넘으면 알람.
- * 추가로 추이 타임라인, 손목 트레이스, 포즈 추정, 심박 시뮬레이션을 함께 계산한다.
+ * 상동행동 판정기. 여러 신체 부위의 좌표를 슬라이딩 윈도우로 버퍼링하여
+ * 진폭/박자/중심편차 3기준으로 "활성"을 판정하고, 전역 윈도우(4s) 내 누적 활성 시간이
+ * 임계값(3.9s)을 넘으면 알람.
+ *
+ * 부위(Part): 좌팔·우팔(손목 절대좌표), 머리(코-어깨중심 상대좌표), 몸통(어깨중심-엉덩이중심 상대좌표).
+ * 각 부위는 X/Y 중 진동이 큰 축을 자동 선택하므로 상하·좌우 흔들림을 모두 잡는다.
  *
  * 스레드: MediaPipe 결과 리스너(단일 스레드)에서만 호출된다는 전제로 동기화 없음.
- * State 에 담기는 컬렉션은 복사본이라 UI 스레드에서 안전하게 읽을 수 있다.
  */
 class StereotypyDetector {
+
+    enum class Part { LEFT_ARM, RIGHT_ARM, HEAD, BODY }
 
     data class Arm(
         val intervalOk: Boolean = false,
@@ -26,30 +29,29 @@ class StereotypyDetector {
         val amplitude: Double = 0.0,
     )
 
-    data class TimelinePoint(val t: Double, val l: Double, val r: Double, val alarm: Boolean)
+    data class PartState(val analysis: Arm, val duration: Double, val alarm: Boolean)
+
+    data class TimelinePoint(
+        val t: Double,
+        val leftArm: Double, val rightArm: Double, val head: Double, val body: Double,
+        val alarm: Boolean,
+    )
     data class WristPoint(val t: Double, val ly: Double?, val ry: Double?)
 
     data class State(
-        val left: Arm,
-        val right: Arm,
-        val leftDuration: Double,
-        val rightDuration: Double,
-        val leftAlarm: Boolean,
-        val rightAlarm: Boolean,
+        val parts: Map<Part, PartState>,
         val anyAlarm: Boolean,
         val elapsedSec: Double,
-        val leftActiveTotal: Double,
-        val rightActiveTotal: Double,
         val alarmCount: Int,
         val maxStreak: Double,
         val heartRate: Int,
         val poseText: String,
-        val leftWristPx: Pair<Int, Int>?,
-        val rightWristPx: Pair<Int, Int>?,
+        val activeTotals: Map<Part, Double>,
         val timeline: List<TimelinePoint>,
         val wristTrace: List<WristPoint>,
     )
 
+    /** 추적 점(정규화 좌표). 손목·코·중심점 등 무엇이든 담는다. */
     data class Wrist(val xNorm: Double, val yNorm: Double, val visibility: Double)
 
     private class Buffer {
@@ -65,19 +67,15 @@ class StereotypyDetector {
         }
     }
 
-    private val left = Buffer()
-    private val right = Buffer()
+    private val buffers = Part.entries.associateWith { Buffer() }
+    private val alarmLatched = Part.entries.associateWith { false }.toMutableMap()
+    private val activeTotal = Part.entries.associateWith { 0.0 }.toMutableMap()
+    private val streak = Part.entries.associateWith { 0.0 }.toMutableMap()
 
     private var sessionStartMs = 0L
     private var lastFrameT = 0.0
-    private var leftActiveTotal = 0.0
-    private var rightActiveTotal = 0.0
-    private var leftStreak = 0.0
-    private var rightStreak = 0.0
     private var maxStreak = 0.0
     private var alarmCount = 0
-    private val alarmLatched = booleanArrayOf(false, false) // [left, right]
-
     private var bioHR = 75.0
     private var lastBioUpdate = 0.0
 
@@ -85,94 +83,123 @@ class StereotypyDetector {
     private val wristTrace = ArrayList<WristPoint>()
 
     fun reset() {
-        left.clear(); right.clear()
+        buffers.values.forEach { it.clear() }
+        Part.entries.forEach { alarmLatched[it] = false; activeTotal[it] = 0.0; streak[it] = 0.0 }
         sessionStartMs = 0L
         lastFrameT = 0.0
-        leftActiveTotal = 0.0; rightActiveTotal = 0.0
-        leftStreak = 0.0; rightStreak = 0.0; maxStreak = 0.0
+        maxStreak = 0.0
         alarmCount = 0
-        alarmLatched[0] = false; alarmLatched[1] = false
         bioHR = 75.0; lastBioUpdate = 0.0
         timeline.clear(); wristTrace.clear()
     }
 
+    private fun mid(a: Wrist?, b: Wrist?): Wrist? =
+        if (a != null && b != null)
+            Wrist((a.xNorm + b.xNorm) / 2, (a.yNorm + b.yNorm) / 2, minOf(a.visibility, b.visibility))
+        else null
+
+    private fun rel(p: Wrist?, origin: Wrist?): Wrist? =
+        if (p != null && origin != null)
+            Wrist(p.xNorm - origin.xNorm, p.yNorm - origin.yNorm, minOf(p.visibility, origin.visibility))
+        else null
+
     fun update(
         timestampMs: Long,
-        leftWrist: Wrist?,
-        rightWrist: Wrist?,
-        leftShoulder: Wrist?,
-        rightShoulder: Wrist?,
+        nose: Wrist?,
+        leftShoulder: Wrist?, rightShoulder: Wrist?,
+        leftHip: Wrist?, rightHip: Wrist?,
+        leftWrist: Wrist?, rightWrist: Wrist?,
     ): State {
         if (sessionStartMs == 0L) sessionStartMs = timestampMs
         val tNow = (timestampMs - sessionStartMs) / 1000.0
 
-        var la = Arm()
-        var ra = Arm()
-        var leftDur = 0.0
-        var rightDur = 0.0
+        val shoulderMid = mid(leftShoulder, rightShoulder)
+        val hipMid = mid(leftHip, rightHip)
 
-        if (leftWrist != null) {
-            pushSample(left, tNow, leftWrist)
-            la = analyze(left, tNow)
-            left.active[left.active.size - 1] = la.active
-            leftDur = durationInWindow(left, tNow)
-        }
-        if (rightWrist != null) {
-            pushSample(right, tNow, rightWrist)
-            ra = analyze(right, tNow)
-            right.active[right.active.size - 1] = ra.active
-            rightDur = durationInWindow(right, tNow)
-        }
-
-        val leftAlarm = leftDur > DURATION_THRESHOLD
-        val rightAlarm = rightDur > DURATION_THRESHOLD
-        val anyAlarm = leftAlarm || rightAlarm
-
-        if (leftAlarm && !alarmLatched[0]) { alarmLatched[0] = true; alarmCount++ }
-        else if (!leftAlarm) alarmLatched[0] = false
-        if (rightAlarm && !alarmLatched[1]) { alarmLatched[1] = true; alarmCount++ }
-        else if (!rightAlarm) alarmLatched[1] = false
+        // 부위별 추적 점
+        val points = mapOf(
+            Part.LEFT_ARM to leftWrist,
+            Part.RIGHT_ARM to rightWrist,
+            Part.HEAD to rel(nose, shoulderMid),          // 코 - 어깨중심 (몸통 움직임 제거)
+            Part.BODY to rel(shoulderMid, hipMid),        // 어깨중심 - 엉덩이중심 (서있는 위치 제거)
+        )
 
         var dt = 0.0
         if (lastFrameT > 0) dt = (tNow - lastFrameT).coerceIn(0.0, 0.25)
         lastFrameT = tNow
-        if (la.active) { leftActiveTotal += dt; leftStreak += dt } else leftStreak = 0.0
-        if (ra.active) { rightActiveTotal += dt; rightStreak += dt } else rightStreak = 0.0
-        maxStreak = maxOf(maxStreak, leftStreak, rightStreak)
 
-        // 심박 시뮬레이션 (1s 주기, 활동 강도 연동)
+        val results = HashMap<Part, PartState>()
+        var anyAlarm = false
+
+        for (part in Part.entries) {
+            val buf = buffers.getValue(part)
+            val p = points[part]
+            var a = Arm()
+            var dur = 0.0
+            if (p != null) {
+                pushSample(buf, tNow, p)
+                a = analyze(buf, tNow)
+                buf.active[buf.active.size - 1] = a.active
+                dur = durationInWindow(buf, tNow)
+            } else if (buf.t.isNotEmpty()) {
+                dur = durationInWindow(buf, tNow)
+            }
+
+            val alarm = dur > DURATION_THRESHOLD
+            if (alarm && !alarmLatched.getValue(part)) { alarmLatched[part] = true; alarmCount++ }
+            else if (!alarm) alarmLatched[part] = false
+            if (alarm) anyAlarm = true
+
+            if (a.active) {
+                activeTotal[part] = activeTotal.getValue(part) + dt
+                streak[part] = streak.getValue(part) + dt
+            } else streak[part] = 0.0
+
+            results[part] = PartState(a, dur, alarm)
+        }
+        maxStreak = maxOf(maxStreak, streak.values.maxOrNull() ?: 0.0)
+
+        val anyActive = results.values.any { it.analysis.active }
+
+        // 심박 시뮬레이션 (1s 주기)
         if (tNow - lastBioUpdate >= 1.0) {
             lastBioUpdate = tNow
-            val intensity =
-                (if (la.active) 1.0 else 0.0) + (if (ra.active) 1.0 else 0.0) + (if (anyAlarm) 1.5 else 0.0)
-            val hrTarget = 72 + intensity * 11 + (Random.nextDouble() * 4 - 2)
+            val activeCount = results.values.count { it.analysis.active }
+            val intensity = activeCount.toDouble() + (if (anyAlarm) 1.5 else 0.0)
+            val hrTarget = 72 + intensity * 8 + (Random.nextDouble() * 4 - 2)
             bioHR += (hrTarget - bioHR) * 0.35
         }
 
-        // 포즈 추정 텍스트
         val poseText = computePose(leftShoulder, rightShoulder, leftWrist, rightWrist)
 
-        // 손목 트레이스 (매 프레임, 최근 WRIST_WIN 초)
+        // 손목 트레이스 (운영기록 그래프용)
         wristTrace.add(WristPoint(tNow, leftWrist?.yNorm, rightWrist?.yNorm))
         while (wristTrace.isNotEmpty() && wristTrace[0].t < tNow - WRIST_WIN) wristTrace.removeAt(0)
 
-        // 추이 타임라인 (0.1s 간격, 최근 TIMELINE_WINDOW_S 초)
+        // 추이 타임라인
         if (timeline.isEmpty() || tNow - timeline.last().t > 0.1) {
-            timeline.add(TimelinePoint(tNow, leftDur, rightDur, anyAlarm))
+            timeline.add(
+                TimelinePoint(
+                    tNow,
+                    results.getValue(Part.LEFT_ARM).duration,
+                    results.getValue(Part.RIGHT_ARM).duration,
+                    results.getValue(Part.HEAD).duration,
+                    results.getValue(Part.BODY).duration,
+                    anyAlarm,
+                )
+            )
             while (timeline.isNotEmpty() && timeline[0].t < tNow - TIMELINE_WINDOW_S) timeline.removeAt(0)
         }
 
         return State(
-            left = la, right = ra,
-            leftDuration = leftDur, rightDuration = rightDur,
-            leftAlarm = leftAlarm, rightAlarm = rightAlarm, anyAlarm = anyAlarm,
+            parts = results,
+            anyAlarm = anyAlarm,
             elapsedSec = tNow,
-            leftActiveTotal = leftActiveTotal, rightActiveTotal = rightActiveTotal,
-            alarmCount = alarmCount, maxStreak = maxStreak,
+            alarmCount = alarmCount,
+            maxStreak = maxStreak,
             heartRate = bioHR.roundToInt(),
             poseText = poseText,
-            leftWristPx = leftWrist?.let { (it.xNorm * REF_WIDTH).toInt() to (it.yNorm * REF_HEIGHT).toInt() },
-            rightWristPx = rightWrist?.let { (it.xNorm * REF_WIDTH).toInt() to (it.yNorm * REF_HEIGHT).toInt() },
+            activeTotals = HashMap(activeTotal),
             timeline = ArrayList(timeline),
             wristTrace = ArrayList(wristTrace),
         )
@@ -221,15 +248,10 @@ class StereotypyDetector {
         val visOk = vis.count { it >= VISIBILITY_MIN }.toDouble() / vis.size
         if (visOk < 0.5) return Arm()
 
-        val yPx = buf.yPx.subList(lo, buf.yPx.size)
-        val xPx = buf.xPx.subList(lo, buf.xPx.size)
-        val yNorm = buf.yNorm.subList(lo, buf.yNorm.size)
-        val xNorm = buf.xNorm.subList(lo, buf.xNorm.size)
-
-        val useY = variance(yPx) >= variance(xPx)
+        val useY = variance(buf.yPx.subList(lo, buf.yPx.size)) >= variance(buf.xPx.subList(lo, buf.xPx.size))
         // 노이즈성 가짜 피크 제거를 위한 이동평균 스무딩 (박자 안정화)
-        val sig = smooth(if (useY) yPx else xPx, SMOOTH_WIN)
-        val sigNorm = smooth(if (useY) yNorm else xNorm, SMOOTH_WIN)
+        val sig = smooth(if (useY) buf.yPx.subList(lo, buf.yPx.size) else buf.xPx.subList(lo, buf.xPx.size), SMOOTH_WIN)
+        val sigNorm = smooth(if (useY) buf.yNorm.subList(lo, buf.yNorm.size) else buf.xNorm.subList(lo, buf.xNorm.size), SMOOTH_WIN)
 
         val amplitude = sig.max() - sig.min()
         val ampOk = amplitude >= AMPLITUDE_MIN
@@ -267,8 +289,7 @@ class StereotypyDetector {
             val m3 = mean(sigNorm.subList(2 * third, sigNorm.size))
             centerDev = sqrt(variance(listOf(m1, m2, m3)))
         }
-        // 중심편차를 진폭 대비 상대값으로 판정 — 큰 왕복운동도 '제자리 반복'으로 통과시키되,
-        // 한 방향으로 쓸고 가는 드리프트(비율 큼)는 계속 탈락. 작은 움직임은 기존 절대 임계 유지.
+        // 중심편차를 진폭 대비 상대값으로 판정 (큰 왕복운동도 통과, 한 방향 드리프트는 탈락)
         val amplitudeNorm = sigNorm.max() - sigNorm.min()
         val centerDevRatio = if (amplitudeNorm > 1e-4) centerDev / amplitudeNorm else 1.0
         val centerDevOk = centerDev <= CENTER_DEV_MAX || centerDevRatio <= CENTER_DEV_RATIO_MAX
@@ -328,7 +349,7 @@ class StereotypyDetector {
         const val INTERVAL_MAX = 1.2
         const val CENTER_DEV_MAX = 0.05
         const val CENTER_DEV_RATIO_MAX = 0.35  // 진폭 대비 중심편차 상한(큰 왕복운동 허용)
-        const val SMOOTH_WIN = 3               // 손목 신호 이동평균 창
+        const val SMOOTH_WIN = 3               // 신호 이동평균 창
         const val AMPLITUDE_MIN = 8.0
         const val LOCAL_WINDOW_S = 0.8
         const val GLOBAL_WINDOW_S = 4.0
@@ -340,5 +361,12 @@ class StereotypyDetector {
         // HTML 원본이 1280x720 비디오 픽셀 기준이므로 동일 스케일로 고정(해상도 무관 일관성)
         const val REF_WIDTH = 1280.0
         const val REF_HEIGHT = 720.0
+
+        val PART_LABEL = mapOf(
+            Part.LEFT_ARM to "좌측 팔",
+            Part.RIGHT_ARM to "우측 팔",
+            Part.HEAD to "머리",
+            Part.BODY to "몸통",
+        )
     }
 }

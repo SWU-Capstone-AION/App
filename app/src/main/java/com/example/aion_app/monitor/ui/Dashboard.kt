@@ -43,6 +43,19 @@ private val Mono = ShareTechMono
 private val PanelShape = CutCornerShape(topStart = 14.dp, bottomEnd = 14.dp)
 private val ButtonShape = CutCornerShape(topStart = 7.dp, bottomEnd = 7.dp)
 
+private val LeftArmColor = Color(0xFF34C6FF)
+private val RightArmColor = Color(0xFF3B6DFF)
+private val HeadColor = Color(0xFF16D0C0)
+private val BodyColor = Color(0xFFB47CFF)
+
+private typealias Part = StereotypyDetector.Part
+
+private fun durOf(state: StereotypyDetector.State?, part: Part) = state?.parts?.get(part)?.duration ?: 0.0
+private fun alarmOf(state: StereotypyDetector.State?, part: Part) = state?.parts?.get(part)?.alarm ?: false
+private fun armOf(state: StereotypyDetector.State?, part: Part) = state?.parts?.get(part)?.analysis
+private fun totalOf(state: StereotypyDetector.State?, part: Part) = state?.activeTotals?.get(part) ?: 0.0
+private fun anyActive(state: StereotypyDetector.State?) = state?.parts?.values?.any { it.analysis.active } == true
+
 /** 전체 HUD 대시보드 (카메라/오버레이 위에 겹치는 반투명 레이어). */
 @Composable
 fun Dashboard(
@@ -91,7 +104,7 @@ private fun TopBar(
     val (statusText, statusColor) = when {
         !running -> "대기 중" to InkDim
         state?.anyAlarm == true -> "알람 발생" to Red
-        state?.left?.active == true || state?.right?.active == true -> "활성 동작 감지" to Amber
+        anyActive(state) -> "활성 동작 감지" to Amber
         else -> "모니터링 중" to Blue
     }
     Row(
@@ -165,10 +178,11 @@ private fun TrendPanel(state: StereotypyDetector.State?) {
             timeline = state?.timeline ?: emptyList(),
             modifier = Modifier.fillMaxWidth().height(78.dp).background(Color(0x80010409)),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Legend(Color(0xFF34C6FF), "좌 (L)")
-            Legend(Color(0xFF3B6DFF), "우 (R)")
-            Legend(Red, "%.1fs 임계".format(StereotypyDetector.DURATION_THRESHOLD))
+        Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Legend(LeftArmColor, "좌팔")
+            Legend(RightArmColor, "우팔")
+            Legend(HeadColor, "머리")
+            Legend(BodyColor, "몸통")
         }
     }
 }
@@ -185,8 +199,10 @@ private fun Legend(color: Color, label: String) {
 private fun SessionPanel(state: StereotypyDetector.State?) {
     Panel("세션 요약", "SESSION_SUMMARY") {
         InfoRow("세션 모니터링 시간", "SESSION_TIME", fmtHMS(state?.elapsedSec ?: 0.0), Blue)
-        InfoRow("좌측 팔 활성 누계", "LEFT_ACTIVE", fmtHMS(state?.leftActiveTotal ?: 0.0), Blue)
-        InfoRow("우측 팔 활성 누계", "RIGHT_ACTIVE", fmtHMS(state?.rightActiveTotal ?: 0.0), Blue)
+        InfoRow("좌측 팔 활성 누계", "LEFT_ARM", fmtHMS(totalOf(state, Part.LEFT_ARM)), LeftArmColor)
+        InfoRow("우측 팔 활성 누계", "RIGHT_ARM", fmtHMS(totalOf(state, Part.RIGHT_ARM)), RightArmColor)
+        InfoRow("머리 활성 누계", "HEAD", fmtHMS(totalOf(state, Part.HEAD)), HeadColor)
+        InfoRow("몸통 활성 누계", "BODY", fmtHMS(totalOf(state, Part.BODY)), BodyColor)
         InfoRow("경고 발생 수", "ALARM_COUNT", "${state?.alarmCount ?: 0}", Amber)
         InfoRow("최대 지속 활성 시간", "PEAK_STREAK", fmtHMS(state?.maxStreak ?: 0.0), Blue)
     }
@@ -209,9 +225,11 @@ private fun InfoRow(label: String, tag: String, value: String, valueColor: Color
 
 @Composable
 private fun ArmGaugePanel(state: StereotypyDetector.State?) {
-    Panel("팔 활성 게이지", "ARM_ACTIVITY") {
-        Gauge("좌측 팔 누적 활성", "LEFT", state?.leftDuration ?: 0.0, state?.leftAlarm ?: false)
-        Gauge("우측 팔 누적 활성", "RIGHT", state?.rightDuration ?: 0.0, state?.rightAlarm ?: false)
+    Panel("활성 게이지", "ACTIVITY_GAUGE") {
+        Gauge("좌측 팔", "L.ARM", durOf(state, Part.LEFT_ARM), alarmOf(state, Part.LEFT_ARM))
+        Gauge("우측 팔", "R.ARM", durOf(state, Part.RIGHT_ARM), alarmOf(state, Part.RIGHT_ARM))
+        Gauge("머리", "HEAD", durOf(state, Part.HEAD), alarmOf(state, Part.HEAD))
+        Gauge("몸통", "BODY", durOf(state, Part.BODY), alarmOf(state, Part.BODY))
     }
 }
 
@@ -243,7 +261,7 @@ private fun Gauge(label: String, tag: String, dur: Double, alarm: Boolean) {
 private fun OperationPanel(state: StereotypyDetector.State?) {
     val (actText, actColor) = when {
         state?.anyAlarm == true -> "상동 행동 탐지됨" to Red
-        state?.left?.active == true || state?.right?.active == true -> "반복 동작 관찰" to Amber
+        anyActive(state) -> "반복 동작 관찰" to Amber
         else -> "정상 범위" to Blue
     }
     Panel("운영 기록", "OPERATION_LOG") {
@@ -265,15 +283,13 @@ private fun OperationPanel(state: StereotypyDetector.State?) {
 private fun AnalystPanel(state: StereotypyDetector.State?) {
     Panel("정밀 분석", "ANALYST_VIEW") {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            CriteriaBlock("LEFT · 좌측 팔", state?.left, Modifier.weight(1f))
-            CriteriaBlock("RIGHT · 우측 팔", state?.right, Modifier.weight(1f))
+            CriteriaBlock("좌팔", armOf(state, Part.LEFT_ARM), Modifier.weight(1f))
+            CriteriaBlock("우팔", armOf(state, Part.RIGHT_ARM), Modifier.weight(1f))
         }
-        val l = state?.leftWristPx
-        val r = state?.rightWristPx
-        Text(
-            "손목 px  L ${l?.let { "(${it.first},${it.second})" } ?: "—"}  R ${r?.let { "(${it.first},${it.second})" } ?: "—"}",
-            color = InkDim, fontFamily = Mono, fontSize = 12.sp,
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CriteriaBlock("머리", armOf(state, Part.HEAD), Modifier.weight(1f))
+            CriteriaBlock("몸통", armOf(state, Part.BODY), Modifier.weight(1f))
+        }
     }
 }
 
