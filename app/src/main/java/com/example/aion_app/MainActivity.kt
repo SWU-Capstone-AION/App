@@ -20,6 +20,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewScreenSizes
+import com.example.aion_app.monitor.StereotypyMonitorScreen
 import com.example.aion_app.ui.theme.AIONappTheme
 
 class MainActivity : ComponentActivity() {
@@ -57,10 +58,15 @@ fun AIONappApp() {
         }
     ) {
         Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Greeting(
-                name = "Android",
-                modifier = Modifier.padding(innerPadding)
-            )
+            when (currentDestination) {
+                AppDestinations.MONITOR -> StereotypyMonitorScreen(
+                    modifier = Modifier.padding(innerPadding)
+                )
+                else -> Greeting(
+                    name = "Android",
+                    modifier = Modifier.padding(innerPadding)
+                )
+            }
         }
     }
 }
@@ -70,6 +76,7 @@ enum class AppDestinations(
     val icon: Int,
 ) {
     HOME("Home", R.drawable.ic_home),
+    MONITOR("모니터링", R.drawable.ic_monitor),
     FAVORITES("Favorites", R.drawable.ic_favorite),
     PROFILE("Profile", R.drawable.ic_account_box),
 }
