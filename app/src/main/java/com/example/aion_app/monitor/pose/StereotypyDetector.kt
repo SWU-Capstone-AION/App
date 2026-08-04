@@ -62,8 +62,11 @@ class StereotypyDetector {
         val yNorm = ArrayList<Double>()
         val vis = ArrayList<Double>()
         val active = ArrayList<Boolean>()
+        var lastX = Double.NaN   // ① 글리치 게이트용 직전 위치
+        var lastY = Double.NaN
         fun clear() {
             t.clear(); xPx.clear(); yPx.clear(); xNorm.clear(); yNorm.clear(); vis.clear(); active.clear()
+            lastX = Double.NaN; lastY = Double.NaN
         }
     }
 
@@ -78,6 +81,8 @@ class StereotypyDetector {
     private var alarmCount = 0
     private var bioHR = 75.0
     private var lastBioUpdate = 0.0
+    private var shoulderW = 0.0   // ② 신체크기 정규화용 어깨너비(EMA)
+    private var refShoulder = 0.0 // 세션 기준 어깨너비(자동 보정)
 
     private val timeline = ArrayList<TimelinePoint>()
     private val wristTrace = ArrayList<WristPoint>()
@@ -90,6 +95,7 @@ class StereotypyDetector {
         maxStreak = 0.0
         alarmCount = 0
         bioHR = 75.0; lastBioUpdate = 0.0
+        shoulderW = 0.0; refShoulder = 0.0
         timeline.clear(); wristTrace.clear()
     }
 
@@ -116,10 +122,26 @@ class StereotypyDetector {
         val shoulderMid = mid(leftShoulder, rightShoulder)
         val hipMid = mid(leftHip, rightHip)
 
+        // ② 신체크기 정규화: 어깨너비(EMA) 기준 스케일 → 카메라 거리·사람 크기에 무관
+        val rawSW = if (leftShoulder != null && rightShoulder != null) {
+            val dxs = leftShoulder.xNorm - rightShoulder.xNorm
+            val dys = leftShoulder.yNorm - rightShoulder.yNorm
+            sqrt(dxs * dxs + dys * dys)
+        } else 0.0
+        if (rawSW > 0.02) {
+            shoulderW = if (shoulderW <= 0.0) rawSW else shoulderW * 0.9 + rawSW * 0.1
+            // 세션 시작 시점(0.5초 후 안정값)의 어깨너비를 기준으로 자동 보정 → 이후 거리 변화 보상
+            if (refShoulder <= 0.0 && tNow > 0.5) refShoulder = shoulderW
+        }
+        val scale = if (shoulderW > 0.02 && refShoulder > 0.0)
+            (refShoulder / shoulderW).coerceIn(0.5, 2.0) else 1.0
+
         // 부위별 추적 점
+        // 주의: 전면 카메라 미러링으로 MediaPipe의 좌/우 손목이 뒤집혀 들어오므로 스왑하여
+        // 화면의 "좌측 팔"이 아동 본인의 왼팔과 일치하도록 맞춘다.
         val points = mapOf(
-            Part.LEFT_ARM to leftWrist,
-            Part.RIGHT_ARM to rightWrist,
+            Part.LEFT_ARM to rightWrist,
+            Part.RIGHT_ARM to leftWrist,
             Part.HEAD to rel(nose, shoulderMid),          // 코 - 어깨중심 (몸통 움직임 제거)
             Part.BODY to rel(shoulderMid, hipMid),        // 어깨중심 - 엉덩이중심 (서있는 위치 제거)
         )
@@ -137,8 +159,13 @@ class StereotypyDetector {
             var a = Arm()
             var dur = 0.0
             if (p != null) {
-                pushSample(buf, tNow, p)
-                a = analyze(buf, tNow)
+                pushSample(buf, tNow, p, scale)
+                val ampMin = when (part) {
+                    Part.LEFT_ARM, Part.RIGHT_ARM -> ARM_AMP_MIN
+                    Part.HEAD -> HEAD_AMP_MIN
+                    Part.BODY -> BODY_AMP_MIN
+                }
+                a = analyze(buf, tNow, ampMin)
                 buf.active[buf.active.size - 1] = a.active
                 dur = durationInWindow(buf, tNow)
             } else if (buf.t.isNotEmpty()) {
@@ -219,12 +246,24 @@ class StereotypyDetector {
         return "앉아있는 상태 · $arms"
     }
 
-    private fun pushSample(buf: Buffer, t: Double, w: Wrist) {
+    private fun pushSample(buf: Buffer, t: Double, w: Wrist, scale: Double) {
+        // ① 글리치 게이트: 직전 위치에서 물리적으로 불가능하게 튀면(랜드마크 오검출)
+        //    직전 위치로 고정하여 가짜 진폭 스파이크를 막는다.
+        var xn = w.xNorm
+        var yn = w.yNorm
+        if (!buf.lastX.isNaN()) {
+            val dx = xn - buf.lastX; val dy = yn - buf.lastY
+            if (dx * dx + dy * dy > MAX_JUMP_NORM * MAX_JUMP_NORM) {
+                xn = buf.lastX; yn = buf.lastY
+            }
+        }
+        buf.lastX = xn; buf.lastY = yn
+
         buf.t.add(t)
-        buf.xPx.add(w.xNorm * REF_WIDTH)
-        buf.yPx.add(w.yNorm * REF_HEIGHT)
-        buf.xNorm.add(w.xNorm)
-        buf.yNorm.add(w.yNorm)
+        buf.xPx.add(xn * REF_WIDTH * scale)   // ② 신체크기 정규화 적용
+        buf.yPx.add(yn * REF_HEIGHT * scale)
+        buf.xNorm.add(xn)
+        buf.yNorm.add(yn)
         buf.vis.add(w.visibility)
         buf.active.add(false)
         val cutoff = t - GLOBAL_WINDOW_S - 1.0
@@ -234,7 +273,7 @@ class StereotypyDetector {
         }
     }
 
-    private fun analyze(buf: Buffer, currentT: Double): Arm {
+    private fun analyze(buf: Buffer, currentT: Double, ampMin: Double): Arm {
         if (buf.t.size < 5) return Arm()
         val winStart = currentT - LOCAL_WINDOW_S
         var lo = 0
@@ -254,7 +293,7 @@ class StereotypyDetector {
         val sigNorm = smooth(if (useY) buf.yNorm.subList(lo, buf.yNorm.size) else buf.xNorm.subList(lo, buf.xNorm.size), SMOOTH_WIN)
 
         val amplitude = sig.max() - sig.min()
-        val ampOk = amplitude >= AMPLITUDE_MIN
+        val ampOk = amplitude >= ampMin
 
         var avgFps = 30.0
         if (ts.size > 1) avgFps = (ts.size - 1) / (ts[ts.size - 1] - ts[0])
@@ -350,7 +389,14 @@ class StereotypyDetector {
         const val CENTER_DEV_MAX = 0.05
         const val CENTER_DEV_RATIO_MAX = 0.35  // 진폭 대비 중심편차 상한(큰 왕복운동 허용)
         const val SMOOTH_WIN = 3               // 신호 이동평균 창
-        const val AMPLITUDE_MIN = 8.0
+        const val AMPLITUDE_MIN = 8.0     // (미사용, 참고용 기본값)
+        // 부위별 진폭 임계값(REF 1280x720 px) — 오탐(중앙값 52) 대비 진짜 움직임 분리
+        const val ARM_AMP_MIN = 200.0
+        const val HEAD_AMP_MIN = 120.0
+        const val BODY_AMP_MIN = 70.0
+        // ① 글리치 게이트: 한 프레임에 이 이상(정규화 거리) 튀면 오검출로 보고 무시.
+        //   실제 움직임은 프레임당 0.1 미만이라 안전.
+        const val MAX_JUMP_NORM = 0.28
         const val LOCAL_WINDOW_S = 0.8
         const val GLOBAL_WINDOW_S = 4.0
         const val DURATION_THRESHOLD = 3.9

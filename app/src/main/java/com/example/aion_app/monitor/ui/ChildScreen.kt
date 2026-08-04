@@ -198,16 +198,21 @@ private fun BreathingView(onDone: () -> Unit, onHelp: () -> Unit, modifier: Modi
     var phase by remember { mutableStateOf("천천히 들이마셔요") }
     val scale = remember { Animatable(0.55f) }
 
+    // 30초가 지나면 자동으로 원래(평소) 화면으로 복귀
+    LaunchedEffect(Unit) {
+        delay(30_000)
+        onDone()
+    }
     LaunchedEffect(Unit) {
         for (b in 1..totalBreaths) {
             breath = b
             phase = "천천히 들이마셔요"
-            scale.animateTo(1f, tween(3800, easing = LinearEasing))
+            scale.animateTo(1f, tween(2900, easing = LinearEasing))
             phase = "잠깐 멈춰요"
-            delay(1400)
+            delay(1000)
             phase = "후- 내쉬어요"
-            scale.animateTo(0.55f, tween(3800, easing = LinearEasing))
-            delay(300)
+            scale.animateTo(0.55f, tween(2900, easing = LinearEasing))
+            delay(200)
         }
         onDone()
     }
