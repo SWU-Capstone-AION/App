@@ -14,6 +14,7 @@ object Route {
     const val KIDS_SIGN_UP_ACCOUNT = "kids_sign_up_account"    // 아동용 시안 2p
     const val KIDS_PROFILE_SETUP = "kids_profile_setup"        // 아동용 시안 3p~5p
     const val KIDS_ONBOARDING_COMPLETE = "kids_onboarding_complete"  // 아동용 시안 6p
+    const val KIDS_HOME = "kids_home"                          // 아동용 홈 (+ 진정 팝업 / 호흡)
 
     const val PASSWORD_FIND = "password_find"
     const val PASSWORD_FIND_RESULT = "password_find_result"

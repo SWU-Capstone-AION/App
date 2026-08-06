@@ -9,13 +9,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -33,6 +42,7 @@ import com.example.aion_app.ui.theme.BluePrimary
 import com.example.aion_app.ui.theme.GreyLightActive
 import com.example.aion_app.ui.theme.GreyNormalActive
 import com.example.aion_app.ui.theme.LightHover
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.White
 
 // ============================================================
@@ -66,7 +76,7 @@ val KidsCorner       = 10.dp     // 입력칸·버튼 모서리
 val KidsPillCorner   = 25.dp     // 선택지(알약) 모서리 = 높이/2
 
 // ============================================================
-// 화면 뼈대
+// 시안 스케일 래퍼
 // ============================================================
 // 아동용은 태블릿 전용(가로). 시안이 930 x 582 프레임인데 실제 태블릿은
 // 1200dp 안팎이라, 329dp 를 그대로 쓰면 화면에서 훨씬 작아 보인다.
@@ -77,6 +87,29 @@ val KidsPillCorner   = 25.dp     // 선택지(알약) 모서리 = 높이/2
 //
 // fontScale 은 원래 값을 그대로 넘기므로 사용자의 '글꼴 크기' 접근성 설정도 계속 반영된다.
 //
+// 로그인/회원가입처럼 가운데 329dp 열이 필요한 화면은 KidsScreenFrame 을,
+// 홈/호흡처럼 배경이 화면 전체를 덮는 화면은 이 KidsDesignScale 을 직접 쓴다.
+@Composable
+fun KidsDesignScale(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val base = LocalDensity.current
+        // 실제 폭(px) 을 930 으로 나누면 "1 디자인dp 당 몇 px" 이 나온다 = 새 density
+        val scaledDensity = Density(
+            density = constraints.maxWidth / KidsDesignFrameWidth,
+            fontScale = base.fontScale
+        )
+        CompositionLocalProvider(LocalDensity provides scaledDensity) {
+            Box(modifier = Modifier.fillMaxSize(), content = content)
+        }
+    }
+}
+
+// ============================================================
+// 화면 뼈대 (로그인 / 회원가입용)
+// ============================================================
 // bottomButton 을 넘기면 버튼이 화면 하단에 고정되고 본문만 스크롤된다.
 // (시안 5p에서 선택지 목록이 '다음' 버튼 뒤로 잘려 들어가는 모습 그대로)
 @Composable
@@ -87,48 +120,39 @@ fun KidsScreenFrame(
     bottomPadding: Dp = 32.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val base = LocalDensity.current
-        // 실제 폭(px) 을 930 으로 나누면 "1 디자인dp 당 몇 px" 이 나온다 = 새 density
-        val scaledDensity = Density(
-            density = constraints.maxWidth / KidsDesignFrameWidth,
-            fontScale = base.fontScale
-        )
+    KidsDesignScale(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(White)
+        ) {
+            topBar?.invoke()
 
-        CompositionLocalProvider(LocalDensity provides scaledDensity) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(White)
-            ) {
-                topBar?.invoke()
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Column(
+                        modifier = Modifier.width(KidsContentWidth),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        content = content
+                    )
+                }
 
-                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                if (bottomButton != null) {
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState()),
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            // 스크롤된 선택지가 버튼 뒤로 비치지 않도록 흰 배경을 깔아준다
+                            .background(White)
+                            .padding(top = 12.dp, bottom = bottomPadding),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Column(
-                            modifier = Modifier.width(KidsContentWidth),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            content = content
-                        )
-                    }
-
-                    if (bottomButton != null) {
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                // 스크롤된 선택지가 버튼 뒤로 비치지 않도록 흰 배경을 깔아준다
-                                .background(White)
-                                .padding(top = 12.dp, bottom = bottomPadding),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            bottomButton()
-                        }
+                        bottomButton()
                     }
                 }
             }
@@ -357,4 +381,165 @@ fun KidsSectionLabel(
         color = AionTextDark,
         modifier = modifier.fillMaxWidth()
     )
+}
+
+// ============================================================
+// 홈 / 호흡 화면 공용 부품
+// ============================================================
+
+// 시안 실측값 (930 x 582 기준)
+val KidsScreenPadding = 20.dp     // 로고·프로필 바깥 여백
+val KidsOrbMaxSize    = 244.dp    // 구체 최대 지름 (호흡 '내쉬어요' 시점)
+val KidsOrbHomeScale  = 0.78f     // 홈 화면 구체 크기 비율
+
+// ------------------------------------------------------------
+// 구체(풍선)
+// ------------------------------------------------------------
+// TODO: 디자이너에게 PNG 에셋 받으면 아래 두 Box 를 Image 하나로 교체.
+//       바깥 Box = 글로우, 안쪽 Box = 구체 본체.
+//       크기/스케일 계산은 그대로 두고 그리는 부분만 바꾸면 된다.
+@Composable
+fun KidsOrb(
+    scale: Float,
+    modifier: Modifier = Modifier,
+    onDark: Boolean = false,
+    size: Dp = KidsOrbMaxSize
+) {
+    Box(
+        modifier = modifier.size(size),
+        contentAlignment = Alignment.Center
+    ) {
+        // 글로우
+        Box(
+            modifier = Modifier
+                .size(size)
+                .scale(scale)
+                .background(
+                    Brush.radialGradient(
+                        if (onDark) listOf(Color(0xCCFFFFFF), Color(0x00FFFFFF))
+                        else listOf(Color(0x557FA6F2), Color(0x00FFFFFF))
+                    ),
+                    CircleShape
+                )
+        )
+        // 구체 본체
+        Box(
+            modifier = Modifier
+                .size(size * 0.66f)
+                .scale(scale)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        colors = if (onDark)
+                            listOf(Color(0xFFFFFFFF), Color(0xFFBFD3FF), Color(0xFF9FBCFF))
+                        else
+                            listOf(Color(0xFFD6E2FF), Color(0xFF9DB7F5), Color(0xFF7C9BF2)),
+                        center = Offset(70f, 60f),
+                        radius = 300f
+                    )
+                )
+        ) {
+            // 하이라이트 두 개 (시안의 흰 반사광)
+            Box(
+                modifier = Modifier
+                    .padding(start = 26.dp, top = 22.dp)
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xB3FFFFFF))
+            )
+            Box(
+                modifier = Modifier
+                    .padding(start = 30.dp, top = 62.dp)
+                    .size(14.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x99FFFFFF))
+            )
+        }
+    }
+}
+
+// ------------------------------------------------------------
+// 상단 바 (AION 로고 + 포인트 배지 + 프로필)
+// ------------------------------------------------------------
+// points 가 null 이면 배지를 숨긴다 (호흡 화면).
+@Composable
+fun BoxScope.KidsHomeTopBar(
+    points: Int?,
+    onProfileClick: () -> Unit,
+    onDark: Boolean = false
+) {
+    Image(
+        painter = painterResource(R.drawable.logo_text),
+        contentDescription = "AION",
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .align(Alignment.TopStart)
+            .padding(start = KidsScreenPadding, top = 14.dp)
+            .width(72.dp)
+    )
+
+    // TODO: 프로필 아이콘 에셋 받으면 Icon → Image 로 교체
+    Icon(
+        imageVector = Icons.Filled.Person,
+        contentDescription = "내 정보",
+        tint = if (onDark) White else Normal,
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .padding(end = KidsScreenPadding, top = 18.dp)
+            .size(26.dp)
+            .clickable { onProfileClick() }
+    )
+
+    if (points != null) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = 30.dp, top = 78.dp)
+                .clip(RoundedCornerShape(50))
+                .background(White)
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // TODO: 젤리 아이콘 에셋 받으면 Text(이모지) → Image 로 교체
+            Text("🍬", fontSize = 20.sp)
+            Text(
+                text = "$points",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                color = AionTextDark
+            )
+        }
+    }
+}
+
+// ------------------------------------------------------------
+// "도움이 필요해요" 버튼 (329 x 50 — 시안 기준 다른 버튼과 동일)
+// ------------------------------------------------------------
+@Composable
+fun KidsHelpButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onDark: Boolean = false
+) {
+    Row(
+        modifier = modifier
+            .width(KidsContentWidth)
+            .height(KidsItemHeight)
+            .clip(RoundedCornerShape(KidsCorner))
+            .background(if (onDark) Color(0x33FFFFFF) else LightHover)
+            .clickable { onClick() },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // TODO: 손바닥 아이콘 에셋 받으면 이모지 → Image 로 교체
+        Text("✋", fontSize = 16.sp)
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "도움이 필요해요",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (onDark) White else Normal
+        )
+    }
 }
