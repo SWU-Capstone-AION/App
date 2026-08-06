@@ -3,7 +3,9 @@ package com.example.aion_app.navigation
 import com.example.aion_app.ui.screen.notification.NotificationScreen
 import com.example.aion_app.ui.screen.splash.SplashScreen
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -18,6 +20,11 @@ import com.example.aion_app.ui.screen.login.SignUpScreen
 import com.example.aion_app.ui.screen.login.SignUpViewModel
 import com.example.aion_app.ui.screen.login.ChildProfileSetupScreen
 import com.example.aion_app.ui.screen.login.OnboardingCompleteScreen
+
+import com.example.aion_app.ui.screen.kids.KidsLoginScreen
+import com.example.aion_app.ui.screen.kids.KidsSignUpAccountScreen
+import com.example.aion_app.ui.screen.kids.KidsProfileSetupScreen
+import com.example.aion_app.ui.screen.kids.KidsOnboardingCompleteScreen
 
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aion_app.ui.screen.mypage.MyInfoViewModel
@@ -44,6 +51,7 @@ fun AionNavHost() {
         // startDestination = Route.SIGN_UP   // 회원가입 플로우 테스트용
         // startDestination = Route.HOME       // 홈 테스트용
         // startDestination = Route.MYPAGE     // 마이페이지 테스트용
+        // startDestination = Route.KIDS_LOGIN  // 아동용 화면을 폰/프리뷰에서 강제로 볼 때
     ) {
         // ===== 하단탭 공용 이동 로직 =====
         // (지역변수라 선언보다 아래에서만 참조 가능 → NavHost 블록 맨 위에 둠)
@@ -62,14 +70,25 @@ fun AionNavHost() {
         }
 
         // ===== 스플래시 =====
+        // 화면 크기로 진입 화면을 나눈다.
+        //   태블릿(짧은 변 600dp 이상) → 아동용 로그인
+        //   폰                        → 교사용 로그인
+        // maxWidth/maxHeight 중 작은 쪽을 보는 이유: 폰을 가로로 눕히면 폭이 800dp 넘어서
+        // maxWidth 만 보면 폰을 태블릿으로 오인한다.
         composable(Route.SPLASH) {
-            SplashScreen(
-                onFinish = {
-                    navController.navigate(Route.SIGN_UP) {
-                        popUpTo(Route.SPLASH) { inclusive = true }  // 스플래시는 스택에서 제거
+            BoxWithConstraints {
+                val shortestSide = minOf(maxWidth, maxHeight)
+                val isTablet = shortestSide >= 600.dp
+
+                SplashScreen(
+                    onFinish = {
+                        val next = if (isTablet) Route.KIDS_LOGIN else Route.SIGN_UP
+                        navController.navigate(next) {
+                            popUpTo(Route.SPLASH) { inclusive = true }  // 스플래시는 스택에서 제거
+                        }
                     }
-                }
-            )
+                )
+            }
         }
 
         // ===== 회원가입 플로우 =====
@@ -86,7 +105,12 @@ fun AionNavHost() {
                 },
                 onSignUpClick = { type ->
                     signUpViewModel.updateType(type)
-                    navController.navigate(Route.SIGN_UP_ACCOUNT)
+                    // 토글에서 '아동용'을 고르면 아동용 회원가입 플로우로 분기
+                    if (type == "아동용") {
+                        navController.navigate(Route.KIDS_SIGN_UP_ACCOUNT)
+                    } else {
+                        navController.navigate(Route.SIGN_UP_ACCOUNT)
+                    }
                 }
             )
         }
@@ -138,6 +162,82 @@ fun AionNavHost() {
                             // 회원가입 완료 → 홈으로 (회원가입 플로우 전체를 스택/ViewModel에서 정리)
                             navController.navigate(Route.HOME) {
                                 popUpTo(Route.SIGN_UP) { inclusive = true }
+                            }
+                        } else {
+                            // TODO: 실패 시 에러 메시지 노출 (signUpViewModel.submitError 사용)
+                        }
+                    }
+                }
+            )
+        }
+
+        // ===== 아동용 로그인 / 회원가입 =====
+        // 아동용 3개 화면(2p~6p)이 SignUpViewModel 하나를 공유하도록
+        // KIDS_SIGN_UP_ACCOUNT 진입점을 parentEntry 로 묶는다.
+        // (교사용 로그인에서 '아동용'을 골라 들어와도, 아동용 로그인에서 들어와도 동일하게 동작)
+        composable(Route.KIDS_LOGIN) {
+            KidsLoginScreen(
+                onTeacherClick = {
+                    // 토글에서 '교사용' → 교사용 로그인 화면으로
+                    navController.navigate(Route.SIGN_UP) {
+                        popUpTo(Route.KIDS_LOGIN) { inclusive = true }
+                    }
+                },
+                onLoginClick = { _, _ ->
+                    // TODO: 아동용 로그인 API 연결. 성공 시 아동용 홈으로 이동.
+                },
+                onSignUpClick = {
+                    navController.navigate(Route.KIDS_SIGN_UP_ACCOUNT)
+                }
+            )
+        }
+
+        composable(Route.KIDS_SIGN_UP_ACCOUNT) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.KIDS_SIGN_UP_ACCOUNT)
+            }
+            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+            KidsSignUpAccountScreen(
+                onBackClick = { navController.popBackStack() },
+                onCheckDuplicate = { _ ->
+                    // TODO: 백엔드 아이디 중복확인 API 연결
+                },
+                onNext = { userId, password ->
+                    signUpViewModel.updateType("아동용")
+                    signUpViewModel.updateAccount(userId, password)
+                    navController.navigate(Route.KIDS_PROFILE_SETUP)
+                }
+            )
+        }
+
+        composable(Route.KIDS_PROFILE_SETUP) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.KIDS_SIGN_UP_ACCOUNT)
+            }
+            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+            KidsProfileSetupScreen(
+                onBackClick = { navController.popBackStack() },
+                onComplete = { profile ->
+                    signUpViewModel.updateChildProfile(profile)
+                    navController.navigate(Route.KIDS_ONBOARDING_COMPLETE)
+                }
+            )
+        }
+
+        composable(Route.KIDS_ONBOARDING_COMPLETE) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.KIDS_SIGN_UP_ACCOUNT)
+            }
+            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+            KidsOnboardingCompleteScreen(
+                isSubmitting = signUpViewModel.isSubmitting,
+                onNextClick = {
+                    // 교사용과 같은 AuthRepository.register() 를 그대로 탄다.
+                    signUpViewModel.submit { success ->
+                        if (success) {
+                            // TODO: 아동용 홈이 생기면 그쪽으로 교체
+                            navController.navigate(Route.HOME) {
+                                popUpTo(Route.KIDS_SIGN_UP_ACCOUNT) { inclusive = true }
                             }
                         } else {
                             // TODO: 실패 시 에러 메시지 노출 (signUpViewModel.submitError 사용)
