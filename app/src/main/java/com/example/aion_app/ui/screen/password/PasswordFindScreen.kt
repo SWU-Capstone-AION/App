@@ -14,11 +14,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.aion_app.ui.component.*
 import com.example.aion_app.ui.theme.*
+import androidx.compose.foundation.clickable
 
 @Composable
 fun PasswordFindScreen(
     onBackClick: () -> Unit = {},
-    onFindSuccess: (id: String) -> Unit = {}
+    onFindSuccess: (id: String) -> Unit = {},
+    onSwitchToIdFind: () -> Unit = {}
 ) {
     var id by remember { mutableStateOf("") }
     var idError by remember { mutableStateOf(false) }
@@ -45,7 +47,7 @@ fun PasswordFindScreen(
                 TabButton(
                     text = "아이디 찾기",
                     selected = false,
-                    onClick = { /* TODO */ },
+                    onClick = onSwitchToIdFind,
                     modifier = Modifier.weight(1f)
                 )
                 TabButton(
@@ -104,6 +106,7 @@ private fun TabButton(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
             .background(if (selected) BluePrimary else Color.Transparent)
+            .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
