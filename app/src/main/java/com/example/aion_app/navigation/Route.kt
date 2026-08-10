@@ -2,11 +2,18 @@ package com.example.aion_app.navigation
 
 object Route {
     const val SPLASH = "splash"
-    // 회원가입 플로우
+
+    // 회원가입 플로우 (교사용)
     const val SIGN_UP = "sign_up"
     const val SIGN_UP_ACCOUNT = "sign_up_account"   // 시안 2p: 아이디 + 비밀번호 입력
     const val CHILD_PROFILE_SETUP = "child_profile_setup"
     const val ONBOARDING_COMPLETE = "onboarding_complete"
+
+    // 아동용 로그인 / 회원가입 플로우
+    const val KIDS_LOGIN = "kids_login"                        // 아동용 시안 1p
+    const val KIDS_SIGN_UP_ACCOUNT = "kids_sign_up_account"    // 아동용 시안 2p
+    const val KIDS_PROFILE_SETUP = "kids_profile_setup"        // 아동용 시안 3p~5p
+    const val KIDS_ONBOARDING_COMPLETE = "kids_onboarding_complete"  // 아동용 시안 6p
 
     const val PASSWORD_FIND = "password_find"
     const val PASSWORD_FIND_RESULT = "password_find_result"
