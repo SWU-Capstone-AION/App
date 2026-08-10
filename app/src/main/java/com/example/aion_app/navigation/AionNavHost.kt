@@ -27,6 +27,7 @@ import com.example.aion_app.ui.screen.kids.KidsLoginScreen
 import com.example.aion_app.ui.screen.kids.KidsSignUpAccountScreen
 import com.example.aion_app.ui.screen.kids.KidsProfileSetupScreen
 import com.example.aion_app.ui.screen.kids.KidsOnboardingCompleteScreen
+import com.example.aion_app.ui.screen.kids.KidsHomeScreen
 
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aion_app.ui.screen.mypage.MyInfoViewModel
@@ -223,7 +224,10 @@ fun AionNavHost() {
                     }
                 },
                 onLoginClick = { _, _ ->
-                    // TODO: 아동용 로그인 API 연결. 성공 시 아동용 홈으로 이동.
+                    // TODO: 아동용 로그인 API 연결. 지금은 검증 없이 홈으로 보낸다.
+                    navController.navigate(Route.KIDS_HOME) {
+                        popUpTo(Route.KIDS_LOGIN) { inclusive = true }
+                    }
                 },
                 onSignUpClick = {
                     navController.navigate(Route.KIDS_SIGN_UP_ACCOUNT)
@@ -274,14 +278,34 @@ fun AionNavHost() {
                     // 교사용과 같은 AuthRepository.register() 를 그대로 탄다.
                     signUpViewModel.submit { success ->
                         if (success) {
-                            // TODO: 아동용 홈이 생기면 그쪽으로 교체
-                            navController.navigate(Route.HOME) {
+                            navController.navigate(Route.KIDS_HOME) {
                                 popUpTo(Route.KIDS_SIGN_UP_ACCOUNT) { inclusive = true }
                             }
                         } else {
                             // TODO: 실패 시 에러 메시지 노출 (signUpViewModel.submitError 사용)
                         }
                     }
+                }
+            )
+        }
+
+        // ===== 아동용 홈 =====
+        composable(Route.KIDS_HOME) {
+            // ★ 상동행동 감지 연결 지점
+            // feature/stereotypy-monitor 가 develop 에 들어오면
+            // StereotypyMonitorScreen 쪽에서 얻는 StereotypyDetector.State.anyAlarm 을
+            // stereotypyDetected 로 넘기면 된다. 지금은 카메라 없이 화면만 확인하는 단계라 false.
+            KidsHomeScreen(
+                stereotypyDetected = false,
+                points = 20,   // TODO: 실제 포인트 연결
+                onProfileClick = {
+                    // TODO: 아동용 마이페이지 (시안 나오면 연결)
+                },
+                onHelpRequest = {
+                    // TODO: 교사에게 도움 요청 알림 전송
+                },
+                onBreathingComplete = {
+                    // TODO: 호흡 완료 보상(젤리) 지급
                 }
             )
         }
