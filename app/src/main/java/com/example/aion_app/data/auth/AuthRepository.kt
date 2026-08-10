@@ -6,36 +6,34 @@ import kotlinx.coroutines.delay
 // ============================================
 // 회원가입 Repository
 // ============================================
-// "서버에 데이터를 보낸다"는 행위 자체를 인터페이스로 분리해 둠.
-// ViewModel/화면 쪽 코드는 이 인터페이스만 알고 있으면 되고,
-// 실제 구현체(Fake ↔ Retrofit)는 자유롭게 교체 가능.
 interface AuthRepository {
-    // 회원가입 + 아동 프로필을 한 번에 등록한다고 가정.
-    // (백엔드 API 스펙에 따라 회원가입/프로필 등록을 분리해야 하면 함수도 분리하면 됨)
+    /** 아이디 사용 가능 여부. true면 사용 가능. */
+    suspend fun isIdAvailable(loginId: String): Result<Boolean>
+
+    /** 계정 생성 + 아동 프로필 저장 */
     suspend fun register(signUpInput: SignUpInput, childProfile: ChildProfile): Result<Unit>
 }
 
 // ============================================
-// 가짜(Fake) 구현체 — 백엔드 준비되기 전까지 사용
+// 가짜(Fake) 구현체 — 인터넷 없이 UI만 테스트할 때 사용
 // ============================================
-// TODO: 백엔드 API 준비되면 이 클래스를 지우고 RetrofitAuthRepository로 교체.
-// 예시:
-//   class RetrofitAuthRepository(private val api: AuthApiService) : AuthRepository {
-//       override suspend fun register(signUpInput: SignUpInput, childProfile: ChildProfile): Result<Unit> {
-//           return try {
-//               api.signUp(SignUpRequestDto(signUpInput, childProfile))
-//               Result.success(Unit)
-//           } catch (e: Exception) {
-//               Result.failure(e)
-//           }
-//       }
-//   }
-// ViewModel 쪽 코드는 한 줄도 안 바꿔도 됨 (인터페이스가 같으니까).
+// 실제 연동은 FirebaseAuthRepository 를 쓴다. 이 클래스는 지우지 말 것.
 class FakeAuthRepository : AuthRepository {
-    override suspend fun register(signUpInput: SignUpInput, childProfile: ChildProfile): Result<Unit> {
+
+    // 중복 상황을 화면에서 확인해보기 위한 더미 목록
+    private val takenIds = setOf("test", "admin", "aion")
+
+    override suspend fun isIdAvailable(loginId: String): Result<Boolean> {
+        delay(400)
+        return Result.success(loginId.trim().lowercase() !in takenIds)
+    }
+
+    override suspend fun register(
+        signUpInput: SignUpInput,
+        childProfile: ChildProfile
+    ): Result<Unit> {
         delay(800) // 네트워크 호출 흉내 (로딩 상태 확인용)
 
-        // 아주 기초적인 검증만 흉내냄 — 실제 검증은 서버가 하게 될 부분
         if (signUpInput.userId.isBlank() || signUpInput.password.isBlank()) {
             return Result.failure(IllegalArgumentException("아이디/비밀번호가 비어있습니다."))
         }
