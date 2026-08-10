@@ -2,6 +2,7 @@ package com.example.aion_app.ui.screen.password
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -10,6 +11,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.aion_app.ui.component.*
 import com.example.aion_app.ui.theme.AionTheme
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import com.example.aion_app.ui.theme.LightHover
+import com.example.aion_app.ui.theme.Normal
+import com.example.aion_app.ui.theme.White
 
 @Composable
 fun PasswordChangeScreen(
@@ -70,7 +79,10 @@ fun PasswordChangeScreen(
                 isError = confirmPwError,
                 errorMessage = "비밀번호를 다시 입력해 주세요",
                 helperText = null,
-                placeholder = "변경한 비밀번호를 한 번 더 입력해 주세요"
+                placeholder = "변경한 비밀번호를 한 번 더 입력해 주세요",
+                placeholderColor = Color(0xFFB4B4B4),
+                placeholderFontSize = 13.sp,
+                showValidCheck = confirmPw.isNotEmpty() && confirmPw == newPw
             )
 
             Spacer(Modifier.height(40.dp))
@@ -109,15 +121,42 @@ fun PasswordChangeScreen(
             AlertDialog(
                 onDismissRequest = { },
                 confirmButton = {
-                    AionPrimaryButton(
-                        text = "확인",
+                    Button(
                         onClick = {
                             showSuccessDialog = false
                             onChangeSuccess()
-                        }
-                    )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Normal  // 연한 파란색 배경
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            "확인",
+                            color = LightHover,  // 진한 파란 텍스트
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 },
-                text = { Text("비밀번호가 변경되었습니다.") }
+                text = {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "비밀번호가 변경되었습니다.",
+                            fontSize = 15.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                },
+                shape = RoundedCornerShape(16.dp),
+                containerColor = White
             )
         }
     }

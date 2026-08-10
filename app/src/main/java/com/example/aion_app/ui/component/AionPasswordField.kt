@@ -13,6 +13,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.theme.GrayBackground
 import com.example.aion_app.ui.theme.RedError
@@ -27,6 +30,8 @@ fun AionPasswordField(
     errorMessage: String? = null,
     helperText: String? = "영문, 숫자 포함 8자 이상 입력해 주세요.",
     showValidCheck: Boolean = false,
+    placeholderColor: Color = Color.Unspecified,
+    placeholderFontSize: TextUnit = TextUnit.Unspecified,
     modifier: Modifier = Modifier
 ) {
     var visible by remember { mutableStateOf(false) }
@@ -36,7 +41,13 @@ fun AionPasswordField(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text(placeholder) },
+            placeholder = {
+                Text(
+                    text = placeholder,
+                    color = placeholderColor,
+                    fontSize = placeholderFontSize
+                )
+            },
             singleLine = true,
             visualTransformation = if (visible) VisualTransformation.None
             else PasswordVisualTransformation(),

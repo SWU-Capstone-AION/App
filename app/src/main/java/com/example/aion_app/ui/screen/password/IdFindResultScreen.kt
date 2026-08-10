@@ -1,32 +1,29 @@
 package com.example.aion_app.ui.screen.password
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.ui.component.*
-import com.example.aion_app.ui.theme.AionTheme
-import com.example.aion_app.ui.theme.BluePrimary
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.graphics.Color
-import com.example.aion_app.ui.theme.Darker
-import com.example.aion_app.ui.theme.White
+import com.example.aion_app.ui.theme.*
 
 @Composable
-fun PasswordFindResultScreen(
+fun IdFindResultScreen(
     nickname: String = "김슈니",
-    maskedPassword: String = "Aion06**",
+    userId: String = "swuaion2026",
     onBackClick: () -> Unit = {},
-    onChangePasswordClick: () -> Unit = {},
+    onPasswordFindClick: () -> Unit = {},
     onLoginClick: () -> Unit = {}
 ) {
     Scaffold(
-        topBar = { AionTopBar(title = "비밀번호 찾기", onBackClick = onBackClick) },
+        topBar = { AionTopBar(title = "아이디 찾기", onBackClick = onBackClick) },
         bottomBar = { AionBottomNavBar() }
     ) { padding ->
         Column(
@@ -39,29 +36,29 @@ fun PasswordFindResultScreen(
             Spacer(Modifier.weight(1f))
 
             Text(
-                "${nickname}님의 비밀번호는",
-                fontSize = 26.sp,  // ← 20 → 26
-                fontWeight = FontWeight.SemiBold  // ← Bold → SemiBold (pretendard SB)
+                "${nickname}님의 아이디는",
+                fontSize = 26.sp,
+                fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                maskedPassword,
-                fontSize = 26.sp,  // ← 24 → 26 (통일)
+                userId,
+                fontSize = 26.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = BluePrimary
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 "입니다.",
-                fontSize = 26.sp,  // ← 20 → 26
+                fontSize = 26.sp,
                 fontWeight = FontWeight.SemiBold
             )
 
             Spacer(Modifier.weight(1f))
 
-            // 비밀번호 변경하기 버튼 - 회색 배경
+            // 비밀번호 찾기 버튼 - 회색 배경
             Button(
-                onClick = onChangePasswordClick,
+                onClick = onPasswordFindClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -71,8 +68,8 @@ fun PasswordFindResultScreen(
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Text(
-                    "비밀번호 변경하기",
-                    color = Darker,  // #233453
+                    "비밀번호 찾기",
+                    color = Darker,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -95,12 +92,13 @@ fun PasswordFindResultScreen(
                     fontWeight = FontWeight.SemiBold
                 )
             }
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
 
 @Preview(showBackground = true, device = "id:pixel_7")
 @Composable
-fun PasswordFindResultScreenPreview() {
-    AionTheme { PasswordFindResultScreen() }
+fun IdFindResultScreenPreview() {
+    AionTheme { IdFindResultScreen() }
 }
