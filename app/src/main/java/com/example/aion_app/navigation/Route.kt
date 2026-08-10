@@ -13,6 +13,9 @@ object Route {
     const val PASSWORD_CHANGE_CHECK = "password_change_check"
     const val PASSWORD_CHANGE = "password_change"
 
+    const val ID_FIND = "id_find"
+    const val ID_FIND_RESULT = "id_find_result"
+
     // 마이페이지
     const val MYPAGE = "mypage"
     const val MY_INFO = "my_info"

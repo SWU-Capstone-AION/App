@@ -7,6 +7,8 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 
 import com.example.aion_app.ui.screen.home.HomeScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoScreen
@@ -27,6 +29,8 @@ import com.example.aion_app.ui.screen.password.PasswordChangeCheckScreen
 import com.example.aion_app.ui.screen.password.PasswordChangeScreen
 import com.example.aion_app.ui.screen.password.PasswordFindResultScreen
 import com.example.aion_app.ui.screen.password.PasswordFindScreen
+import com.example.aion_app.ui.screen.password.IdFindScreen
+import com.example.aion_app.ui.screen.password.IdFindResultScreen
 
 import com.example.aion_app.ui.screen.mypage.calculateAge
 import com.example.aion_app.ui.screen.report.ReportListScreen
@@ -44,6 +48,7 @@ fun AionNavHost() {
         // startDestination = Route.SIGN_UP   // 회원가입 플로우 테스트용
         // startDestination = Route.HOME       // 홈 테스트용
         // startDestination = Route.MYPAGE     // 마이페이지 테스트용
+        // startDestination = Route.ID_FIND    // 아이디 찾기 테스트용
     ) {
         // ===== 하단탭 공용 이동 로직 =====
         // (지역변수라 선언보다 아래에서만 참조 가능 → NavHost 블록 맨 위에 둠)
@@ -105,6 +110,40 @@ fun AionNavHost() {
                 onNext = { userId, password ->
                     signUpViewModel.updateAccount(userId, password)
                     navController.navigate(Route.CHILD_PROFILE_SETUP)
+                }
+            )
+        }
+        // ===== 아이디 찾기 =====
+        composable(Route.ID_FIND) {
+            IdFindScreen(
+                onBackClick = { navController.popBackStack() },
+                onFindSuccess = { email ->
+                    // 이메일 앞부분을 아이디로 만들어서 결과 화면으로 전달
+                    val userId = email.substringBefore("@")
+                    navController.navigate("${Route.ID_FIND_RESULT}/$userId")
+                },
+                onSwitchToPasswordFind = {
+                    navController.navigate(Route.PASSWORD_FIND) {
+                        popUpTo(Route.ID_FIND) { inclusive = true }
+                    }
+                }
+            )
+        }
+        composable(
+            route = "${Route.ID_FIND_RESULT}/{userId}",
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: ""
+            IdFindResultScreen(
+                userId = userId,
+                onBackClick = { navController.popBackStack() },
+                onPasswordFindClick = {
+                    navController.navigate(Route.PASSWORD_FIND) {
+                        popUpTo(Route.ID_FIND) { inclusive = true }
+                    }
+                },
+                onLoginClick = {
+                    // TODO: 로그인 화면으로
                 }
             )
         }
@@ -206,7 +245,7 @@ fun AionNavHost() {
                     navController.navigate(Route.MY_INFO)
                 },
                 onFindIdPasswordClick = {
-                    navController.navigate(Route.PASSWORD_FIND)
+                    navController.navigate(Route.ID_FIND)
                 },
                 onChangePasswordClick = {
                     navController.navigate(Route.PASSWORD_CHANGE_CHECK)
@@ -268,6 +307,11 @@ fun AionNavHost() {
                 onBackClick = { navController.popBackStack() },
                 onFindSuccess = {
                     navController.navigate(Route.PASSWORD_FIND_RESULT)
+                },
+                onSwitchToIdFind = {
+                    navController.navigate(Route.ID_FIND) {
+                        popUpTo(Route.PASSWORD_FIND) { inclusive = true }
+                    }
                 }
             )
         }
