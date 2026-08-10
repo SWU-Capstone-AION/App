@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "938508129014",
+    "project_id": "aion-capstone",
+    "storage_bucket": "aion-capstone.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:938508129014:android:e517780fee5a8255e452d7",
+        "android_client_info": {
+          "package_name": "com.example.aion_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfNs-jhp7sQydYKSHsdULyVCdr5Q8mfGw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
