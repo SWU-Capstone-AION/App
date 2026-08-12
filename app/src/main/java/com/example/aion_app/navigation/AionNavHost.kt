@@ -45,6 +45,9 @@ import com.example.aion_app.ui.screen.report.ReportListScreen
 import com.example.aion_app.ui.screen.report.ReportDetailScreen
 import com.example.aion_app.ui.screen.report.sampleStudentReport
 
+import com.example.aion_app.data.auth.UserRole
+import com.example.aion_app.ui.screen.login.LoginViewModel
+
 @Composable
 fun AionNavHost() {
     val navController = rememberNavController()
@@ -105,9 +108,19 @@ fun AionNavHost() {
                 navController.getBackStackEntry(Route.SIGN_UP)
             }
             val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+            val loginViewModel: LoginViewModel = viewModel()
+
             SignUpScreen(
-                onLoginClick = {
-                    // TODO: 로그인(이메일/비번 입력) 화면이 아직 없음 — 별도 화면 만들면 여기 연결
+                isLoading = loginViewModel.isLoading,
+                errorMessage = loginViewModel.errorMessage,
+                onLoginClick = { userId, password ->
+                    loginViewModel.login(userId, password) { role ->
+                        // 토글이 아니라 서버에 저장된 역할을 따라 분기한다
+                        val next = if (role == UserRole.CHILD) Route.KIDS_HOME else Route.HOME
+                        navController.navigate(next) {
+                            popUpTo(Route.SIGN_UP) { inclusive = true }  // 뒤로가기로 로그인 화면에 못 돌아오게
+                        }
+                    }
                 },
                 onSignUpClick = { type ->
                     signUpViewModel.updateType(type)
@@ -215,6 +228,8 @@ fun AionNavHost() {
         // KIDS_SIGN_UP_ACCOUNT 진입점을 parentEntry 로 묶는다.
         // (교사용 로그인에서 '아동용'을 골라 들어와도, 아동용 로그인에서 들어와도 동일하게 동작)
         composable(Route.KIDS_LOGIN) {
+            val loginViewModel: LoginViewModel = viewModel()
+
             KidsLoginScreen(
                 onTeacherClick = {
                     // 토글에서 '교사용' → 교사용 로그인 화면으로
@@ -222,10 +237,12 @@ fun AionNavHost() {
                         popUpTo(Route.KIDS_LOGIN) { inclusive = true }
                     }
                 },
-                onLoginClick = { _, _ ->
-                    // TODO: 아동용 로그인 API 연결. 지금은 검증 없이 홈으로 보낸다.
-                    navController.navigate(Route.KIDS_HOME) {
-                        popUpTo(Route.KIDS_LOGIN) { inclusive = true }
+                onLoginClick = { userId, password ->
+                    loginViewModel.login(userId, password) { role ->
+                        val next = if (role == UserRole.CHILD) Route.KIDS_HOME else Route.HOME
+                        navController.navigate(next) {
+                            popUpTo(Route.KIDS_LOGIN) { inclusive = true }
+                        }
                     }
                 },
                 onSignUpClick = {

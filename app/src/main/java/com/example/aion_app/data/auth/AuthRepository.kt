@@ -4,7 +4,7 @@ import com.example.aion_app.ui.screen.login.ChildProfile
 import kotlinx.coroutines.delay
 
 // ============================================
-// 회원가입 Repository
+// 인증 Repository
 // ============================================
 interface AuthRepository {
     /** 아이디 사용 가능 여부. true면 사용 가능. */
@@ -12,6 +12,12 @@ interface AuthRepository {
 
     /** 계정 생성 + 아동 프로필 저장 */
     suspend fun register(signUpInput: SignUpInput, childProfile: ChildProfile): Result<Unit>
+
+    /** 로그인. 성공하면 계정 유형을 돌려준다. */
+    suspend fun login(loginId: String, password: String): Result<UserRole>
+
+    /** 로그아웃 */
+    fun logout()
 }
 
 // ============================================
@@ -40,4 +46,21 @@ class FakeAuthRepository : AuthRepository {
 
         return Result.success(Unit)
     }
+
+    override suspend fun login(loginId: String, password: String): Result<UserRole> {
+        delay(600)
+
+        if (loginId.isBlank() || password.isBlank()) {
+            return Result.failure(IllegalArgumentException("아이디와 비밀번호를 입력해 주세요."))
+        }
+
+        // 역할 분기를 화면에서 확인해보기 위한 규칙 — 아이디가 child 로 시작하면 아동으로 취급
+        val role =
+            if (loginId.trim().lowercase().startsWith("child")) UserRole.CHILD
+            else UserRole.TEACHER
+
+        return Result.success(role)
+    }
+
+    override fun logout() = Unit
 }

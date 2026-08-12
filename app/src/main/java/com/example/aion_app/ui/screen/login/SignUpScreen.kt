@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,7 +38,9 @@ private val LogoTextWidth = 76.dp
 
 @Composable
 fun SignUpScreen(
-    onLoginClick: () -> Unit = {},
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    onLoginClick: (userId: String, password: String) -> Unit = { _, _ -> },
     onSignUpClick: (type: String) -> Unit = { }
 ) {
     var selectedType by remember { mutableStateOf("아동용") }
@@ -78,6 +81,8 @@ fun SignUpScreen(
 
         Spacer(modifier = Modifier.height(30.dp))
 
+        // 이 토글은 '회원가입' 버튼을 눌렀을 때 어느 가입 플로우로 갈지만 정한다.
+        // 로그인 자체는 서버에 저장된 역할을 따르므로 토글과 무관하다.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -123,12 +128,25 @@ fun SignUpScreen(
             placeholder = ""
         )
 
+        // ===== 로그인 실패 메시지 =====
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = errorMessage,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
         Spacer(modifier = Modifier.weight(1f))
         Spacer(modifier = Modifier.height(40.dp))
 
         AionPrimaryButton(
-            text = "로그인",
-            onClick = onLoginClick,
+            text = if (isLoading) "로그인 중..." else "로그인",
+            onClick = { onLoginClick(userId, password) },
+            enabled = !isLoading && userId.isNotBlank() && password.isNotBlank(),
             isPrimary = true
         )
 
@@ -138,6 +156,7 @@ fun SignUpScreen(
             text = "회원가입",
             // 회원가입 화면(시안 2p)으로 '이동'만 한다. 아이디/비번은 거기서 입력.
             onClick = { onSignUpClick(selectedType) },
+            enabled = !isLoading,
             isPrimary = false
         )
 

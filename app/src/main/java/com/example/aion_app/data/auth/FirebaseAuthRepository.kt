@@ -2,6 +2,8 @@ package com.example.aion_app.data.auth
 
 import com.example.aion_app.ui.screen.login.ChildProfile
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -11,7 +13,7 @@ import kotlinx.coroutines.tasks.await
  *
  * 저장 구조:
  *   users/{uid}        - 역할, 아이디, 아동 프로필
- *   loginIds/{loginId} - 아이디 중복 확인 + 로그인 시 uid 조회용 역인덱스
+ *   loginIds/{loginId} - 아이디 중복 확인용 역인덱스
  */
 class FirebaseAuthRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -68,6 +70,40 @@ class FirebaseAuthRepository(
         Unit
     }
 
+    override suspend fun login(loginId: String, password: String): Result<UserRole> = runCatching {
+        val trimmed = loginId.trim()
+
+        if (trimmed.isBlank()) throw IllegalArgumentException("아이디를 입력해 주세요.")
+        if (password.isBlank()) throw IllegalArgumentException("비밀번호를 입력해 주세요.")
+
+        // 아이디가 틀린 경우와 비밀번호가 틀린 경우를 구분해서 알려주지 않는다.
+        // (존재하는 아이디를 추측당하지 않도록)
+        val uid = try {
+            auth.signInWithEmailAndPassword(trimmed.toAuthEmail(), password)
+                .await()
+                .user?.uid
+        } catch (e: FirebaseAuthInvalidUserException) {
+            throw IllegalStateException(LOGIN_FAILED_MESSAGE)
+        } catch (e: FirebaseAuthInvalidCredentialsException) {
+            throw IllegalStateException(LOGIN_FAILED_MESSAGE)
+        } ?: throw IllegalStateException(LOGIN_FAILED_MESSAGE)
+
+        // Auth 인증은 됐지만 프로필 문서가 없으면 정상 계정이 아니므로 되돌린다
+        val document = db.collection("users").document(uid).get().await()
+        when (document.getString("role")) {
+            ROLE_CHILD -> UserRole.CHILD
+            ROLE_TEACHER -> UserRole.TEACHER
+            else -> {
+                auth.signOut()
+                throw IllegalStateException("계정 정보를 찾을 수 없습니다.")
+            }
+        }
+    }
+
+    override fun logout() {
+        auth.signOut()
+    }
+
     private fun buildUserDocument(
         loginId: String,
         signUpInput: SignUpInput,
@@ -114,6 +150,8 @@ class FirebaseAuthRepository(
     companion object {
         const val ROLE_TEACHER = "TEACHER"
         const val ROLE_CHILD = "CHILD"
+
+        private const val LOGIN_FAILED_MESSAGE = "아이디 또는 비밀번호가 올바르지 않습니다."
 
         // 화면 안내 문구("영문, 숫자 포함 8자 이상")와 동일한 규칙
         private val PASSWORD_PATTERN = Regex("^(?=.*[A-Za-z])(?=.*\\d).{8,}$")
