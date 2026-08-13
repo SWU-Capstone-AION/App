@@ -1,11 +1,11 @@
 package com.example.aion_app.navigation
 
+import com.example.aion_app.isTabletDevice
 import com.example.aion_app.ui.screen.notification.NotificationScreen
 import com.example.aion_app.ui.screen.splash.SplashScreen
 
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -76,25 +76,23 @@ fun AionNavHost() {
         }
 
         // ===== 스플래시 =====
-        // 화면 크기로 진입 화면을 나눈다.
-        //   태블릿(짧은 변 600dp 이상) → 아동용 로그인
-        //   폰                        → 교사용 로그인
-        // maxWidth/maxHeight 중 작은 쪽을 보는 이유: 폰을 가로로 눕히면 폭이 800dp 넘어서
-        // maxWidth 만 보면 폰을 태블릿으로 오인한다.
+        // 기기 종류로 진입 화면을 나눈다.
+        //   태블릿(sw600dp 이상) → 아동용 로그인
+        //   폰                   → 교사용 로그인
+        //
+        // 판별은 MainActivity 의 화면 회전 결정과 반드시 같은 기준이어야 하므로
+        // 동일한 isTabletDevice() 를 함께 쓴다. (기준이 갈리면 '폰인데 가로' 같은 버그가 난다)
         composable(Route.SPLASH) {
-            BoxWithConstraints {
-                val shortestSide = minOf(maxWidth, maxHeight)
-                val isTablet = shortestSide >= 600.dp
+            val isTablet = isTabletDevice(LocalContext.current)
 
-                SplashScreen(
-                    onFinish = {
-                        val next = if (isTablet) Route.KIDS_LOGIN else Route.SIGN_UP
-                        navController.navigate(next) {
-                            popUpTo(Route.SPLASH) { inclusive = true }  // 스플래시는 스택에서 제거
-                        }
+            SplashScreen(
+                onFinish = {
+                    val next = if (isTablet) Route.KIDS_LOGIN else Route.SIGN_UP
+                    navController.navigate(next) {
+                        popUpTo(Route.SPLASH) { inclusive = true }  // 스플래시는 스택에서 제거
                     }
-                )
-            }
+                }
+            )
         }
 
         // ===== 회원가입 플로우 =====

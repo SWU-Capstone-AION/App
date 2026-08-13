@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aion_app.data.auth.AuthRepository
+import com.example.aion_app.data.auth.FakeAuthRepository
 import com.example.aion_app.data.auth.FirebaseAuthRepository
 import com.example.aion_app.data.auth.SignUpInput
 import kotlinx.coroutines.launch
@@ -16,7 +17,8 @@ import kotlinx.coroutines.launch
 // SignUpScreen → ChildProfileSetupScreen → OnboardingCompleteScreen
 // 세 화면이 이 ViewModel 하나를 공유함 (AionNavHost에서 같은 parentEntry로 묶어줌).
 class SignUpViewModel(
-    // 실제 Firebase 연동. UI만 테스트하려면 FakeAuthRepository()로 바꾸면 된다.
+    // 실제 Firebase 연동 FirebaseAuthRepository().
+    // UI만 테스트하려면 FakeAuthRepository()로 바꾸면 된다.
     private val authRepository: AuthRepository = FirebaseAuthRepository()
 ) : ViewModel() {
 

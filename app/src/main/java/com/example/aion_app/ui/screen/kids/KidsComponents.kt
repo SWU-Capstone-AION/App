@@ -63,9 +63,10 @@ import com.example.aion_app.ui.theme.White
 // ============================================================
 
 // ---------- 시안 사이즈 (여기 값만 바꾸면 아동용 전체에 반영됨) ----------
-// 아동용은 태블릿 전용이라, 아래 값들은 '시안 프레임(930dp 폭) 기준'의 값이다.
-// 실제 기기 폭이 930보다 크면 KidsScreenFrame 이 density 를 조정해 통째로 확대한다.
-const val KidsDesignFrameWidth = 930f   // 피그마 프레임 가로 (930 x 582)
+// 아래 값들은 모두 '시안 프레임(930 x 582) 기준'의 값이다.
+// 실제 기기 크기에 맞춰 KidsDesignScale 이 density 를 조정해 통째로 확대/축소한다.
+const val KidsDesignFrameWidth  = 930f   // 피그마 프레임 가로
+const val KidsDesignFrameHeight = 582f   // 피그마 프레임 세로
 
 val KidsContentWidth = 329.dp    // 아이디 입력칸 등 '긴 것'
 val KidsItemHeight   = 50.dp     // 모든 입력칸·버튼 공통 높이
@@ -78,17 +79,24 @@ val KidsPillCorner   = 25.dp     // 선택지(알약) 모서리 = 높이/2
 // ============================================================
 // 시안 스케일 래퍼
 // ============================================================
-// 아동용은 태블릿 전용(가로). 시안이 930 x 582 프레임인데 실제 태블릿은
-// 1200dp 안팎이라, 329dp 를 그대로 쓰면 화면에서 훨씬 작아 보인다.
-//
-// 그래서 "화면 폭이 930dp인 것처럼" density 를 바꿔서 하위 트리에 내려준다.
-// → 안에 쓰인 모든 dp / sp 값이 알아서 시안 비율로 확대된다.
+// 시안이 930 x 582 프레임인데 실제 기기는 크기도 비율도 제각각이다.
+// 그래서 "화면이 930 x 582 인 것처럼" density 를 바꿔서 하위 트리에 내려준다.
+// → 안에 쓰인 모든 dp / sp 값이 알아서 시안 비율로 확대/축소된다.
 //   (치수마다 * scale 을 곱할 필요가 없고, 화면 코드는 시안 숫자를 그대로 쓰면 됨)
+//
+// 배율은 폭 기준과 높이 기준 중 '작은 쪽' 을 쓴다. (contain 방식)
+// 폭만 보면 세로 화면에서 프레임이 아래로 늘어나 버튼이 화면 끝까지 내려간다.
+// 작은 쪽을 쓰면 어떤 비율의 화면에서도 시안 모양이 그대로 유지되고,
+// 남는 부분은 위아래(또는 좌우) 여백으로 빠진다.
+//
+// 이 덕분에 화면 회전을 강제로 막지 않아도 레이아웃이 깨지지 않는다.
+// (targetSdk 36 부터 sw600dp 이상 기기에서는 회전 고정이 무시되므로 이 대비가 필요하다)
 //
 // fontScale 은 원래 값을 그대로 넘기므로 사용자의 '글꼴 크기' 접근성 설정도 계속 반영된다.
 //
 // 로그인/회원가입처럼 가운데 329dp 열이 필요한 화면은 KidsScreenFrame 을,
 // 홈/호흡처럼 배경이 화면 전체를 덮는 화면은 이 KidsDesignScale 을 직접 쓴다.
+// 여백 색은 호출부에서 modifier 로 지정한다. (예: Modifier.background(Light))
 @Composable
 fun KidsDesignScale(
     modifier: Modifier = Modifier,
@@ -96,13 +104,31 @@ fun KidsDesignScale(
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val base = LocalDensity.current
-        // 실제 폭(px) 을 930 으로 나누면 "1 디자인dp 당 몇 px" 이 나온다 = 새 density
+
+        // "1 디자인dp 당 몇 px" = 새 density.
+        // 폭 기준과 높이 기준 중 작은 쪽 → 프레임 전체가 화면 안에 들어온다.
         val scaledDensity = Density(
-            density = constraints.maxWidth / KidsDesignFrameWidth,
+            density = minOf(
+                constraints.maxWidth / KidsDesignFrameWidth,
+                constraints.maxHeight / KidsDesignFrameHeight
+            ),
             fontScale = base.fontScale
         )
+
         CompositionLocalProvider(LocalDensity provides scaledDensity) {
-            Box(modifier = Modifier.fillMaxSize(), content = content)
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                // 시안 프레임과 정확히 같은 크기의 영역. 화면 가운데에 놓인다.
+                Box(
+                    modifier = Modifier.size(
+                        width = KidsDesignFrameWidth.dp,
+                        height = KidsDesignFrameHeight.dp
+                    ),
+                    content = content
+                )
+            }
         }
     }
 }
@@ -120,7 +146,8 @@ fun KidsScreenFrame(
     bottomPadding: Dp = 32.dp,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    KidsDesignScale(modifier = modifier) {
+    // 프레임 바깥 여백도 본문과 같은 흰색으로 채워, 세로 화면에서 배경이 비치지 않게 한다
+    KidsDesignScale(modifier = modifier.background(White)) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
