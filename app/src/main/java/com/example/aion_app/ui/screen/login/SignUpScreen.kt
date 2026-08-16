@@ -164,19 +164,15 @@ fun SignUpScreen(
     }
 }
 
-// ============================================================
-// 시안 2p: 회원가입 — 아이디 + 비밀번호
-// ============================================================
-// 별도 파일을 만들지 않기 위해 로그인 화면과 같은 파일에 둔다.
-// (원하면 SignUpAccountScreen.kt 로 분리해도 동작은 동일)
 @Composable
 fun SignUpAccountScreen(
     onBackClick: () -> Unit = {},
     onCheckDuplicate: (String) -> Unit = {},   // 아이디 중복확인 (백엔드 연결 지점)
     duplicateMessage: String? = null,          // 중복확인 결과 문구 (없으면 표시 안 함)
-    onNext: (userId: String, password: String) -> Unit = { _, _ -> }
+    onNext: (userId: String, email: String, password: String) -> Unit = { _, _, _ -> }
 ) {
     var userId by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
     Column(
@@ -249,6 +245,35 @@ fun SignUpAccountScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // ===== 이메일 =====
+            // 비밀번호를 잊었을 때 재설정 메일을 받을 주소라 실제로 쓰는 메일이어야 한다.
+            Text(
+                "이메일을 입력해 주세요",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            AionTextField(
+                value = email,
+                onValueChange = { email = it },
+                placeholder = "example@email.com"
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                "비밀번호를 잊었을 때 이 주소로 재설정 메일이 발송됩니다.",
+                fontSize = 11.sp,
+                color = GrayText,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             // ===== 비밀번호 =====
             Text(
                 "비밀번호를 입력해 주세요",
@@ -280,8 +305,8 @@ fun SignUpAccountScreen(
 
             AionPrimaryButton(
                 text = "다음",
-                onClick = { onNext(userId, password) },
-                enabled = userId.isNotBlank() && password.isNotBlank()
+                onClick = { onNext(userId, email, password) },
+                enabled = userId.isNotBlank() && email.isNotBlank() && password.isNotBlank()
             )
 
             Spacer(modifier = Modifier.height(60.dp))

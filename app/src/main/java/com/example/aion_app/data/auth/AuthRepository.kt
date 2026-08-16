@@ -16,6 +16,9 @@ interface AuthRepository {
     /** 로그인. 성공하면 계정 유형을 돌려준다. */
     suspend fun login(loginId: String, password: String): Result<UserRole>
 
+    /** 아이디로 가입 이메일을 찾아 비밀번호 재설정 메일 발송 */
+    suspend fun sendPasswordReset(loginId: String): Result<Unit>
+
     /** 로그아웃 */
     fun logout()
 }
@@ -60,6 +63,11 @@ class FakeAuthRepository : AuthRepository {
             else UserRole.TEACHER
 
         return Result.success(role)
+    }
+
+    override suspend fun sendPasswordReset(loginId: String): Result<Unit> {
+        delay(600)
+        return Result.success(Unit)
     }
 
     override fun logout() = Unit

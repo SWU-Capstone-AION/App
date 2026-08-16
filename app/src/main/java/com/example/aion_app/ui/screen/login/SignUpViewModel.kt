@@ -45,9 +45,10 @@ class SignUpViewModel(
         signUpInput = signUpInput.copy(type = type)
     }
 
-    // 회원가입 화면(2p)에서 입력한 아이디/비밀번호 저장
-    fun updateAccount(userId: String, password: String) {
-        signUpInput = signUpInput.copy(userId = userId, password = password)
+    // 회원가입 화면(2p)에서 입력한 아이디/이메일/비밀번호 저장
+    // 아동용 화면은 이메일 없이 호출하므로 기본값을 둔다
+    fun updateAccount(userId: String, password: String, email: String = "") {
+        signUpInput = signUpInput.copy(userId = userId, password = password, email = email)
     }
 
     fun updateChildProfile(profile: ChildProfile) {

@@ -18,12 +18,14 @@ import androidx.compose.foundation.clickable
 
 @Composable
 fun PasswordFindScreen(
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
     onBackClick: () -> Unit = {},
     onFindSuccess: (id: String) -> Unit = {},
     onSwitchToIdFind: () -> Unit = {}
 ) {
     var id by remember { mutableStateOf("") }
-    var idError by remember { mutableStateOf(false) }
+    var idBlankError by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = { AionTopBar(title = "비밀번호 찾기", onBackClick = onBackClick) },
@@ -66,25 +68,42 @@ fun PasswordFindScreen(
                 value = id,
                 onValueChange = {
                     id = it
-                    idError = false
+                    idBlankError = false
                 },
-                isError = idError
+                isError = idBlankError || errorMessage != null
             )
-            if (idError) {
+
+            // 아이디가 존재하는지 여부는 알려주지 않는다.
+            // (가입된 계정을 추측당하지 않도록)
+            val message = when {
+                idBlankError -> "아이디를 입력해 주세요."
+                errorMessage != null -> errorMessage
+                else -> null
+            }
+            if (message != null) {
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    "존재하지 않는 아이디예요.",
+                    message,
                     color = RedError,
                     style = MaterialTheme.typography.labelSmall
                 )
             }
 
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "가입할 때 등록한 이메일로 비밀번호 재설정 링크를 보내드립니다.",
+                color = GrayText,
+                style = MaterialTheme.typography.labelSmall
+            )
+
             Spacer(Modifier.weight(1f))
 
             AionPrimaryButton(
-                text = "비밀번호 찾기",
+                text = if (isLoading) "메일 보내는 중..." else "비밀번호 찾기",
+                enabled = !isLoading,
                 onClick = {
                     if (id.isBlank()) {
-                        idError = true
+                        idBlankError = true
                     } else {
                         onFindSuccess(id)
                     }

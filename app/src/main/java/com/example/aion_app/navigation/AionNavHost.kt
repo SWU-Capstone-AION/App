@@ -39,6 +39,7 @@ import com.example.aion_app.ui.screen.password.PasswordFindResultScreen
 import com.example.aion_app.ui.screen.password.PasswordFindScreen
 import com.example.aion_app.ui.screen.password.IdFindScreen
 import com.example.aion_app.ui.screen.password.IdFindResultScreen
+import com.example.aion_app.ui.screen.password.PasswordFindViewModel
 
 import com.example.aion_app.ui.screen.mypage.calculateAge
 import com.example.aion_app.ui.screen.report.ReportListScreen
@@ -144,8 +145,8 @@ fun AionNavHost() {
                 onBackClick = { navController.popBackStack() },
                 onCheckDuplicate = { signUpViewModel.checkDuplicateId(it) },
                 duplicateMessage = signUpViewModel.idCheckMessage,
-                onNext = { userId, password ->
-                    signUpViewModel.updateAccount(userId, password)
+                onNext = { userId, email, password ->
+                    signUpViewModel.updateAccount(userId, password, email)
                     navController.navigate(Route.CHILD_PROFILE_SETUP)
                 }
             )
@@ -449,10 +450,16 @@ fun AionNavHost() {
 
         // 1. 비밀번호 찾기 화면
         composable(Route.PASSWORD_FIND) {
+            val passwordFindViewModel: PasswordFindViewModel = viewModel()
+
             PasswordFindScreen(
+                isLoading = passwordFindViewModel.isLoading,
+                errorMessage = passwordFindViewModel.errorMessage,
                 onBackClick = { navController.popBackStack() },
-                onFindSuccess = {
-                    navController.navigate(Route.PASSWORD_FIND_RESULT)
+                onFindSuccess = { id ->
+                    passwordFindViewModel.sendResetMail(id) {
+                        navController.navigate(Route.PASSWORD_FIND_RESULT)
+                    }
                 },
                 onSwitchToIdFind = {
                     navController.navigate(Route.ID_FIND) {
@@ -462,19 +469,15 @@ fun AionNavHost() {
             )
         }
 
-        // 2. 비밀번호 찾기 결과 화면
+        // 2. 비밀번호 찾기 결과 화면 (재설정 메일 발송 안내)
         composable(Route.PASSWORD_FIND_RESULT) {
             PasswordFindResultScreen(
                 onBackClick = { navController.popBackStack() },
-                onChangePasswordClick = {
-                    navController.navigate(Route.PASSWORD_CHANGE_CHECK)
-                },
                 onLoginClick = {
-                    // 처음 화면(비밀번호 찾기)으로 돌아가기
-                    navController.popBackStack(
-                        route = Route.PASSWORD_FIND,
-                        inclusive = false
-                    )
+                    // 로그인 화면으로 (찾기 흐름은 스택에서 정리)
+                    navController.navigate(Route.SIGN_UP) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
