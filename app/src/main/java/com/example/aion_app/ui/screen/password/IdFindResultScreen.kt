@@ -24,7 +24,6 @@ fun IdFindResultScreen(
 ) {
     Scaffold(
         topBar = { AionTopBar(title = "아이디 찾기", onBackClick = onBackClick) },
-        bottomBar = { AionBottomNavBar() }
     ) { padding ->
         Column(
             modifier = Modifier

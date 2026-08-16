@@ -31,7 +31,6 @@ fun PasswordFindResultScreen(
 ) {
     Scaffold(
         topBar = { AionTopBar(title = "비밀번호 찾기", onBackClick = onBackClick) },
-        bottomBar = { AionBottomNavBar() }
     ) { padding ->
         Column(
             modifier = Modifier

@@ -119,7 +119,7 @@ fun AionNavHost() {
                         // 토글이 아니라 서버에 저장된 역할을 따라 분기한다
                         val next = if (role == UserRole.CHILD) Route.KIDS_HOME else Route.HOME
                         navController.navigate(next) {
-                            popUpTo(Route.SIGN_UP) { inclusive = true }  // 뒤로가기로 로그인 화면에 못 돌아오게
+                            popUpTo(Route.SIGN_UP) { inclusive = true }
                         }
                     }
                 },
@@ -131,7 +131,9 @@ fun AionNavHost() {
                     } else {
                         navController.navigate(Route.SIGN_UP_ACCOUNT)
                     }
-                }
+                },
+                onFindIdClick = { navController.navigate(Route.ID_FIND) },
+                onFindPasswordClick = { navController.navigate(Route.PASSWORD_FIND) }
             )
         }
 

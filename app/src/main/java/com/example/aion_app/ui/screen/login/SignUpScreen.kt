@@ -41,7 +41,9 @@ fun SignUpScreen(
     isLoading: Boolean = false,
     errorMessage: String? = null,
     onLoginClick: (userId: String, password: String) -> Unit = { _, _ -> },
-    onSignUpClick: (type: String) -> Unit = { }
+    onSignUpClick: (type: String) -> Unit = { },
+    onFindIdClick: () -> Unit = {},
+    onFindPasswordClick: () -> Unit = {}
 ) {
     var selectedType by remember { mutableStateOf("아동용") }
     var userId by remember { mutableStateOf("") }
@@ -160,10 +162,45 @@ fun SignUpScreen(
             isPrimary = false
         )
 
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // ===== 아이디 / 비밀번호 찾기 =====
+        // 로그인을 못 하는 사람이 쓰는 기능이라 로그인 화면에 둔다.
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "아이디 찾기",
+                fontSize = 13.sp,
+                color = GrayText,
+                modifier = Modifier
+                    .clickable(enabled = !isLoading) { onFindIdClick() }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+            Text(
+                text = "|",
+                fontSize = 13.sp,
+                color = GrayBackground
+            )
+            Text(
+                text = "비밀번호 찾기",
+                fontSize = 13.sp,
+                color = GrayText,
+                modifier = Modifier
+                    .clickable(enabled = !isLoading) { onFindPasswordClick() }
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+        }
+
         Spacer(modifier = Modifier.height(60.dp))
     }
 }
 
+// ============================================================
+// 시안 2p: 회원가입 — 아이디 + 이메일 + 비밀번호
+// ============================================================
+// 별도 파일을 만들지 않기 위해 로그인 화면과 같은 파일에 둔다.
+// (원하면 SignUpAccountScreen.kt 로 분리해도 동작은 동일)
 @Composable
 fun SignUpAccountScreen(
     onBackClick: () -> Unit = {},

@@ -16,6 +16,8 @@ import com.example.aion_app.ui.component.*
 import com.example.aion_app.ui.theme.*
 import androidx.compose.foundation.clickable
 
+// 로그인 전에 들어오는 화면이라 하단 탭바를 두지 않는다.
+// (탭을 누르면 인증 없이 교사 화면으로 넘어가버림)
 @Composable
 fun PasswordFindScreen(
     isLoading: Boolean = false,
@@ -28,8 +30,7 @@ fun PasswordFindScreen(
     var idBlankError by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = { AionTopBar(title = "비밀번호 찾기", onBackClick = onBackClick) },
-        bottomBar = { AionBottomNavBar() }
+        topBar = { AionTopBar(title = "비밀번호 찾기", onBackClick = onBackClick) }
     ) { padding ->
         Column(
             modifier = Modifier
