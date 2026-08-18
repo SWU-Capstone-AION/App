@@ -1,98 +1,41 @@
 package com.example.aion_app
 
+import android.content.Context
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.tooling.preview.PreviewScreenSizes
-import com.example.aion_app.monitor.StereotypyMonitorScreen
-import com.example.aion_app.ui.theme.AIONappTheme
+import com.example.aion_app.navigation.AionNavHost
+import com.example.aion_app.ui.theme.AionTheme
+
+// ============================================
+// 기기 판별 기준
+// ============================================
+// 안드로이드 표준인 sw600dp 를 그대로 쓴다.
+// smallestScreenWidthDp 는 '화면의 짧은 변' 이라 기기를 어떻게 돌려도 값이 바뀌지 않는다.
+// → 회전 고정을 걸어둔 뒤에 읽어도 결과가 흔들리지 않는다.
+const val TabletSmallestWidthDp = 600
+
+fun isTabletDevice(context: Context): Boolean =
+    context.resources.configuration.smallestScreenWidthDp >= TabletSmallestWidthDp
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+
+        requestedOrientation = if (isTabletDevice(this)) {
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+
+        // 시스템바(상태바/내비게이션바) 여백은 AionNavHost 에서 처리한다.
+        // 스플래시만 풀블리드로 둬야 해서 현재 라우트를 아는 쪽에 두는 게 맞다.
         setContent {
-            AIONappTheme {
-                AIONappApp()
+            AionTheme {
+                AionNavHost()
             }
         }
-    }
-}
-
-@PreviewScreenSizes
-@Composable
-fun AIONappApp() {
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
-
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            AppDestinations.entries.forEach {
-                item(
-                    icon = {
-                        Icon(
-                            painterResource(it.icon),
-                            contentDescription = it.label
-                        )
-                    },
-                    label = { Text(it.label) },
-                    selected = it == currentDestination,
-                    onClick = { currentDestination = it }
-                )
-            }
-        }
-    ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            when (currentDestination) {
-                AppDestinations.MONITOR -> StereotypyMonitorScreen(
-                    modifier = Modifier.padding(innerPadding)
-                )
-                else -> Greeting(
-                    name = "Android",
-                    modifier = Modifier.padding(innerPadding)
-                )
-            }
-        }
-    }
-}
-
-enum class AppDestinations(
-    val label: String,
-    val icon: Int,
-) {
-    HOME("Home", R.drawable.ic_home),
-    MONITOR("모니터링", R.drawable.ic_monitor),
-    FAVORITES("Favorites", R.drawable.ic_favorite),
-    PROFILE("Profile", R.drawable.ic_account_box),
-}
-
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    AIONappTheme {
-        Greeting("Android")
     }
 }

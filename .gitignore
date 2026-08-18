@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+# Firebase
+*-firebase-adminsdk-*.json
+firebase/functions/node_modules/
+firebase/.firebase/
