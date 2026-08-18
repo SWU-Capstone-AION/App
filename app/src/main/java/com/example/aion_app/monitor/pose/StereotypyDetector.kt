@@ -87,6 +87,29 @@ class StereotypyDetector {
     private val timeline = ArrayList<TimelinePoint>()
     private val wristTrace = ArrayList<WristPoint>()
 
+    /**
+     * 판정 스킵 플래그. 미니게임처럼 "의도된 반복 동작"을 하는 동안 켜 둔다.
+     * 잡초 뽑기의 팔 상하 반복은 상동행동 조건(진폭·박자·중심편차)을 그대로 만족하기 때문에
+     * 끄지 않으면 게임 중 교사폰으로 알림이 나간다.
+     */
+    var paused: Boolean = false
+        private set
+
+    /**
+     * 판정을 멈추거나 재개한다.
+     *
+     * 들어갈 때·나올 때 모두 버퍼를 비운다. 게임 중의 팔 동작이 슬라이딩 윈도우에 남아 있으면
+     * 재개 직후 곧바로 오탐이 뜨기 때문이다. 누적 통계(alarmCount·activeTotal·timeline)는
+     * 세션 기록이므로 건드리지 않는다.
+     */
+    fun setPaused(value: Boolean) {
+        if (paused == value) return
+        paused = value
+        buffers.values.forEach { it.clear() }
+        Part.entries.forEach { alarmLatched[it] = false; streak[it] = 0.0 }
+        lastFrameT = 0.0
+    }
+
     fun reset() {
         buffers.values.forEach { it.clear() }
         Part.entries.forEach { alarmLatched[it] = false; activeTotal[it] = 0.0; streak[it] = 0.0 }
@@ -118,6 +141,10 @@ class StereotypyDetector {
     ): State {
         if (sessionStartMs == 0L) sessionStartMs = timestampMs
         val tNow = (timestampMs - sessionStartMs) / 1000.0
+
+        // 미니게임 중에는 아예 분석하지 않는다. 버퍼에 샘플도 쌓지 않으므로
+        // 게임이 끝난 직후 남은 데이터로 알람이 뜨는 일도 없다.
+        if (paused) return pausedState(tNow)
 
         val shoulderMid = mid(leftShoulder, rightShoulder)
         val hipMid = mid(leftHip, rightHip)
@@ -231,6 +258,20 @@ class StereotypyDetector {
             wristTrace = ArrayList(wristTrace),
         )
     }
+
+    /** 판정을 멈춘 동안 돌려주는 상태. 알람은 무조건 꺼져 있다. */
+    private fun pausedState(tNow: Double): State = State(
+        parts = Part.entries.associateWith { PartState(Arm(), 0.0, false) },
+        anyAlarm = false,
+        elapsedSec = tNow,
+        alarmCount = alarmCount,
+        maxStreak = maxStreak,
+        heartRate = bioHR.roundToInt(),
+        poseText = "미니게임 중 · 판정 일시정지",
+        activeTotals = HashMap(activeTotal),
+        timeline = ArrayList(timeline),
+        wristTrace = ArrayList(wristTrace),
+    )
 
     private fun computePose(lsh: Wrist?, rsh: Wrist?, lw: Wrist?, rw: Wrist?): String {
         if (lsh == null || rsh == null) return "대상 미검출"

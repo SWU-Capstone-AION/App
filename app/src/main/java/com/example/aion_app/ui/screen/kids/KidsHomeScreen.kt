@@ -55,7 +55,9 @@ fun KidsHomeScreen(
     // "도움이 필요해요"를 눌렀을 때 (교사에게 알림 전송 등)
     onHelpRequest: () -> Unit = {},
     // 호흡 4회를 끝까지 마쳤을 때 (포인트 지급 등)
-    onBreathingComplete: () -> Unit = {}
+    onBreathingComplete: () -> Unit = {},
+    // 잡초 뽑기 미니게임으로 이동
+    onWeedGameClick: () -> Unit = {}
 ) {
     var mode by remember { mutableStateOf(KidsHomeMode.CALM) }
 
@@ -112,6 +114,15 @@ fun KidsHomeScreen(
             )
         }
 
+        // 미니게임 진입. 도움 버튼 바로 위에 같은 폭으로 쌓는다.
+        // (38dp + 버튼 높이 50dp + 간격 12dp = 100dp)
+        KidsWeedGameButton(
+            onClick = onWeedGameClick,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 100.dp)
+        )
+
         KidsHelpButton(
             onClick = {
                 onHelpRequest()
@@ -127,6 +138,33 @@ fun KidsHomeScreen(
                 onConfirm = { mode = KidsHomeMode.BREATHING }
             )
         }
+    }
+}
+
+// ============================================================
+// 미니게임 진입 버튼
+// ============================================================
+// 도움 버튼과 같은 규격(폭 329 / 높이 50)이라 나란히 쌓아도 어색하지 않다.
+@Composable
+private fun KidsWeedGameButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .width(KidsContentWidth)
+            .height(KidsItemHeight)
+            .clip(RoundedCornerShape(KidsCorner))
+            .background(Normal)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "잡초 뽑기 놀이",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = White
+        )
     }
 }
 

@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.aion_app.monitor.audio.AlarmSound
 import com.example.aion_app.monitor.camera.PoseCameraView
+import com.example.aion_app.monitor.pose.MinigameGate
 import com.example.aion_app.monitor.pose.PoseIndex
 import com.example.aion_app.monitor.pose.PoseLandmarkerHelper
 import com.example.aion_app.monitor.pose.StereotypyDetector
@@ -82,6 +83,10 @@ fun StereotypyMonitorScreen(modifier: Modifier = Modifier) {
                         fpsTimes.removeFirst()
                     }
                     fps = fpsTimes.size
+
+                    // 미니게임 중에는 판정을 멈춘다.
+                    // 잡초 뽑기의 팔 상하 반복이 상동행동 조건에 그대로 걸려 알림이 나가기 때문.
+                    detector.setPaused(MinigameGate.active)
 
                     if (running) {
                         val lm = b.result.landmarks().firstOrNull()
