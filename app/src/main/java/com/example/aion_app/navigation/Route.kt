@@ -36,4 +36,7 @@ object Route {
     // 리포트
     const val REPORT = "report"
     const val REPORT_DETAIL = "report_detail"   // 사용: "report_detail/{studentId}"
+
+    // 상동행동 모니터링
+    const val MONITOR = "monitor"
 }
