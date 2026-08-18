@@ -358,17 +358,23 @@ private fun StudentHeaderCard(student: ReportStudent) {
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(0xFFF0F1F3))
             )
+            // 홈 화면 아이들 리스트의 상태 점과 같은 크기(12/6).
+            // 안쪽 원을 padding 으로 만들면 바깥 크기를 바꿀 때마다 padding 도
+            // 다시 계산해야 해서, 두 원의 크기를 각각 지정하는 방식으로 바꿨다.
             if (student.isActive) {
                 Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .clip(CircleShape)
-                        .background(Green.copy(alpha = 0.5f))   // 뒤쪽 원 #629F7D 50%
-                        .padding(2.dp)
+                    modifier = Modifier.size(12.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(Green.copy(alpha = 0.5f))   // 뒤쪽 원 #629F7D 50%
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
                             .clip(CircleShape)
                             .background(Green)
                     )

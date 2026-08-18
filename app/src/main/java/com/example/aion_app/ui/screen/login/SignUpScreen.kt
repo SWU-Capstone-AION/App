@@ -322,31 +322,37 @@ fun SignUpAccountScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // 안내문구("영문, 숫자 포함 8자 이상...")는 AionPasswordField 가
+            // helperText 기본값으로 이미 출력한다. 여기서 또 그리면 두 번 보인다.
             AionPasswordField(
                 value = password,
                 onValueChange = { password = it },
                 placeholder = ""
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            Text(
-                "영문, 숫자 포함 8자 이상 입력해 주세요.",
-                fontSize = 11.sp,
-                color = GrayText,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
+            // 버튼과 겹치지 않도록 스크롤 내용 끝에 여백을 둔다
             Spacer(modifier = Modifier.height(40.dp))
+        }
 
+        // ===== 다음 버튼 =====
+        // 스크롤 영역 '밖'에 두어 화면 하단에 고정한다.
+        // 스크롤되는 Column 안에서는 Spacer(weight(1f)) 가 높이 0으로 접혀
+        // 버튼이 아래로 밀리지 않고 내용 길이를 따라 움직인다.
+        // 그래서 이 화면만 3~5p(StepScaffold)와 버튼 위치가 달랐다.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 46.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             AionPrimaryButton(
                 text = "다음",
                 onClick = { onNext(userId, email, password) },
                 enabled = userId.isNotBlank() && email.isNotBlank() && password.isNotBlank()
             )
 
-            Spacer(modifier = Modifier.height(60.dp))
+            // StepScaffold 와 같은 하단 여백
+            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 }

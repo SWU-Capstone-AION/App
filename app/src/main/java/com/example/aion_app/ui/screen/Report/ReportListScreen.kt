@@ -20,7 +20,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.ui.component.AionBottomNavBar
-import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.LightActive
@@ -75,8 +74,6 @@ private fun ReportListTopBar() {
             color = TextPrimary
         )
     }
-    // 하단 스트로크: 디자인 확정 색 #2D3C4A (= AionTextDark), 두께는 기존 0.5dp 유지
-    HorizontalDivider(thickness = 0.5.dp, color = AionTextDark)
 }
 
 @Composable

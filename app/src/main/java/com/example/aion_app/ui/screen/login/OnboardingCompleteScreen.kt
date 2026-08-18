@@ -49,13 +49,16 @@ fun OnboardingCompleteScreen(
 
         Spacer(modifier = Modifier.height(100.dp))
 
+        // fillMaxWidth 를 줘야 textAlign 이 화면 전체 기준으로 적용된다.
+        // (없으면 Text 폭이 가장 긴 줄에 맞춰져, 줄 사이만 가운데 정렬된다)
         Text(
             "아이와 함께 성장할 준비가\n완료되었습니다.",
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = TextPrimary,
             textAlign = TextAlign.Center,
-            lineHeight = 30.sp
+            lineHeight = 30.sp,
+            modifier = Modifier.fillMaxWidth()
         )
 
         Spacer(modifier = Modifier.weight(1f))
