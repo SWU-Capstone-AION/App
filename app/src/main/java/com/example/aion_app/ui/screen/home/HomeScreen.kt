@@ -384,20 +384,31 @@ private fun StudentCard(
 
 // 아이들 리스트 활동 상태 점 크기.
 // 리포트 화면(ReportDetailScreen)의 상태 점과 같은 값을 쓴다.
-private val IndicatorOuterSize = 12.dp
-private val IndicatorInnerSize = 6.dp
+private val IndicatorOuterSize = 8.dp
+private val IndicatorInnerSize = 4.dp
+
+// 프로필 네모 크기와 모서리 반경
+private val ProfileBoxSize = 48.dp
+private val ProfileCornerRadius = 8.dp
+
+// 점의 중심을 둥근 모서리의 '곡선 위'(45° 지점)에 올리기 위한 보정값.
+// 곡선의 45° 지점은 모서리 원 중심에서 r/√2 만큼 떨어져 있으므로,
+// BottomEnd(= 네모 안쪽 끝)에 붙인 상태에서 아래만큼 더 밀어주면 된다.
+//   보정 = 점지름/2 - r * (1 - 1/√2)
+// 8dp 점 / 8dp 반경 기준으로 약 1.66dp.
+private val IndicatorCornerOffset =
+    IndicatorOuterSize / 2 - ProfileCornerRadius * 0.2929f
 
 @Composable
 private fun ProfileWithIndicator(isActive: Boolean) {
     Box(
-        modifier = Modifier.size(52.dp),
-        contentAlignment = Alignment.BottomEnd
+        modifier = Modifier.size(ProfileBoxSize)
     ) {
         // 프로필 자리
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(ProfileBoxSize)
+                .clip(RoundedCornerShape(ProfileCornerRadius))
                 .background(Color(0xFFE0E0E0))
         )
 
@@ -405,9 +416,15 @@ private fun ProfileWithIndicator(isActive: Boolean) {
         val indicatorColor = if (isActive) Green else GrayText
 
         // 상단 알림 배너의 알림 아이콘(20dp)보다 확실히 작게.
-        // 리포트 StudentHeaderCard 의 상태 점도 같은 값(12/6)으로 맞춰뒀다.
+        // 리포트 StudentHeaderCard 의 상태 점도 같은 값(8/4)으로 맞춰뒀다.
+        //
+        // 원의 '중심'이 프로필 네모의 둥근 모서리 곡선 위에 오도록 배치한다.
+        // (Box 는 기본적으로 자식을 자르지 않으므로 튀어나온 부분도 그대로 그려진다)
         Box(
-            modifier = Modifier.size(IndicatorOuterSize),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = IndicatorCornerOffset, y = IndicatorCornerOffset)
+                .size(IndicatorOuterSize),
             contentAlignment = Alignment.Center
         ) {
             // 뒷 원 (큰, 반투명)
@@ -428,34 +445,20 @@ private fun ProfileWithIndicator(isActive: Boolean) {
     }
 }
 
+// 활동중 / 비활동 배지.
+// 배경·점·글자가 모두 포함된 디자인팀 에셋을 통째로 쓴다.
+// 높이만 지정하면 가로는 원본 비율대로 따라온다.
+private val StatusBadgeHeight = 24.dp
+
 @Composable
 private fun StatusBadge(isActive: Boolean) {
-    val bgColor = if (isActive) LightActive else Color(0xFFF5F5F5)
-    val textColor = if (isActive) Dark else GrayText
-    val label = if (isActive) "활동중" else "비활동"
-    val dotColor = if (isActive) Dark else GrayText
-
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(bgColor)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(dotColor)
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = textColor
-        )
-    }
+    Image(
+        painter = painterResource(
+            if (isActive) R.drawable.activity_chip else R.drawable.nonactivity_chip
+        ),
+        contentDescription = if (isActive) "활동중" else "비활동",
+        modifier = Modifier.height(StatusBadgeHeight)
+    )
 }
 
 @Composable

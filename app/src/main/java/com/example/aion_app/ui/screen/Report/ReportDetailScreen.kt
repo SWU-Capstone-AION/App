@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -25,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +48,7 @@ import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.Dark
 import com.example.aion_app.ui.theme.Red
 import com.example.aion_app.ui.theme.Orange
+import com.example.aion_app.R
 import com.example.aion_app.ui.theme.Green
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.GrayDark
@@ -349,8 +352,7 @@ private fun StudentHeaderCard(student: ReportStudent) {
     ) {
         // 프로필 + 상태 점
         Box(
-            modifier = Modifier.size(52.dp),
-            contentAlignment = Alignment.BottomEnd   // 상태 점을 우측으로
+            modifier = Modifier.size(48.dp)
         ) {
             Box(
                 modifier = Modifier
@@ -358,23 +360,29 @@ private fun StudentHeaderCard(student: ReportStudent) {
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(0xFFF0F1F3))
             )
-            // 홈 화면 아이들 리스트의 상태 점과 같은 크기(12/6).
+            // 홈 화면 아이들 리스트의 상태 점과 같은 크기(8/4).
             // 안쪽 원을 padding 으로 만들면 바깥 크기를 바꿀 때마다 padding 도
             // 다시 계산해야 해서, 두 원의 크기를 각각 지정하는 방식으로 바꿨다.
+            //
+            // 원의 '중심'이 프로필 네모(48dp / 모서리 반경 8dp)의 둥근 모서리 곡선 위에 오도록 민다.
+            // 보정 = 점지름/2 - r * (1 - 1/√2) = 4 - 8*0.2929 ≒ 1.66dp
             if (student.isActive) {
                 Box(
-                    modifier = Modifier.size(12.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 1.66.dp, y = 1.66.dp)
+                        .size(8.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(12.dp)
+                            .size(8.dp)
                             .clip(CircleShape)
                             .background(Green.copy(alpha = 0.5f))   // 뒤쪽 원 #629F7D 50%
                     )
                     Box(
                         modifier = Modifier
-                            .size(6.dp)
+                            .size(4.dp)
                             .clip(CircleShape)
                             .background(Green)
                     )
@@ -413,39 +421,14 @@ private fun StudentHeaderCard(student: ReportStudent) {
     }
 }
 
+// 홈 화면 StatusBadge 와 같은 에셋을 쓴다.
 @Composable
 private fun ActiveBadge() {
-    Row(
-        modifier = Modifier
-            .height(20.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(LightHover)   // 배지 배경 #E8EFFC
-            .padding(horizontal = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // 시안: #6495ED 점 뒤에 #CFDEF9 원이 한 겹 더 있다 (지름 비율 약 1:2)
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .clip(CircleShape)
-                .background(LightActive)   // 뒤쪽 원 #CFDEF9
-                .padding(2.5.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
-                    .background(Normal)   // #6495ED
-            )
-        }
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = "활동중",
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium,
-            color = Dark   // #4B70B2
-        )
-    }
+    Image(
+        painter = painterResource(R.drawable.activity_chip),
+        contentDescription = "활동중",
+        modifier = Modifier.height(20.dp)
+    )
 }
 
 // ============================================================
