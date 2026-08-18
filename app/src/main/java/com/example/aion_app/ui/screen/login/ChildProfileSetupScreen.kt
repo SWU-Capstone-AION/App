@@ -14,11 +14,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -106,6 +108,47 @@ fun ChildProfileSetupScreen(
 // 상단바 아래 ~ 제목 사이 간격 (이 값만 바꾸면 5단계 전부 반영됨)
 private val HeaderToTitleGap = 48.dp
 
+// ============================================
+// 한 줄 제목
+// ============================================
+// 단계 제목은 줄바꿈되면 어미('요?')가 다음 줄로 떨어져 보기 나쁘다.
+// 폰 화면 폭(좌우 46dp 패딩 제외 시 약 320dp)에는 20sp 로 다 안 들어가는 문구가 있어
+// 폭을 넓히는 것만으로는 좁은 기기에서 잘린다.
+//
+// 그래서 한 줄에 안 들어가면 글자 크기를 한 단계씩 줄여 맞춘다.
+// 측정이 끝나기 전 프레임이 잠깐 큰 글씨로 깜빡이지 않도록,
+// 크기가 확정될 때까지 drawWithContent 로 그리기를 미룬다.
+@Composable
+private fun SingleLineTitle(
+    text: String,
+    modifier: Modifier = Modifier,
+    maxFontSize: TextUnit = 20.sp,
+    minFontSize: TextUnit = 14.sp
+) {
+    var fontSize by remember(text) { mutableStateOf(maxFontSize) }
+    var measured by remember(text) { mutableStateOf(false) }
+
+    Text(
+        text = text,
+        fontSize = fontSize,
+        fontWeight = FontWeight.Bold,
+        color = TextPrimary,
+        textAlign = TextAlign.Center,
+        maxLines = 1,
+        softWrap = false,
+        onTextLayout = { result ->
+            if (result.didOverflowWidth && fontSize > minFontSize) {
+                fontSize = fontSize * 0.95f
+            } else {
+                measured = true
+            }
+        },
+        modifier = modifier
+            .fillMaxWidth()
+            .drawWithContent { if (measured) drawContent() }
+    )
+}
+
 @Composable
 private fun StepScaffold(
     title: String? = null,                  // null 이면 큰 제목 없이 본문만 (시안 3p)
@@ -138,13 +181,9 @@ private fun StepScaffold(
 
             // ===== 제목 (있을 때만) =====
             if (title != null) {
-                Text(
-                    text = title,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    textAlign = TextAlign.Center
-                )
+                // 제목은 무조건 한 줄. 두 줄로 넘어가면 "...있나 / 요?" 처럼
+                // 어미가 떨어져 나가서 디자인팀이 수정을 요청한 부분이다.
+                SingleLineTitle(text = title)
 
                 // ===== 부제목 (있을 때만) =====
                 if (subtitle != null) {

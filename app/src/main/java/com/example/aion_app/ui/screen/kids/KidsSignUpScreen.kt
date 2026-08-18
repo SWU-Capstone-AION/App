@@ -75,6 +75,11 @@ fun KidsProfileSetupScreen(
     }
 }
 
+// 단계 제목 전용 폭.
+// 본문(입력칸·선택지)은 시안대로 329dp 지만, 제목은 한 줄로 떨어져야 해서 더 넓게 잡는다.
+// 시안 프레임이 930dp 라 여유가 있다. 문구가 길어져 잘리면 이 값만 올리면 된다.
+private val KidsStepTitleWidth = 600.dp
+
 // ============================================================
 // 단계 공용 뼈대 (상단바 + 제목 + 본문 + 하단 고정 '다음')
 // ============================================================
@@ -96,12 +101,19 @@ private fun KidsStepScaffold(
         Spacer(Modifier.height(48.dp))
 
         if (title != null) {
+            // 제목은 본문 열(329dp)을 벗어나 KidsStepTitleWidth 폭으로 그린다.
+            // 329dp 안에 가두면 "...있나 / 요?" 처럼 어미가 다음 줄로 떨어지는데,
+            // 디자인 요청이 '무조건 한 줄'이라 폭을 넓혀 줄바꿈 자체를 없앴다.
+            // requiredWidth 라서 부모 제약을 무시하고, 가운데 정렬이라 좌우로 균등하게 퍼진다.
             Text(
                 text = title,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = AionTextDark,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.requiredWidth(KidsStepTitleWidth)
             )
             if (subtitle != null) {
                 Spacer(Modifier.height(6.dp))

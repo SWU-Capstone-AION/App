@@ -30,6 +30,8 @@ class MainActivity : ComponentActivity() {
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
 
+        // 시스템바(상태바/내비게이션바) 여백은 AionNavHost 에서 처리한다.
+        // 스플래시만 풀블리드로 둬야 해서 현재 라우트를 아는 쪽에 두는 게 맞다.
         setContent {
             AionTheme {
                 AionNavHost()

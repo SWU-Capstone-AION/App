@@ -3,7 +3,6 @@ package com.example.aion_app.ui.screen.home
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Notifications
 import com.example.aion_app.ui.theme.BlueLight
 import com.example.aion_app.ui.theme.BluePrimary
 import androidx.compose.ui.draw.clip
@@ -23,7 +22,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -37,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.theme.Dark
+import com.example.aion_app.ui.theme.GrayDark
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.Green
 import com.example.aion_app.ui.theme.LightActive
@@ -185,10 +184,9 @@ private fun HomeTopBar(
                 .clickable(onClick = onNotificationClick),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Outlined.Notifications,
+            Image(
+                painter = painterResource(R.drawable.alarm_icon_blue),
                 contentDescription = "알림",
-                tint = TextPrimary,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -222,11 +220,10 @@ private fun RecentAlertBanner(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        // 종 아이콘
-        Icon(
-            imageVector = Icons.Filled.Notifications,
+        // 종 아이콘 (디자인팀 지정: 메인컬러 #6495ED 스트로크 버전)
+        Image(
+            painter = painterResource(R.drawable.alarm_icon_blue),
             contentDescription = null,
-            tint = GrayText,
             modifier = Modifier.size(20.dp)
         )
 
@@ -385,38 +382,62 @@ private fun StudentCard(
     }
 }
 
+// 아이들 리스트 활동 상태 점 크기.
+// 리포트 화면(ReportDetailScreen)의 상태 점과 같은 값을 쓴다.
+private val IndicatorOuterSize = 8.dp
+private val IndicatorInnerSize = 4.dp
+
+// 프로필 네모 크기와 모서리 반경
+private val ProfileBoxSize = 48.dp
+private val ProfileCornerRadius = 8.dp
+
+// 점의 중심을 둥근 모서리의 '곡선 위'(45° 지점)에 올리기 위한 보정값.
+// 곡선의 45° 지점은 모서리 원 중심에서 r/√2 만큼 떨어져 있으므로,
+// BottomEnd(= 네모 안쪽 끝)에 붙인 상태에서 아래만큼 더 밀어주면 된다.
+//   보정 = 점지름/2 - r * (1 - 1/√2)
+// 8dp 점 / 8dp 반경 기준으로 약 1.66dp.
+private val IndicatorCornerOffset =
+    IndicatorOuterSize / 2 - ProfileCornerRadius * 0.2929f
+
 @Composable
 private fun ProfileWithIndicator(isActive: Boolean) {
     Box(
-        modifier = Modifier.size(52.dp),
-        contentAlignment = Alignment.BottomEnd
+        modifier = Modifier.size(ProfileBoxSize)
     ) {
         // 프로필 자리
         Box(
             modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(ProfileBoxSize)
+                .clip(RoundedCornerShape(ProfileCornerRadius))
                 .background(Color(0xFFE0E0E0))
         )
 
         // 우하단 활동 인디케이터 (활동/비활동 모두 표시, 색만 다름)
         val indicatorColor = if (isActive) Green else GrayText
 
+        // 상단 알림 배너의 알림 아이콘(20dp)보다 확실히 작게.
+        // 리포트 StudentHeaderCard 의 상태 점도 같은 값(8/4)으로 맞춰뒀다.
+        //
+        // 원의 '중심'이 프로필 네모의 둥근 모서리 곡선 위에 오도록 배치한다.
+        // (Box 는 기본적으로 자식을 자르지 않으므로 튀어나온 부분도 그대로 그려진다)
         Box(
-            modifier = Modifier.size(16.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = IndicatorCornerOffset, y = IndicatorCornerOffset)
+                .size(IndicatorOuterSize),
             contentAlignment = Alignment.Center
         ) {
             // 뒷 원 (큰, 반투명)
             Box(
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(IndicatorOuterSize)
                     .clip(CircleShape)
                     .background(indicatorColor.copy(alpha = 0.5f))
             )
             // 앞 원 (작은, 진한)
             Box(
                 modifier = Modifier
-                    .size(8.dp)
+                    .size(IndicatorInnerSize)
                     .clip(CircleShape)
                     .background(indicatorColor)
             )
@@ -424,34 +445,20 @@ private fun ProfileWithIndicator(isActive: Boolean) {
     }
 }
 
+// 활동중 / 비활동 배지.
+// 배경·점·글자가 모두 포함된 디자인팀 에셋을 통째로 쓴다.
+// 높이만 지정하면 가로는 원본 비율대로 따라온다.
+private val StatusBadgeHeight = 24.dp
+
 @Composable
 private fun StatusBadge(isActive: Boolean) {
-    val bgColor = if (isActive) LightActive else Color(0xFFF5F5F5)
-    val textColor = if (isActive) Dark else GrayText
-    val label = if (isActive) "활동중" else "비활동"
-    val dotColor = if (isActive) Dark else GrayText
-
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(bgColor)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(dotColor)
-        )
-        Spacer(modifier = Modifier.width(4.dp))
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = textColor
-        )
-    }
+    Image(
+        painter = painterResource(
+            if (isActive) R.drawable.activity_chip else R.drawable.nonactivity_chip
+        ),
+        contentDescription = if (isActive) "활동중" else "비활동",
+        modifier = Modifier.height(StatusBadgeHeight)
+    )
 }
 
 @Composable
@@ -583,29 +590,33 @@ private fun StatsCard(
                 color = LightActive,
                 shape = RoundedCornerShape(10.dp)
             )
-            .padding(vertical = 20.dp, horizontal = 16.dp),
+            // 아래 치수는 리포트(일간~월간)의 SummaryCard 와 동일하게 맞춘 값이다.
+            // 세로 여백·라벨·간격·숫자 크기가 모두 같아야 두 카드 높이가 일치한다.
+            .padding(vertical = 16.dp, horizontal = 14.dp),
         horizontalAlignment = Alignment.Start
     ) {
         Text(
             text = label,
-            fontSize = 13.sp,
-            color = GrayText
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = GrayDark
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Row(
             verticalAlignment = Alignment.Bottom
         ) {
             Text(
                 text = value,
-                fontSize = 28.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
             )
             Text(
-                text = suffix,
-                fontSize = 13.sp,
-                color = GrayText,
-                modifier = Modifier.padding(bottom = 4.dp, start = 2.dp)
+                text = " $suffix",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary,
+                modifier = Modifier.padding(vertical = 3.dp, horizontal = 8.dp)
             )
         }
     }
