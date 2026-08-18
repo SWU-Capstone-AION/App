@@ -54,6 +54,8 @@ object PoseAdapter {
             rightShoulder = at(RIGHT_SHOULDER),
             leftWrist = at(LEFT_WRIST),
             rightWrist = at(RIGHT_WRIST),
+            viewWidth = viewWidth,
+            viewHeight = viewHeight,
         )
     }
 }

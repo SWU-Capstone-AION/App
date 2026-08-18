@@ -3,6 +3,7 @@ package com.example.aion_app.minigame.weed
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -20,12 +21,19 @@ enum class WeedState { IDLE, GRABBED, PULLED }
 
 enum class Nudge { NONE, KEEP_GOING, HOW_TO_QUIT }
 
-/** 매 프레임 엔진에 들어오는 입력. 화면 픽셀 좌표. */
+/**
+ * 매 프레임 엔진에 들어오는 입력. 화면 픽셀 좌표.
+ *
+ * [viewWidth]/[viewHeight] 는 잡초를 화면 안에 가둬 두는 데 쓴다.
+ * 0 이면 제한 없이 몸 기준 반경 그대로 놓는다(단위 테스트용).
+ */
 data class PoseInput(
     val leftShoulder: Vec2? = null,
     val rightShoulder: Vec2? = null,
     val leftWrist: Vec2? = null,
     val rightWrist: Vec2? = null,
+    val viewWidth: Float = 0f,
+    val viewHeight: Float = 0f,
 )
 
 /** 매 프레임 엔진이 뱉는 출력. UI는 이것만 보고 그린다. */
@@ -49,10 +57,13 @@ data class GameSnapshot(
 
 class WeedGameEngine(
     /** 생성할 잡초 개수. 목업보다 적은 게 맞다 — 너무 많으면 겹쳐서 구분이 안 된다. */
-    private val weedCount: Int = 10,
-    /** 어깨 폭(S) 배수로 표현한 생성 반경 */
-    private val minRadiusInS: Float = 1.2f,
-    private val maxRadiusInS: Float = 1.5f,
+    private val weedCount: Int = 8,
+    /**
+     * 어깨 폭(S) 배수로 표현한 생성 반경.
+     * 화면 밖으로 나가면 어차피 아래 clampToScreen 이 당겨오므로, 여기서도 여유 있게 잡지 않는다.
+     */
+    private val minRadiusInS: Float = 1.0f,
+    private val maxRadiusInS: Float = 1.35f,
     /** 위쪽 반원에 배치할 비율. 앉은 자세면 아래쪽은 책상에 가린다. */
     private val upperHalfBias: Float = 0.7f,
     /** 잡초 높이 (S 배수) */
@@ -126,7 +137,7 @@ class WeedGameEngine(
         if (s <= 1f) return snapshot(poseVisible = false)
 
         spawnIfNeeded()
-        projectWeeds(center, s)
+        projectWeeds(center, s, pose.viewWidth, pose.viewHeight)
 
         val wrists = listOfNotNull(pose.leftWrist, pose.rightWrist)
         val interacted = stepStateMachine(wrists, s)
@@ -178,14 +189,54 @@ class WeedGameEngine(
      * 잡초는 화면 절대 좌표가 아니라 몸 기준 (각도, S 배수)로 저장된다.
      * 매 프레임 현재 어깨 위치로 다시 투영하므로, 아이가 다가오거나 멀어져도
      * 항상 팔이 닿는 범위에 놓인다.
+     *
+     * 다만 몸 기준 반경만 쓰면 아이가 카메라에 가까이 앉았을 때(=S 가 커질 때)
+     * 잡초가 화면 밖으로 밀려나 "몸을 움직여야 보이는" 잡초가 생긴다.
+     * 그래서 각도는 그대로 두고 반경만 화면 안쪽으로 줄인다. 각도가 유지되므로
+     * 잡초가 한쪽에 뭉치지 않고, 아이는 자리에서 움직이지 않고도 전부 볼 수 있다.
      */
-    private fun projectWeeds(center: Vec2, s: Float) {
+    private fun projectWeeds(center: Vec2, s: Float, viewWidth: Float, viewHeight: Float) {
+        val halfWidth = hitHalfWidthInS * s
+        val height = weedHeightInS * s
         weeds.forEach { w ->
-            w.pos = Vec2(
-                center.x + cos(w.angleRad) * w.radiusInS * s,
-                center.y + sin(w.angleRad) * w.radiusInS * s,
-            )
+            val dx = cos(w.angleRad)
+            val dy = sin(w.angleRad)
+            val desired = w.radiusInS * s
+            val limit = maxRadiusOnScreen(center, dx, dy, viewWidth, viewHeight, halfWidth, height)
+            val radius = if (limit < 0f) desired else min(desired, limit)
+            w.pos = Vec2(center.x + dx * radius, center.y + dy * radius)
         }
+    }
+
+    /**
+     * 중심에서 (dx, dy) 방향으로 나갈 수 있는 최대 반경(픽셀).
+     * 잡초는 밑동에서 위로 자라므로 위쪽 여백을 잎 높이만큼 더 준다.
+     * 화면 크기를 모르면(-1) 호출부에서 제한을 걸지 않는다.
+     */
+    private fun maxRadiusOnScreen(
+        center: Vec2,
+        dx: Float,
+        dy: Float,
+        viewWidth: Float,
+        viewHeight: Float,
+        halfWidth: Float,
+        height: Float,
+    ): Float {
+        if (viewWidth <= 0f || viewHeight <= 0f) return -1f
+
+        val minX = halfWidth
+        val maxX = viewWidth - halfWidth
+        val minY = height * 1.15f
+        val maxY = viewHeight - height * 0.4f
+        if (minX >= maxX || minY >= maxY) return -1f
+
+        var t = Float.MAX_VALUE
+        if (dx > EPSILON) t = min(t, (maxX - center.x) / dx)
+        else if (dx < -EPSILON) t = min(t, (minX - center.x) / dx)
+        if (dy > EPSILON) t = min(t, (maxY - center.y) / dy)
+        else if (dy < -EPSILON) t = min(t, (minY - center.y) / dy)
+
+        return if (t == Float.MAX_VALUE) -1f else max(0f, t)
     }
 
     private fun stepStateMachine(wrists: List<Vec2>, s: Float): Boolean {
@@ -277,7 +328,8 @@ class WeedGameEngine(
 
     private companion object {
         const val SMOOTHING = 0.25f
-        const val ASSIST_TARGET_RADIUS = 1.15f
+        const val EPSILON = 1e-4f
+        const val ASSIST_TARGET_RADIUS = 1.0f
         const val ASSIST_STEP = 0.01f
     }
 }
