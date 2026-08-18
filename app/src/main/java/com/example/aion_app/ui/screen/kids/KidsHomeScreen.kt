@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.AionTextDark
+import com.example.aion_app.ui.theme.DarkHover
 import com.example.aion_app.ui.theme.Light
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.White
@@ -103,11 +104,12 @@ fun KidsHomeScreen(
 
             Spacer(Modifier.height(18.dp))
 
+            // 8월 디자인 수정: AionTextDark → DarkHover (#3C598E)
             Text(
                 text = "잘하고 있어요!",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = AionTextDark
+                color = DarkHover
             )
         }
 
@@ -155,7 +157,7 @@ private fun BoxScope.KidsCalmPromptDialog(
         ) {
             Spacer(Modifier.height(24.dp))
 
-            // TODO: 하트 아이콘 에셋 받으면 Icon → Image 로 교체
+            // TODO: 하트 아이콘 에셋(heart_icon.png) 적용 여부 디자인팀 확인 후 교체
             Box(
                 modifier = Modifier
                     .size(42.dp)

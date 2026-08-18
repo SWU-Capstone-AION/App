@@ -2,6 +2,7 @@ package com.example.aion_app.ui.screen.kids
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -10,9 +11,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.CompositionLocalProvider
@@ -20,7 +18,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -39,8 +36,10 @@ import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Dark
 import com.example.aion_app.ui.theme.GreyLightActive
 import com.example.aion_app.ui.theme.GreyNormalActive
+import com.example.aion_app.ui.theme.LightActive
 import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.White
@@ -419,12 +418,21 @@ val KidsScreenPadding = 20.dp     // 로고·프로필 바깥 여백
 val KidsOrbMaxSize    = 244.dp    // 구체 최대 지름 (호흡 '내쉬어요' 시점)
 val KidsOrbHomeScale  = 0.78f     // 홈 화면 구체 크기 비율
 
+// 구체 뒤 글로우가 구체보다 몇 배 넓게 퍼지는지.
+// 8월 디자인 수정: "블러가 조금 더 퍼져있으면 좋겠다" → 1.2 에서 1.75 로 확대.
+// 값만 올리면 되고 레이아웃에는 영향이 없다 (requiredSize 로 프레임 밖으로 넘겨 그림).
+private const val KidsOrbGlowRatio = 1.75f
+
 // ------------------------------------------------------------
 // 구체(풍선)
 // ------------------------------------------------------------
-// TODO: 디자이너에게 PNG 에셋 받으면 아래 두 Box 를 Image 하나로 교체.
-//       바깥 Box = 글로우, 안쪽 Box = 구체 본체.
-//       크기/스케일 계산은 그대로 두고 그리는 부분만 바꾸면 된다.
+// 8월 디자인 수정: 직접 그리던 그라데이션 원 → 디자인팀 PNG(sphere.png) 로 교체.
+// 글로우는 PNG 뒤에 코드로 계속 그린다. (호흡 애니메이션에서 크기가 실시간으로
+// 변하는데, 글로우까지 PNG 로 만들면 확대 시 뭉개지기 때문)
+//
+// 글로우 색
+//   밝은 배경(홈)   = LightActive (#CFDEF9)  ← 디자인팀 지정
+//   어두운 배경(호흡) = 흰색                   ← 기존 유지
 @Composable
 fun KidsOrb(
     scale: Float,
@@ -432,110 +440,128 @@ fun KidsOrb(
     onDark: Boolean = false,
     size: Dp = KidsOrbMaxSize
 ) {
+    val glowColor = if (onDark) White else LightActive
+
     Box(
         modifier = modifier.size(size),
         contentAlignment = Alignment.Center
     ) {
-        // 글로우
+        // 글로우 — requiredSize 라서 부모(size) 보다 커도 잘리지 않고,
+        // 바깥 레이아웃(아래 텍스트 위치 등)에도 영향을 주지 않는다.
         Box(
             modifier = Modifier
-                .size(size)
+                .requiredSize(size * KidsOrbGlowRatio)
                 .scale(scale)
                 .background(
                     Brush.radialGradient(
-                        if (onDark) listOf(Color(0xCCFFFFFF), Color(0x00FFFFFF))
-                        else listOf(Color(0x557FA6F2), Color(0x00FFFFFF))
+                        colorStops = arrayOf(
+                            0.00f to glowColor.copy(alpha = if (onDark) 0.55f else 0.95f),
+                            0.30f to glowColor.copy(alpha = if (onDark) 0.34f else 0.55f),
+                            0.55f to glowColor.copy(alpha = if (onDark) 0.16f else 0.26f),
+                            0.78f to glowColor.copy(alpha = 0.06f),
+                            1.00f to Color.Transparent
+                        )
                     ),
                     CircleShape
                 )
         )
-        // 구체 본체
-        Box(
+
+        Image(
+            painter = painterResource(R.drawable.sphere),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
             modifier = Modifier
-                .size(size * 0.66f)
+                .size(size)
                 .scale(scale)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = if (onDark)
-                            listOf(Color(0xFFFFFFFF), Color(0xFFBFD3FF), Color(0xFF9FBCFF))
-                        else
-                            listOf(Color(0xFFD6E2FF), Color(0xFF9DB7F5), Color(0xFF7C9BF2)),
-                        center = Offset(70f, 60f),
-                        radius = 300f
-                    )
-                )
-        ) {
-            // 하이라이트 두 개 (시안의 흰 반사광)
-            Box(
-                modifier = Modifier
-                    .padding(start = 26.dp, top = 22.dp)
-                    .size(26.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xB3FFFFFF))
-            )
-            Box(
-                modifier = Modifier
-                    .padding(start = 30.dp, top = 62.dp)
-                    .size(14.dp)
-                    .clip(CircleShape)
-                    .background(Color(0x99FFFFFF))
-            )
-        }
+        )
     }
 }
 
 // ------------------------------------------------------------
-// 상단 바 (AION 로고 + 포인트 배지 + 프로필)
+// 상단 바 (AION 로고 + 구슬주머니 + 마이페이지)
 // ------------------------------------------------------------
-// points 가 null 이면 배지를 숨긴다 (호흡 화면).
+// points 가 null 이면 구슬주머니를 숨긴다 (호흡 화면).
+//
+// 8월 디자인 수정
+//   - 마이페이지: Material 아이콘 → mypage_active / mypage_white PNG
+//   - 마이페이지 위치: 로고와 세로 가운데 정렬 (Row + CenterVertically 로 보장)
+//   - 구슬주머니 숫자 색: AionTextDark → Dark (#4B70B2)
+//   - 구슬주머니 뒤 그라데이션 블러 추가 (#6495ED = Normal)
 @Composable
 fun BoxScope.KidsHomeTopBar(
     points: Int?,
     onProfileClick: () -> Unit,
     onDark: Boolean = false
 ) {
-    Image(
-        painter = painterResource(R.drawable.logo_text),
-        contentDescription = "AION",
-        contentScale = ContentScale.Fit,
+    // 로고와 마이페이지를 한 Row 에 넣어야 로고 높이가 얼마든 항상 가운데가 맞는다.
+    // (예전처럼 각각 top padding 을 주면 로고 에셋이 바뀔 때마다 다시 맞춰야 했다)
+    Row(
         modifier = Modifier
             .align(Alignment.TopStart)
-            .padding(start = KidsScreenPadding, top = 14.dp)
-            .width(72.dp)
-    )
+            .fillMaxWidth()
+            .padding(horizontal = KidsScreenPadding, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Image(
+            painter = painterResource(R.drawable.logo_text),
+            contentDescription = "AION",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.width(72.dp)
+        )
 
-    // TODO: 프로필 아이콘 에셋 받으면 Icon → Image 로 교체
-    Icon(
-        imageVector = Icons.Filled.Person,
-        contentDescription = "내 정보",
-        tint = if (onDark) White else Normal,
-        modifier = Modifier
-            .align(Alignment.TopEnd)
-            .padding(end = KidsScreenPadding, top = 18.dp)
-            .size(26.dp)
-            .clickable { onProfileClick() }
-    )
+        Image(
+            painter = painterResource(
+                if (onDark) R.drawable.mypage_white else R.drawable.mypage_active
+            ),
+            contentDescription = "내 정보",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .size(26.dp)
+                .clickable { onProfileClick() }
+        )
+    }
 
     if (points != null) {
-        Row(
+        Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(end = 30.dp, top = 78.dp)
-                .clip(RoundedCornerShape(50))
-                .background(White)
-                .padding(horizontal = 18.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(end = 30.dp, top = 78.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // TODO: 젤리 아이콘 에셋 받으면 Text(이모지) → Image 로 교체
-            Text("🍬", fontSize = 20.sp)
-            Text(
-                text = "$points",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = AionTextDark
+            // 뒤쪽 그라데이션 블러 (#6495ED). requiredSize 로 배지보다 넓게 퍼진다.
+            Box(
+                modifier = Modifier
+                    .requiredSize(width = 210.dp, height = 130.dp)
+                    .background(
+                        Brush.radialGradient(
+                            colorStops = arrayOf(
+                                0.00f to Normal.copy(alpha = 0.30f),
+                                0.40f to Normal.copy(alpha = 0.15f),
+                                0.70f to Normal.copy(alpha = 0.05f),
+                                1.00f to Color.Transparent
+                            )
+                        )
+                    )
             )
+
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(White)
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // TODO: 젤리 아이콘 에셋 받으면 Text(이모지) → Image 로 교체
+                Text("🍬", fontSize = 20.sp)
+                Text(
+                    text = "$points",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Dark
+                )
+            }
         }
     }
 }
@@ -543,6 +569,17 @@ fun BoxScope.KidsHomeTopBar(
 // ------------------------------------------------------------
 // "도움이 필요해요" 버튼 (329 x 50 — 시안 기준 다른 버튼과 동일)
 // ------------------------------------------------------------
+// 8월 디자인 수정
+//   - 아이콘: ✋ 이모지 → hand_icon.png
+//   - 스트로크 추가 (#CFDEF9 = LightActive, 1dp) — 두 화면 공통
+//   - 호흡 화면 배경: 반투명 흰색 → LightHover (#E8EFFC)
+//   - 호흡 화면 텍스트: 흰색 → Dark (#4B70B2)
+//
+// ⚠ 홈(기본) 화면 버튼 배경색은 디자인 시트에 값이 비어 있어 기존 LightHover 유지.
+//    호흡 화면과 동일한 값이라 그대로 두는 게 안전하다고 판단. 디자인팀 확인 필요.
+//    → 확인되면 아래 background 한 줄만 바꾸면 됨.
+//
+// 배경/스트로크가 두 화면 모두 같아져서 onDark 는 이제 텍스트 색만 구분한다.
 @Composable
 fun KidsHelpButton(
     onClick: () -> Unit,
@@ -554,19 +591,24 @@ fun KidsHelpButton(
             .width(KidsContentWidth)
             .height(KidsItemHeight)
             .clip(RoundedCornerShape(KidsCorner))
-            .background(if (onDark) Color(0x33FFFFFF) else LightHover)
+            .background(LightHover)
+            .border(1.dp, LightActive, RoundedCornerShape(KidsCorner))
             .clickable { onClick() },
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // TODO: 손바닥 아이콘 에셋 받으면 이모지 → Image 로 교체
-        Text("✋", fontSize = 16.sp)
+        Image(
+            painter = painterResource(R.drawable.hand_icon),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(18.dp)
+        )
         Spacer(Modifier.width(8.dp))
         Text(
             text = "도움이 필요해요",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            color = if (onDark) White else Normal
+            color = if (onDark) Dark else Normal
         )
     }
 }

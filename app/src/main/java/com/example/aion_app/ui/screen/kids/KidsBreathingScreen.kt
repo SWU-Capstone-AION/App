@@ -3,6 +3,7 @@ package com.example.aion_app.ui.screen.kids
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -12,11 +13,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.aion_app.R
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.Dark
 import com.example.aion_app.ui.theme.White
@@ -47,6 +51,10 @@ private const val OrbMaxScale = 1.0f
 //   멈춤       → 최대 크기 유지
 //   내쉬기     → 구체 축소
 // 시안 이미지의 구체 크기는 각 단계의 스냅샷 시점이 제각각이라 안내문을 기준으로 삼았다.
+//
+// 8월 디자인 수정: 단색 Dark 배경 → kids_background.png
+//   프레임(930x582) 안쪽만 이미지로 덮고, 회전 시 생기는 바깥 여백은
+//   기존 Dark 를 그대로 둬서 이미지 가장자리와 자연스럽게 이어지게 했다.
 @Composable
 fun KidsBreathingScreen(
     onProfileClick: () -> Unit = {},
@@ -83,8 +91,16 @@ fun KidsBreathingScreen(
     }
 
     KidsDesignScale(modifier = Modifier.background(Dark)) {
+        // 배경 이미지 — 프레임 전체를 덮는다. 가장 먼저 그려야 다른 요소들이 위에 온다.
+        Image(
+            painter = painterResource(R.drawable.kids_background),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.matchParentSize()
+        )
+
         KidsHomeTopBar(
-            points = null,          // 호흡 중에는 포인트 배지를 숨긴다 (시안 기준)
+            points = null,          // 호흡 중에는 구슬주머니를 숨긴다 (시안 기준)
             onProfileClick = onProfileClick,
             onDark = true
         )
