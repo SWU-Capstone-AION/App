@@ -4,9 +4,15 @@ import com.example.aion_app.isTabletDevice
 import com.example.aion_app.ui.screen.notification.NotificationScreen
 import com.example.aion_app.ui.screen.splash.SplashScreen
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.NavType
@@ -55,8 +61,19 @@ import com.example.aion_app.ui.screen.login.LoginViewModel
 fun AionNavHost() {
     val navController = rememberNavController()
 
+    // ===== 시스템바 여백 =====
+    // targetSdk 35 부터는 앱이 상태바/내비게이션바 아래까지 그려진다(엣지 투 엣지 강제).
+    // 그래서 대부분의 화면은 시스템바만큼 여백을 줘야 글자가 가려지지 않는다.
+    //
+    // 스플래시만 예외다. 배경 이미지가 화면 끝까지 닿아야 해서 여백을 주지 않는다.
+    // 여백은 NavHost 자체에 걸어 화면 코드는 하나도 건드리지 않는다.
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val isSplash = backStackEntry?.destination?.route == Route.SPLASH
+
     NavHost(
         navController = navController,
+        modifier = if (isSplash) Modifier
+        else Modifier.windowInsetsPadding(WindowInsets.systemBars),
         // 앱 진입: 스플래시부터 시작
         startDestination = Route.SPLASH
         // startDestination = Route.SIGN_UP   // 회원가입 플로우 테스트용

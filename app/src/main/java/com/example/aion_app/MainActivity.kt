@@ -5,12 +5,6 @@ import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.ui.Modifier
 import com.example.aion_app.navigation.AionNavHost
 import com.example.aion_app.ui.theme.AionTheme
 
@@ -29,7 +23,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        android.util.Log.d("AION", "swDp=${resources.configuration.smallestScreenWidthDp} / isTablet=${isTabletDevice(this)}")
 
         requestedOrientation = if (isTabletDevice(this)) {
             ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -37,15 +30,11 @@ class MainActivity : ComponentActivity() {
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         }
 
+        // 시스템바(상태바/내비게이션바) 여백은 AionNavHost 에서 처리한다.
+        // 스플래시만 풀블리드로 둬야 해서 현재 라우트를 아는 쪽에 두는 게 맞다.
         setContent {
             AionTheme {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .windowInsetsPadding(WindowInsets.systemBars)
-                ) {
-                    AionNavHost()
-                }
+                AionNavHost()
             }
         }
     }
