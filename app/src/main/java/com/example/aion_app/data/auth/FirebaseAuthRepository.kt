@@ -1,5 +1,6 @@
 package com.example.aion_app.data.auth
 
+import android.util.Log
 import com.example.aion_app.ui.screen.login.ChildProfile
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
@@ -7,13 +8,14 @@ import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.tasks.await
 
 /**
  * 실제 Firebase에 연결되는 구현체.
  *
  * 저장 구조:
- *   users/{uid}        - 역할, 아이디, 이메일, 이름, (아동이면) 아동 프로필
+ *   users/{uid}        - 역할, 아이디, 이메일, 이름, FCM 토큰, (아동이면) 아동 프로필
  *   loginIds/{loginId} - 아이디 중복 확인 + 로그인 시 이메일 조회용 역인덱스
  *
  * Firebase Auth는 이메일로 로그인하는데 화면에서는 아이디를 입력받으므로,
@@ -115,7 +117,7 @@ class FirebaseAuthRepository(
 
         // Auth 인증은 됐지만 프로필 문서가 없으면 정상 계정이 아니므로 되돌린다
         val document = db.collection("users").document(uid).get().await()
-        when (document.getString("role")) {
+        val role = when (document.getString("role")) {
             ROLE_CHILD -> UserRole.CHILD
             ROLE_TEACHER -> UserRole.TEACHER
             else -> {
@@ -123,6 +125,16 @@ class FirebaseAuthRepository(
                 throw IllegalStateException("계정 정보를 찾을 수 없습니다.")
             }
         }
+
+        // 이 기기로 알림을 받을 수 있도록 FCM 토큰을 저장.
+        // 실패해도 로그인 자체는 막지 않는다.
+        try {
+            saveFcmToken(uid)
+        } catch (e: Exception) {
+            Log.w(FCM_TAG, "FCM 토큰 저장 실패", e)
+        }
+
+        role
     }
 
     /**
@@ -174,8 +186,31 @@ class FirebaseAuthRepository(
         Unit
     }
 
-    override fun logout() {
+    /**
+     * 로그아웃.
+     *
+     * 저장된 FCM 토큰을 먼저 지운다.
+     * 안 지우면 로그아웃한 뒤에도 이 기기로 아동 알림이 계속 온다.
+     */
+    override suspend fun logout() {
+        val uid = auth.currentUser?.uid
+        if (uid != null) {
+            try {
+                db.collection("users").document(uid)
+                    .update("fcmToken", FieldValue.delete())
+                    .await()
+            } catch (e: Exception) {
+                Log.w(FCM_TAG, "FCM 토큰 삭제 실패", e)
+            }
+        }
         auth.signOut()
+    }
+
+    /** 이 기기의 FCM 토큰을 사용자 문서에 저장한다. */
+    private suspend fun saveFcmToken(uid: String) {
+        val token = FirebaseMessaging.getInstance().token.await()
+        Log.d(FCM_TAG, token)   // 발송 테스트용으로 로그에 남긴다
+        db.collection("users").document(uid).update("fcmToken", token).await()
     }
 
     private fun buildUserDocument(
@@ -222,6 +257,7 @@ class FirebaseAuthRepository(
         const val ROLE_TEACHER = "TEACHER"
         const val ROLE_CHILD = "CHILD"
 
+        private const val FCM_TAG = "FCM_TOKEN"
         private const val INTERNAL_EMAIL_DOMAIN = "@aion.local"
         private const val LOGIN_FAILED_MESSAGE = "아이디 또는 비밀번호가 올바르지 않습니다."
         private const val ID_NOT_FOUND_MESSAGE = "일치하는 가입 정보가 없습니다."
