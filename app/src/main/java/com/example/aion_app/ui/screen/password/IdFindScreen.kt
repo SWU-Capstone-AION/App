@@ -16,24 +16,24 @@ import androidx.compose.ui.unit.dp
 import com.example.aion_app.ui.component.*
 import com.example.aion_app.ui.theme.*
 
+// 인증번호 단계는 두지 않는다.
+// Firebase가 코드 메일 발송을 지원하지 않아, 이름 + 이메일 일치 여부로만 확인한다.
 @Composable
 fun IdFindScreen(
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
     onBackClick: () -> Unit = {},
-    onFindSuccess: (email: String) -> Unit = {},
+    onFindSuccess: (name: String, email: String) -> Unit = { _, _ -> },
     onSwitchToPasswordFind: () -> Unit = {}
 ) {
     var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
-    var verificationCode by remember { mutableStateOf("") }
 
-    var nameError by remember { mutableStateOf(false) }
-    var emailError by remember { mutableStateOf(false) }
-    var codeError by remember { mutableStateOf(false) }
-    var isEmailVerified by remember { mutableStateOf(false) }
+    var nameBlankError by remember { mutableStateOf(false) }
+    var emailBlankError by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = { AionTopBar(title = "아이디 찾기", onBackClick = onBackClick) },
-        bottomBar = { AionBottomNavBar() }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -74,13 +74,13 @@ fun IdFindScreen(
                 value = name,
                 onValueChange = {
                     name = it
-                    nameError = false
+                    nameBlankError = false
                 },
-                isError = nameError
+                isError = nameBlankError
             )
-            if (nameError) {
+            if (nameBlankError) {
                 Text(
-                    "존재하지 않는 이름이에요.",
+                    "이름을 입력해 주세요.",
                     color = RedError,
                     style = MaterialTheme.typography.labelSmall
                 )
@@ -88,69 +88,39 @@ fun IdFindScreen(
 
             Spacer(Modifier.height(20.dp))
 
-            // 이메일 + 인증 버튼
+            // 이메일 입력
             Text("이메일", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    AionTextField(
-                        value = email,
-                        onValueChange = {
-                            email = it
-                            emailError = false
-                        },
-                        isError = emailError
-                    )
-                }
-                Button(
-                    onClick = {
-                        // 가짜 인증 로직 - 이메일이 비어있지 않으면 성공
-                        if (email.isNotBlank()) {
-                            isEmailVerified = true
-                        } else {
-                            emailError = true
-                        }
-                    },
-                    modifier = Modifier.height(52.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isEmailVerified) GrayBackground else BluePrimary
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        "인증",
-                        color = if (isEmailVerified) GrayText else White,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-            if (emailError) {
+            AionTextField(
+                value = email,
+                onValueChange = {
+                    email = it
+                    emailBlankError = false
+                },
+                isError = emailBlankError
+            )
+            if (emailBlankError) {
                 Text(
-                    "존재하지 않는 이메일이에요.",
+                    "이메일을 입력해 주세요.",
                     color = RedError,
                     style = MaterialTheme.typography.labelSmall
                 )
             }
 
-            Spacer(Modifier.height(20.dp))
-
-            // 인증번호 입력
-            Text("인증번호", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
-            AionTextField(
-                value = verificationCode,
-                onValueChange = {
-                    verificationCode = it
-                    codeError = false
-                },
-                isError = codeError
+            Text(
+                "가입할 때 등록한 이름과 이메일을 입력해 주세요.",
+                color = GrayText,
+                style = MaterialTheme.typography.labelSmall
             )
-            if (codeError) {
+
+            // 조회 실패 메시지.
+            // 이름과 이메일 중 어느 쪽이 틀렸는지는 알려주지 않는다.
+            // (가입 정보를 추측당하지 않도록)
+            if (errorMessage != null) {
+                Spacer(Modifier.height(12.dp))
                 Text(
-                    "인증번호가 틀렸습니다.",
+                    errorMessage,
                     color = RedError,
                     style = MaterialTheme.typography.labelSmall
                 )
@@ -160,14 +130,13 @@ fun IdFindScreen(
 
             // 아이디 찾기 버튼
             AionPrimaryButton(
-                text = "아이디 찾기",
+                text = if (isLoading) "찾는 중..." else "아이디 찾기",
+                enabled = !isLoading,
                 onClick = {
-                    // 가짜 검증 - 필드가 비었을 때만 에러
                     when {
-                        name.isBlank() -> nameError = true
-                        email.isBlank() -> emailError = true
-                        verificationCode.isBlank() -> codeError = true
-                        else -> onFindSuccess(email)
+                        name.isBlank() -> nameBlankError = true
+                        email.isBlank() -> emailBlankError = true
+                        else -> onFindSuccess(name, email)
                     }
                 }
             )
