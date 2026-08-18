@@ -16,6 +16,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
@@ -418,6 +420,9 @@ val KidsOrbHomeScale  = 0.78f     // 홈 화면 구체 크기 비율
 // 글로우가 구체보다 몇 배 넓게 퍼지는지. 퍼짐 정도는 이 값 하나로 조절한다.
 private const val KidsOrbGlowRatio = 2.1f
 
+// 구슬주머니 배지 뒤 글로우의 흐림 반경. 퍼짐 정도는 이 값으로 조절한다.
+private val KidsBadgeGlowRadius = 20.dp
+
 // ------------------------------------------------------------
 // 구체(풍선)
 // ------------------------------------------------------------
@@ -517,19 +522,25 @@ fun BoxScope.KidsHomeTopBar(
                 .padding(end = 30.dp, top = 78.dp),
             contentAlignment = Alignment.Center
         ) {
-            // 배지 뒤 그라데이션 블러. requiredSize 로 배지보다 넓게 퍼진다.
+            // 배지 뒤 글로우.
+            // 배지와 똑같은 알약 모양을 파랗게 칠한 뒤 통째로 흐리게 만든다.
+            // (원형 그라데이션으로는 알약 윤곽을 따라 퍼지는 모양이 나오지 않는다)
+            //
+            // Unbounded 라야 흐림이 자기 영역 밖으로 번져 나간다.
+            // matchParentSize 라서 크기는 배지와 같고, 퍼짐 정도는 blur 반경으로만 조절한다.
+            //
+            // Modifier.blur 는 API 31+ 에서만 동작한다. 그 아래 기기에서는 블러가 무시되는데,
+            // 크기가 배지와 같아 흰 배지에 완전히 가려지므로 그냥 글로우만 사라진다.
             Box(
                 modifier = Modifier
-                    .requiredSize(width = 210.dp, height = 130.dp)
+                    .matchParentSize()
+                    .blur(
+                        radius = KidsBadgeGlowRadius,
+                        edgeTreatment = BlurredEdgeTreatment.Unbounded
+                    )
                     .background(
-                        Brush.radialGradient(
-                            colorStops = arrayOf(
-                                0.00f to Normal.copy(alpha = 0.30f),
-                                0.40f to Normal.copy(alpha = 0.15f),
-                                0.70f to Normal.copy(alpha = 0.05f),
-                                1.00f to Color.Transparent
-                            )
-                        )
+                        color = Normal.copy(alpha = 0.55f),
+                        shape = RoundedCornerShape(50)
                     )
             )
 
@@ -557,15 +568,14 @@ fun BoxScope.KidsHomeTopBar(
 // ------------------------------------------------------------
 // "도움이 필요해요" 버튼 (329 x 50 — 다른 버튼과 동일)
 // ------------------------------------------------------------
-// 배경과 테두리는 홈/호흡 공통이고, onDark 는 글자색만 구분한다.
+// 홈/호흡 두 화면이 완전히 같은 모양이라 분기가 없다.
 //
 // ⚠ 홈 화면 배경색은 디자인 시트에 값이 비어 있어 호흡 화면과 같은 LightHover 로 뒀다.
 //   디자인팀 확인 후 아래 background 한 줄만 바꾸면 된다.
 @Composable
 fun KidsHelpButton(
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    onDark: Boolean = false
+    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
@@ -589,7 +599,7 @@ fun KidsHelpButton(
             text = "도움이 필요해요",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            color = if (onDark) Dark else Normal
+            color = Dark
         )
     }
 }

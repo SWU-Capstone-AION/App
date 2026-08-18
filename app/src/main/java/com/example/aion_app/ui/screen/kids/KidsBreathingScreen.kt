@@ -155,7 +155,6 @@ fun KidsBreathingScreen(
 
         KidsHelpButton(
             onClick = onHelpRequest,
-            onDark = true,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 38.dp)
