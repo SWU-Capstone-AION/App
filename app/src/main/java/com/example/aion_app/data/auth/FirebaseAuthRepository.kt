@@ -126,6 +126,33 @@ class FirebaseAuthRepository(
     }
 
     /**
+     * 이름 + 이메일이 모두 일치하는 계정의 아이디를 찾는다.
+     *
+     * 이메일로 먼저 조회한 뒤 이름을 코드에서 대조한다.
+     * (필드 두 개로 동시에 조회하면 복합 색인이 필요할 수 있어서 단일 필드로 좁힌다)
+     */
+    override suspend fun findLoginId(name: String, email: String): Result<String> = runCatching {
+        val trimmedName = name.trim()
+        val trimmedEmail = email.trim().lowercase()
+
+        if (trimmedName.isBlank()) throw IllegalArgumentException("이름을 입력해 주세요.")
+        if (!EMAIL_PATTERN.matches(trimmedEmail)) {
+            throw IllegalArgumentException("이메일 형식이 올바르지 않습니다.")
+        }
+
+        val snapshot = db.collection("users")
+            .whereEqualTo("email", trimmedEmail)
+            .get()
+            .await()
+
+        val matched = snapshot.documents.firstOrNull { document ->
+            document.getString("name")?.trim() == trimmedName
+        } ?: throw IllegalStateException(ID_NOT_FOUND_MESSAGE)
+
+        matched.getString("loginId") ?: throw IllegalStateException(ID_NOT_FOUND_MESSAGE)
+    }
+
+    /**
      * 아이디로 가입한 이메일을 찾아 비밀번호 재설정 메일을 보낸다.
      *
      * 가입 정보가 없어도 성공으로 처리한다.
@@ -197,6 +224,7 @@ class FirebaseAuthRepository(
 
         private const val INTERNAL_EMAIL_DOMAIN = "@aion.local"
         private const val LOGIN_FAILED_MESSAGE = "아이디 또는 비밀번호가 올바르지 않습니다."
+        private const val ID_NOT_FOUND_MESSAGE = "일치하는 가입 정보가 없습니다."
 
         // 화면 안내 문구("영문, 숫자 포함 8자 이상")와 동일한 규칙
         private val PASSWORD_PATTERN = Regex("^(?=.*[A-Za-z])(?=.*\\d).{8,}$")

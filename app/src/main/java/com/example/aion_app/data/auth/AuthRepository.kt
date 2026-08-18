@@ -16,6 +16,9 @@ interface AuthRepository {
     /** 로그인. 성공하면 계정 유형을 돌려준다. */
     suspend fun login(loginId: String, password: String): Result<UserRole>
 
+    /** 이름 + 이메일이 모두 일치하는 계정의 아이디를 찾는다. */
+    suspend fun findLoginId(name: String, email: String): Result<String>
+
     /** 아이디로 가입 이메일을 찾아 비밀번호 재설정 메일 발송 */
     suspend fun sendPasswordReset(loginId: String): Result<Unit>
 
@@ -63,6 +66,21 @@ class FakeAuthRepository : AuthRepository {
             else UserRole.TEACHER
 
         return Result.success(role)
+    }
+
+    override suspend fun findLoginId(name: String, email: String): Result<String> {
+        delay(600)
+
+        if (name.isBlank() || email.isBlank()) {
+            return Result.failure(IllegalArgumentException("이름과 이메일을 입력해 주세요."))
+        }
+
+        // 실패 화면도 확인해볼 수 있게, 이름이 '없음'이면 못 찾은 것으로 처리
+        if (name.trim() == "없음") {
+            return Result.failure(IllegalStateException("일치하는 가입 정보가 없습니다."))
+        }
+
+        return Result.success("aion${name.trim().length}2026")
     }
 
     override suspend fun sendPasswordReset(loginId: String): Result<Unit> {

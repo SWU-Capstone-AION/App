@@ -40,6 +40,8 @@ import com.example.aion_app.ui.screen.password.PasswordFindScreen
 import com.example.aion_app.ui.screen.password.IdFindScreen
 import com.example.aion_app.ui.screen.password.IdFindResultScreen
 import com.example.aion_app.ui.screen.password.PasswordFindViewModel
+import android.net.Uri
+import com.example.aion_app.ui.screen.password.IdFindViewModel
 
 import com.example.aion_app.ui.screen.mypage.calculateAge
 import com.example.aion_app.ui.screen.report.ReportListScreen
@@ -155,12 +157,19 @@ fun AionNavHost() {
         }
         // ===== 아이디 찾기 =====
         composable(Route.ID_FIND) {
+            val idFindViewModel: IdFindViewModel = viewModel()
+
             IdFindScreen(
+                isLoading = idFindViewModel.isLoading,
+                errorMessage = idFindViewModel.errorMessage,
                 onBackClick = { navController.popBackStack() },
-                onFindSuccess = { email ->
-                    // 이메일 앞부분을 아이디로 만들어서 결과 화면으로 전달
-                    val userId = email.substringBefore("@")
-                    navController.navigate("${Route.ID_FIND_RESULT}/$userId")
+                onFindSuccess = { name, email ->
+                    idFindViewModel.findId(name, email) { loginId ->
+                        // 이름에 한글·공백이 들어갈 수 있어 인코딩해서 넘긴다
+                        navController.navigate(
+                            "${Route.ID_FIND_RESULT}/${Uri.encode(loginId)}/${Uri.encode(name)}"
+                        )
+                    }
                 },
                 onSwitchToPasswordFind = {
                     navController.navigate(Route.PASSWORD_FIND) {
@@ -169,12 +178,18 @@ fun AionNavHost() {
                 }
             )
         }
+
         composable(
-            route = "${Route.ID_FIND_RESULT}/{userId}",
-            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+            route = "${Route.ID_FIND_RESULT}/{userId}/{name}",
+            arguments = listOf(
+                navArgument("userId") { type = NavType.StringType },
+                navArgument("name") { type = NavType.StringType }
+            )
         ) { backStackEntry ->
             val userId = backStackEntry.arguments?.getString("userId") ?: ""
+            val name = backStackEntry.arguments?.getString("name") ?: ""
             IdFindResultScreen(
+                nickname = name,
                 userId = userId,
                 onBackClick = { navController.popBackStack() },
                 onPasswordFindClick = {
@@ -183,7 +198,10 @@ fun AionNavHost() {
                     }
                 },
                 onLoginClick = {
-                    // TODO: 로그인 화면으로
+                    // 로그인 화면으로 (찾기 흐름은 스택에서 정리)
+                    navController.navigate(Route.SIGN_UP) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
