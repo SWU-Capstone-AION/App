@@ -104,7 +104,6 @@ fun KidsHomeScreen(
 
             Spacer(Modifier.height(18.dp))
 
-            // 8월 디자인 수정: AionTextDark → DarkHover (#3C598E)
             Text(
                 text = "잘하고 있어요!",
                 fontSize = 24.sp,
@@ -157,7 +156,7 @@ private fun BoxScope.KidsCalmPromptDialog(
         ) {
             Spacer(Modifier.height(24.dp))
 
-            // TODO: 하트 아이콘 에셋(heart_icon.png) 적용 여부 디자인팀 확인 후 교체
+            // TODO: heart_icon.png 로 교체할지 디자인팀 확인 필요 (수정 요청 목록에 없었음)
             Box(
                 modifier = Modifier
                     .size(42.dp)

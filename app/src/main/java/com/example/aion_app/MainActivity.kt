@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        android.util.Log.d("AION", "swDp=${resources.configuration.smallestScreenWidthDp} / isTablet=${isTabletDevice(this)}")
 
         requestedOrientation = if (isTabletDevice(this)) {
             ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE

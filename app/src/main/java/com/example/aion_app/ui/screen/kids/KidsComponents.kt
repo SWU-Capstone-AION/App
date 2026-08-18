@@ -54,16 +54,17 @@ import com.example.aion_app.ui.theme.White
 //
 // 시안 기준: 프레임 930 x 582 / 본문 폭 329
 //
-// 색상은 GreyScale 팔레트를 쓴다.
-//   미선택 배경 / 입력칸  = GreyLightActive (#ECEEF0)
-//   플레이스홀더·안내문구 = GreyNormalActive (#9BA0A4)
-//   선택 상태            = LightHover (#E8EFFC, Blue Light:hover)
-//   본문 텍스트          = AionTextDark (#2D3C4A)
+// 이 파일이 쓰는 색 (Color.kt 토큰)
+//   입력칸·미선택 배경    GreyLightActive   #ECEEF0
+//   플레이스홀더·안내문구  GreyNormalActive  #9BA0A4
+//   선택 상태             LightHover        #E8EFFC
+//   테두리·구체 글로우     LightActive       #CFDEF9
+//   본문 텍스트           AionTextDark      #2D3C4A
 // ============================================================
 
 // ---------- 시안 사이즈 (여기 값만 바꾸면 아동용 전체에 반영됨) ----------
-// 아래 값들은 모두 '시안 프레임(930 x 582) 기준'의 값이다.
-// 실제 기기 크기에 맞춰 KidsDesignScale 이 density 를 조정해 통째로 확대/축소한다.
+// 모두 '시안 프레임(930 x 582) 기준' 값이다.
+// 실제 기기 크기에 맞추는 일은 KidsDesignScale 이 density 를 조정해 처리한다.
 const val KidsDesignFrameWidth  = 930f   // 피그마 프레임 가로
 const val KidsDesignFrameHeight = 582f   // 피그마 프레임 세로
 
@@ -78,23 +79,21 @@ val KidsPillCorner   = 25.dp     // 선택지(알약) 모서리 = 높이/2
 // ============================================================
 // 시안 스케일 래퍼
 // ============================================================
-// 시안이 930 x 582 프레임인데 실제 기기는 크기도 비율도 제각각이다.
-// 그래서 "화면이 930 x 582 인 것처럼" density 를 바꿔서 하위 트리에 내려준다.
-// → 안에 쓰인 모든 dp / sp 값이 알아서 시안 비율로 확대/축소된다.
-//   (치수마다 * scale 을 곱할 필요가 없고, 화면 코드는 시안 숫자를 그대로 쓰면 됨)
+// 시안은 930 x 582 프레임인데 실제 기기는 크기도 비율도 제각각이다.
+// 그래서 "화면이 930 x 582 인 것처럼" density 를 바꿔 하위 트리에 내려준다.
+// → 안에 쓰인 모든 dp / sp 가 알아서 시안 비율로 확대/축소되고,
+//   화면 코드는 치수마다 * scale 을 곱할 필요 없이 시안 숫자를 그대로 쓰면 된다.
 //
-// 배율은 폭 기준과 높이 기준 중 '작은 쪽' 을 쓴다. (contain 방식)
+// 배율은 폭 기준과 높이 기준 중 '작은 쪽'을 쓴다 (contain).
 // 폭만 보면 세로 화면에서 프레임이 아래로 늘어나 버튼이 화면 끝까지 내려간다.
-// 작은 쪽을 쓰면 어떤 비율의 화면에서도 시안 모양이 그대로 유지되고,
-// 남는 부분은 위아래(또는 좌우) 여백으로 빠진다.
-//
-// 이 덕분에 화면 회전을 강제로 막지 않아도 레이아웃이 깨지지 않는다.
+// 작은 쪽을 쓰면 어떤 비율에서도 시안 모양이 유지되고 남는 부분은 여백으로 빠진다.
+// 덕분에 회전을 강제로 막지 않아도 레이아웃이 깨지지 않는다.
 // (targetSdk 36 부터 sw600dp 이상 기기에서는 회전 고정이 무시되므로 이 대비가 필요하다)
 //
 // fontScale 은 원래 값을 그대로 넘기므로 사용자의 '글꼴 크기' 접근성 설정도 계속 반영된다.
 //
-// 로그인/회원가입처럼 가운데 329dp 열이 필요한 화면은 KidsScreenFrame 을,
-// 홈/호흡처럼 배경이 화면 전체를 덮는 화면은 이 KidsDesignScale 을 직접 쓴다.
+// 가운데 329dp 열이 필요한 화면(로그인/회원가입)은 KidsScreenFrame 을,
+// 배경이 화면 전체를 덮는 화면(홈/호흡)은 이 함수를 직접 쓴다.
 // 여백 색은 호출부에서 modifier 로 지정한다. (예: Modifier.background(Light))
 @Composable
 fun KidsDesignScale(
@@ -104,12 +103,11 @@ fun KidsDesignScale(
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val base = LocalDensity.current
 
-        // "1 디자인dp 당 몇 px" = 새 density.
-        // 폭 기준과 높이 기준 중 작은 쪽 → 프레임 전체가 화면 안에 들어온다.
+        // "1 디자인dp 당 몇 px" = 새 density
         val scaledDensity = Density(
             density = minOf(
-                constraints.maxWidth / KidsDesignFrameWidth,
-                constraints.maxHeight / KidsDesignFrameHeight
+                this.constraints.maxWidth / KidsDesignFrameWidth,
+                this.constraints.maxHeight / KidsDesignFrameHeight
             ),
             fontScale = base.fontScale
         )
@@ -135,7 +133,7 @@ fun KidsDesignScale(
 // ============================================================
 // 화면 뼈대 (로그인 / 회원가입용)
 // ============================================================
-// bottomButton 을 넘기면 버튼이 화면 하단에 고정되고 본문만 스크롤된다.
+// bottomButton 을 넘기면 버튼이 하단에 고정되고 본문만 스크롤된다.
 // (시안 5p에서 선택지 목록이 '다음' 버튼 뒤로 잘려 들어가는 모습 그대로)
 @Composable
 fun KidsScreenFrame(
@@ -349,7 +347,6 @@ private fun KidsToggleButton(
             .width(KidsToggleWidth)
             .height(KidsItemHeight)
             .clip(RoundedCornerShape(KidsCorner))
-            // 선택 상태 = Blue Light:hover (#E8EFFC)
             .background(if (isSelected) LightHover else GreyLightActive)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
@@ -414,25 +411,21 @@ fun KidsSectionLabel(
 // ============================================================
 
 // 시안 실측값 (930 x 582 기준)
-val KidsScreenPadding = 20.dp     // 로고·프로필 바깥 여백
+val KidsScreenPadding = 20.dp     // 로고·마이페이지 바깥 여백
 val KidsOrbMaxSize    = 244.dp    // 구체 최대 지름 (호흡 '내쉬어요' 시점)
 val KidsOrbHomeScale  = 0.78f     // 홈 화면 구체 크기 비율
 
-// 구체 뒤 글로우가 구체보다 몇 배 넓게 퍼지는지.
-// 8월 디자인 수정: "블러가 조금 더 퍼져있으면 좋겠다" → 1.2 에서 1.75 로 확대.
-// 값만 올리면 되고 레이아웃에는 영향이 없다 (requiredSize 로 프레임 밖으로 넘겨 그림).
-private const val KidsOrbGlowRatio = 1.75f
+// 글로우가 구체보다 몇 배 넓게 퍼지는지. 퍼짐 정도는 이 값 하나로 조절한다.
+private const val KidsOrbGlowRatio = 2.1f
 
 // ------------------------------------------------------------
 // 구체(풍선)
 // ------------------------------------------------------------
-// 8월 디자인 수정: 직접 그리던 그라데이션 원 → 디자인팀 PNG(sphere.png) 로 교체.
-// 글로우는 PNG 뒤에 코드로 계속 그린다. (호흡 애니메이션에서 크기가 실시간으로
-// 변하는데, 글로우까지 PNG 로 만들면 확대 시 뭉개지기 때문)
+// 본체는 sphere.png, 글로우만 코드로 그린다.
+// 호흡 화면에서 구체 크기가 실시간으로 변하는데 글로우까지 PNG 로 만들면
+// 확대할 때 가장자리가 뭉개지기 때문이다.
 //
-// 글로우 색
-//   밝은 배경(홈)   = LightActive (#CFDEF9)  ← 디자인팀 지정
-//   어두운 배경(호흡) = 흰색                   ← 기존 유지
+// 글로우 색: 홈 = LightActive(#CFDEF9) / 호흡 = 흰색
 @Composable
 fun KidsOrb(
     scale: Float,
@@ -446,8 +439,8 @@ fun KidsOrb(
         modifier = modifier.size(size),
         contentAlignment = Alignment.Center
     ) {
-        // 글로우 — requiredSize 라서 부모(size) 보다 커도 잘리지 않고,
-        // 바깥 레이아웃(아래 텍스트 위치 등)에도 영향을 주지 않는다.
+        // requiredSize 라서 부모(size)보다 커도 잘리지 않고,
+        // 바깥 레이아웃(아래 텍스트 위치 등)도 밀지 않는다.
         Box(
             modifier = Modifier
                 .requiredSize(size * KidsOrbGlowRatio)
@@ -481,20 +474,15 @@ fun KidsOrb(
 // 상단 바 (AION 로고 + 구슬주머니 + 마이페이지)
 // ------------------------------------------------------------
 // points 가 null 이면 구슬주머니를 숨긴다 (호흡 화면).
-//
-// 8월 디자인 수정
-//   - 마이페이지: Material 아이콘 → mypage_active / mypage_white PNG
-//   - 마이페이지 위치: 로고와 세로 가운데 정렬 (Row + CenterVertically 로 보장)
-//   - 구슬주머니 숫자 색: AionTextDark → Dark (#4B70B2)
-//   - 구슬주머니 뒤 그라데이션 블러 추가 (#6495ED = Normal)
+// onDark 는 배경이 어두운 호흡 화면용 — 마이페이지 아이콘을 흰색 버전으로 바꾼다.
 @Composable
 fun BoxScope.KidsHomeTopBar(
     points: Int?,
     onProfileClick: () -> Unit,
     onDark: Boolean = false
 ) {
-    // 로고와 마이페이지를 한 Row 에 넣어야 로고 높이가 얼마든 항상 가운데가 맞는다.
-    // (예전처럼 각각 top padding 을 주면 로고 에셋이 바뀔 때마다 다시 맞춰야 했다)
+    // 로고와 마이페이지를 한 Row 에 묶어야 로고 높이가 얼마든 세로 가운데가 맞는다.
+    // (각각 top padding 을 주면 로고 에셋이 바뀔 때마다 다시 맞춰야 한다)
     Row(
         modifier = Modifier
             .align(Alignment.TopStart)
@@ -529,7 +517,7 @@ fun BoxScope.KidsHomeTopBar(
                 .padding(end = 30.dp, top = 78.dp),
             contentAlignment = Alignment.Center
         ) {
-            // 뒤쪽 그라데이션 블러 (#6495ED). requiredSize 로 배지보다 넓게 퍼진다.
+            // 배지 뒤 그라데이션 블러. requiredSize 로 배지보다 넓게 퍼진다.
             Box(
                 modifier = Modifier
                     .requiredSize(width = 210.dp, height = 130.dp)
@@ -567,19 +555,12 @@ fun BoxScope.KidsHomeTopBar(
 }
 
 // ------------------------------------------------------------
-// "도움이 필요해요" 버튼 (329 x 50 — 시안 기준 다른 버튼과 동일)
+// "도움이 필요해요" 버튼 (329 x 50 — 다른 버튼과 동일)
 // ------------------------------------------------------------
-// 8월 디자인 수정
-//   - 아이콘: ✋ 이모지 → hand_icon.png
-//   - 스트로크 추가 (#CFDEF9 = LightActive, 1dp) — 두 화면 공통
-//   - 호흡 화면 배경: 반투명 흰색 → LightHover (#E8EFFC)
-//   - 호흡 화면 텍스트: 흰색 → Dark (#4B70B2)
+// 배경과 테두리는 홈/호흡 공통이고, onDark 는 글자색만 구분한다.
 //
-// ⚠ 홈(기본) 화면 버튼 배경색은 디자인 시트에 값이 비어 있어 기존 LightHover 유지.
-//    호흡 화면과 동일한 값이라 그대로 두는 게 안전하다고 판단. 디자인팀 확인 필요.
-//    → 확인되면 아래 background 한 줄만 바꾸면 됨.
-//
-// 배경/스트로크가 두 화면 모두 같아져서 onDark 는 이제 텍스트 색만 구분한다.
+// ⚠ 홈 화면 배경색은 디자인 시트에 값이 비어 있어 호흡 화면과 같은 LightHover 로 뒀다.
+//   디자인팀 확인 후 아래 background 한 줄만 바꾸면 된다.
 @Composable
 fun KidsHelpButton(
     onClick: () -> Unit,

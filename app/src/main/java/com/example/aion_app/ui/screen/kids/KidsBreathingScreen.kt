@@ -27,11 +27,11 @@ import com.example.aion_app.ui.theme.White
 import kotlinx.coroutines.delay
 
 // ============================================================
-// 호흡 타이밍 (아직 미확정 — 팀/디자이너 확정되면 이 값만 바꾸면 됨)
+// 호흡 타이밍 (미확정 — 팀/디자이너 확정되면 이 값만 바꾸면 됨)
 // ============================================================
 // 기존 monitor/ui/ChildScreen.kt 값을 그대로 옮겨왔다.
-// 참고: 일반적으로 '진정' 목적의 호흡은 날숨이 들숨보다 길 때 효과가 크다고 알려져 있어,
-//       InhaleMs < ExhaleMs 로 바꾸는 것도 팀에서 검토해볼 만하다.
+// 참고: '진정' 목적의 호흡은 날숨이 들숨보다 길 때 효과가 크다고 알려져 있어,
+//       InhaleMs < ExhaleMs 로 바꾸는 것도 검토해볼 만하다.
 const val KidsBreathCount = 4          // 총 호흡 횟수
 const val KidsInhaleMs = 2900          // 들이마시기
 const val KidsHoldMs = 1000L           // 멈춤
@@ -51,10 +51,6 @@ private const val OrbMaxScale = 1.0f
 //   멈춤       → 최대 크기 유지
 //   내쉬기     → 구체 축소
 // 시안 이미지의 구체 크기는 각 단계의 스냅샷 시점이 제각각이라 안내문을 기준으로 삼았다.
-//
-// 8월 디자인 수정: 단색 Dark 배경 → kids_background.png
-//   프레임(930x582) 안쪽만 이미지로 덮고, 회전 시 생기는 바깥 여백은
-//   기존 Dark 를 그대로 둬서 이미지 가장자리와 자연스럽게 이어지게 했다.
 @Composable
 fun KidsBreathingScreen(
     onProfileClick: () -> Unit = {},
@@ -90,8 +86,10 @@ fun KidsBreathingScreen(
         onFinish(true)
     }
 
+    // 배경 이미지는 프레임(930x582) 안쪽만 덮는다.
+    // 회전 시 생기는 바깥 여백은 Dark 로 채워 이미지 가장자리와 자연스럽게 이어지게 했다.
     KidsDesignScale(modifier = Modifier.background(Dark)) {
-        // 배경 이미지 — 프레임 전체를 덮는다. 가장 먼저 그려야 다른 요소들이 위에 온다.
+        // 가장 먼저 그려야 나머지 요소가 그 위에 온다
         Image(
             painter = painterResource(R.drawable.kids_background),
             contentDescription = null,

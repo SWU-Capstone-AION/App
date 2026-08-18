@@ -45,7 +45,7 @@ fun SignUpScreen(
     onFindIdClick: () -> Unit = {},
     onFindPasswordClick: () -> Unit = {}
 ) {
-    var selectedType by remember { mutableStateOf("아동용") }
+    var selectedType by remember { mutableStateOf("교사용") }
     var userId by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
