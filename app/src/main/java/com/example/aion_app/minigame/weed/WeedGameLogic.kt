@@ -71,9 +71,9 @@ class WeedGameEngine(
     /** 히트박스 가로 반폭 (S 배수) */
     private val hitHalfWidthInS: Float = 0.22f,
     /** 스치듯 지나가는 것을 거르기 위한 최소 연속 프레임 */
-    private val grabFramesRequired: Int = 3,
-    /** 잡초 높이의 몇 배만큼 위로 당겨야 뽑히는가. 아동 대상이면 낮게 시작할 것. */
-    private val pullRatio: Float = 0.4f,
+    private val grabFramesRequired: Int = 4,
+    /** 잡초 높이의 몇 배만큼 위로 당겨야 뽑히는가. 낮으면 살짝만 올려도 뽑힌다. */
+    private val pullRatio: Float = 0.8f,
     /** 잡은 뒤 손이 이만큼 옆으로 벗어나면 취소 (S 배수) */
     private val cancelDistanceInS: Float = 0.55f,
     /** 이만큼 아무 진전이 없으면 남은 잡초를 몸 쪽으로 당겨준다 (시연 중 막힘 방지) */
@@ -239,48 +239,67 @@ class WeedGameEngine(
         return if (t == Float.MAX_VALUE) -1f else max(0f, t)
     }
 
+    /**
+     * 한 번에 한 포기만 잡힌다.
+     *
+     * 잡초마다 따로 판정하면, 겹쳐 있는 잡초가 전부 GRABBED 가 되고
+     * 팔을 한 번 올릴 때 그것들이 한꺼번에 뽑힌다. 그래서
+     *   1) 이미 잡은 게 있으면 그 한 포기만 처리하고
+     *   2) 잡은 게 없을 때만 손목에 가장 가까운 한 포기를 후보로 고른다.
+     */
     private fun stepStateMachine(wrists: List<Vec2>, s: Float): Boolean {
         val weedHeight = weedHeightInS * s
         val pullDistance = weedHeight * pullRatio
         val cancelDistance = cancelDistanceInS * s
-        var interacted = false
 
-        weeds.forEach { w ->
-            when (w.state) {
-                WeedState.PULLED -> Unit
-
-                WeedState.IDLE -> {
-                    val hit = wrists.firstOrNull { inHitbox(w, it, s) }
-                    if (hit == null) {
-                        w.grabFrames = 0
-                    } else {
-                        w.grabFrames++
-                        if (w.grabFrames >= grabFramesRequired) {
-                            w.state = WeedState.GRABBED
-                            w.grabWristY = hit.y   // 잡은 순간의 높이를 기억
-                            interacted = true
-                        }
-                    }
+        val held = weeds.firstOrNull { it.state == WeedState.GRABBED }
+        if (held != null) {
+            weeds.forEach { if (it !== held) it.grabFrames = 0 }
+            // 당기는 중에는 손목이 히트박스 위로 벗어나므로 가로 거리만 본다.
+            val near = wrists.minByOrNull { abs(it.x - held.pos.x) }
+            return when {
+                near == null || abs(near.x - held.pos.x) > cancelDistance -> {
+                    held.state = WeedState.IDLE
+                    held.grabFrames = 0
+                    false
                 }
+                held.grabWristY - near.y >= pullDistance -> {
+                    held.state = WeedState.PULLED
+                    pulledCount++
+                    true
+                }
+                else -> false
+            }
+        }
 
-                WeedState.GRABBED -> {
-                    // 당기는 중에는 손목이 히트박스 위로 벗어나므로 가로 거리만 본다.
-                    val near = wrists.minByOrNull { abs(it.x - w.pos.x) }
-                    when {
-                        near == null || abs(near.x - w.pos.x) > cancelDistance -> {
-                            w.state = WeedState.IDLE
-                            w.grabFrames = 0
-                        }
-                        w.grabWristY - near.y >= pullDistance -> {
-                            w.state = WeedState.PULLED
-                            pulledCount++
-                            interacted = true
-                        }
-                    }
+        // 겹쳐 있어도 가장 가까운 한 포기만 후보가 된다.
+        var candidate: WeedItem? = null
+        var candidateWrist: Vec2? = null
+        var bestDistance = Float.MAX_VALUE
+        weeds.forEach { w ->
+            if (w.state != WeedState.IDLE) return@forEach
+            wrists.forEach { wrist ->
+                if (!inHitbox(w, wrist, s)) return@forEach
+                val distance = kotlin.math.hypot(wrist.x - w.pos.x, wrist.y - w.pos.y)
+                if (distance < bestDistance) {
+                    bestDistance = distance
+                    candidate = w
+                    candidateWrist = wrist
                 }
             }
         }
-        return interacted
+
+        val target = candidate
+        val wrist = candidateWrist
+        weeds.forEach { if (it !== target) it.grabFrames = 0 }
+        if (target == null || wrist == null) return false
+
+        target.grabFrames++
+        if (target.grabFrames < grabFramesRequired) return false
+
+        target.state = WeedState.GRABBED
+        target.grabWristY = wrist.y   // 잡은 순간의 높이를 기억
+        return true
     }
 
     private fun inHitbox(w: WeedItem, wrist: Vec2, s: Float): Boolean {
