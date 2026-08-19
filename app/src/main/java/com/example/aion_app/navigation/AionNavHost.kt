@@ -226,6 +226,8 @@ fun AionNavHost() {
             }
             val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
             ChildProfileSetupScreen(
+                // 교사 가입 경로라 감각특성·상동행동은 묻지 않는다
+                includeChildSteps = false,
                 onBackClick = { navController.popBackStack() },
                 onComplete = { profile ->
                     signUpViewModel.updateChildProfile(profile)
