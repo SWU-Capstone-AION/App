@@ -186,6 +186,55 @@ class FirebaseAuthRepository(
         Unit
     }
 
+    override suspend fun getCurrentUser(): Result<UserInfo> = runCatching {
+        val uid = auth.currentUser?.uid
+            ?: throw IllegalStateException("로그인이 필요합니다.")
+
+        val document = db.collection("users").document(uid).get().await()
+        if (!document.exists()) throw IllegalStateException("계정 정보를 찾을 수 없습니다.")
+
+        UserInfo(
+            uid = uid,
+            role = if (document.getString("role") == ROLE_CHILD) UserRole.CHILD else UserRole.TEACHER,
+            loginId = document.getString("loginId").orEmpty(),
+            email = document.getString("email").orEmpty(),
+            name = document.getString("name").orEmpty(),
+            gender = document.getString("gender"),
+            birthYear = document.getLong("birthYear")?.toInt(),
+            birthMonth = document.getLong("birthMonth")?.toInt(),
+            birthDay = document.getLong("birthDay")?.toInt(),
+            // Firestore는 List로 돌려준다 (저장할 때 Set을 List로 바꿔 넣었음)
+            sensoryTraits = (document.get("sensoryTraits") as? List<*>)
+                ?.filterIsInstance<String>().orEmpty(),
+            behaviors = (document.get("behaviors") as? List<*>)
+                ?.filterIsInstance<String>().orEmpty(),
+        )
+    }
+
+    override suspend fun updateProfile(
+        name: String,
+        gender: String?,
+        birthYear: Int?,
+        birthMonth: Int?,
+        birthDay: Int?
+    ): Result<Unit> = runCatching {
+        val uid = auth.currentUser?.uid
+            ?: throw IllegalStateException("로그인이 필요합니다.")
+        if (name.isBlank()) throw IllegalArgumentException("이름을 입력해 주세요.")
+
+        db.collection("users").document(uid).update(
+            mapOf(
+                "name" to name.trim(),
+                "gender" to gender,
+                "birthYear" to birthYear,
+                "birthMonth" to birthMonth,
+                "birthDay" to birthDay,
+            )
+        ).await()
+
+        Unit
+    }
+
     /**
      * 로그아웃.
      *

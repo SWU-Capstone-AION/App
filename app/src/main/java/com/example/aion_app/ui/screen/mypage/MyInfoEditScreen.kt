@@ -77,6 +77,8 @@ fun MyInfoEditScreen(
     initialSensitiveStimuli: List<String> = listOf("시각", "청각"),
     initialBehaviorTraits: List<String> = listOf("손이나 팔을 흔들어요", "박수치듯 손을 맞부딪혀요"),
     initialProfileImageUri: Uri? = null,
+    // 감각 자극·행동 특성은 아동에게만 해당하는 항목이라 교사에게는 감춘다
+    isTeacher: Boolean = false,
     onBackClick: () -> Unit = {},
     onSaveClick: (MyInfo) -> Unit = {}
 ) {
@@ -192,39 +194,42 @@ fun MyInfoEditScreen(
                 )
                 EditDivider()
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // ===== 아동 전용 항목 =====
+                if (!isTeacher) {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // 민감하게 반응하는 감각 자극
-                EditSelectableTagSection(
-                    title = "민감하게 반응하는 감각 자극",
-                    allOptions = allSensitiveStimuli,
-                    selectedTags = sensitiveStimuli,
-                    onTagToggle = { tag ->
-                        sensitiveStimuli = if (sensitiveStimuli.contains(tag)) {
-                            sensitiveStimuli - tag    // 이미 선택돼 있으면 → 빼기
-                        } else {
-                            sensitiveStimuli + tag    // 선택 안 돼 있으면 → 추가
+                    // 민감하게 반응하는 감각 자극
+                    EditSelectableTagSection(
+                        title = "민감하게 반응하는 감각 자극",
+                        allOptions = allSensitiveStimuli,
+                        selectedTags = sensitiveStimuli,
+                        onTagToggle = { tag ->
+                            sensitiveStimuli = if (sensitiveStimuli.contains(tag)) {
+                                sensitiveStimuli - tag    // 이미 선택돼 있으면 → 빼기
+                            } else {
+                                sensitiveStimuli + tag    // 선택 안 돼 있으면 → 추가
+                            }
                         }
-                    }
-                )
+                    )
 
-                EditDivider()
+                    EditDivider()
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // 주로 나타나는 행동 특성
-                EditSelectableTagSection(
-                    title = "주로 나타나는 행동 특성",
-                    allOptions = allBehaviorTraits,
-                    selectedTags = behaviorTraits,
-                    onTagToggle = { tag ->
-                        behaviorTraits = if (behaviorTraits.contains(tag)) {
-                            behaviorTraits - tag
-                        } else {
-                            behaviorTraits + tag
+                    // 주로 나타나는 행동 특성
+                    EditSelectableTagSection(
+                        title = "주로 나타나는 행동 특성",
+                        allOptions = allBehaviorTraits,
+                        selectedTags = behaviorTraits,
+                        onTagToggle = { tag ->
+                            behaviorTraits = if (behaviorTraits.contains(tag)) {
+                                behaviorTraits - tag
+                            } else {
+                                behaviorTraits + tag
+                            }
                         }
-                    }
-                )
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(32.dp))
             }
@@ -490,7 +495,20 @@ private fun EditDivider() {
     HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
 }
 
-@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7")
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7", name = "교사")
+@Composable
+fun MyInfoEditScreenTeacherPreview() {
+    MaterialTheme {
+        MyInfoEditScreen(
+            initialName = "김지연",
+            initialGender = "여자",
+            initialBirthDate = "1999.05.12",
+            isTeacher = true
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7", name = "아동")
 @Composable
 fun MyInfoEditScreenPreview() {
     MaterialTheme {

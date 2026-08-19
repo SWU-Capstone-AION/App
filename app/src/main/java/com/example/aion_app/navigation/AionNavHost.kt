@@ -417,8 +417,9 @@ fun AionNavHost() {
             val info = viewModel.myInfo
             MyPageScreen(
                 userName = info.name,
-                userGender = info.gender.first().toString(),  // "남자" → "남"
-                userAge = calculateAge(info.birthDate),       // "2019.12.21" → 6 (또는 나이)
+                userGender = info.gender.take(1),   // "남자" → "남"
+                userAge = calculateAge(info.birthDate),   // "2019.12.21" → 6
+                isTeacher = info.role == UserRole.TEACHER,
                 profileImageUri = info.profileImageUri,
                 onEditProfileClick = {
                     navController.navigate(Route.MY_INFO)
@@ -456,6 +457,7 @@ fun AionNavHost() {
                 userBirthDate = info.birthDate,
                 sensitiveStimuli = info.sensitiveStimuli,
                 behaviorTraits = info.behaviorTraits,
+                isTeacher = info.role == UserRole.TEACHER,
                 profileImageUri = info.profileImageUri,
                 onBackClick = { navController.popBackStack() },
                 onEditClick = {
@@ -478,6 +480,7 @@ fun AionNavHost() {
                 initialSensitiveStimuli = info.sensitiveStimuli,
                 initialBehaviorTraits = info.behaviorTraits,
                 initialProfileImageUri = info.profileImageUri,
+                isTeacher = info.role == UserRole.TEACHER,
                 onBackClick = { navController.popBackStack() },
                 onSaveClick = { newInfo ->
                     viewModel.updateMyInfo(newInfo)
