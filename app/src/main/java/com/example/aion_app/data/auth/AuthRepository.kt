@@ -22,8 +22,14 @@ interface AuthRepository {
     /** 아이디로 가입 이메일을 찾아 비밀번호 재설정 메일 발송 */
     suspend fun sendPasswordReset(loginId: String): Result<Unit>
 
-    /** 로그아웃 */
-    fun logout()
+    /** 현재 로그인한 사용자 정보를 읽는다. */
+    suspend fun getCurrentUser(): Result<UserInfo>
+
+    /** 이름·성별·생년월일 수정 */
+    suspend fun updateProfile(name: String, gender: String?, birthYear: Int?, birthMonth: Int?, birthDay: Int?): Result<Unit>
+
+    /** 로그아웃. 이 기기로 알림이 계속 가지 않도록 FCM 토큰도 지운다. */
+    suspend fun logout()
 }
 
 // ============================================
@@ -50,6 +56,34 @@ class FakeAuthRepository : AuthRepository {
             return Result.failure(IllegalArgumentException("아이디/비밀번호가 비어있습니다."))
         }
 
+        return Result.success(Unit)
+    }
+
+    override suspend fun getCurrentUser(): Result<UserInfo> {
+        delay(400)
+        return Result.success(
+            UserInfo(
+                uid = "fake-uid",
+                role = UserRole.TEACHER,
+                loginId = "test",
+                email = "test@example.com",
+                name = "김슈니",
+                gender = "여자",
+                birthYear = 1999,
+                birthMonth = 5,
+                birthDay = 12,
+            )
+        )
+    }
+
+    override suspend fun updateProfile(
+        name: String,
+        gender: String?,
+        birthYear: Int?,
+        birthMonth: Int?,
+        birthDay: Int?
+    ): Result<Unit> {
+        delay(500)
         return Result.success(Unit)
     }
 
@@ -88,5 +122,5 @@ class FakeAuthRepository : AuthRepository {
         return Result.success(Unit)
     }
 
-    override fun logout() = Unit
+    override suspend fun logout() = Unit
 }

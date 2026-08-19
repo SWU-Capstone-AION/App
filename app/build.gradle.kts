@@ -83,4 +83,9 @@ dependencies {
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
 
+    // Firebase — BoM이 버전을 관리하므로 개별 라이브러리엔 버전 안 씀
+    implementation(platform("com.google.firebase:firebase-bom:34.17.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-messaging")
 }

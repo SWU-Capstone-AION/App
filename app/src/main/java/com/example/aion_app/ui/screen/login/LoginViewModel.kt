@@ -50,7 +50,17 @@ class LoginViewModel(
         }
     }
 
-    fun logout() {
-        authRepository.logout()
+    /**
+     * 로그아웃.
+     *
+     * onComplete 에서 화면을 옮겨야 한다.
+     * 먼저 화면을 옮기면 이 ViewModel이 파괴되면서 viewModelScope가 취소돼
+     * FCM 토큰 삭제와 signOut 이 중간에 끊긴다.
+     */
+    fun logout(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            authRepository.logout()
+            onComplete()
+        }
     }
 }

@@ -38,6 +38,8 @@ fun MyPageScreen(
     userName: String = "김슈니",
     userGender: String = "남",
     userAge: Int = 7,
+    // 교사는 성별·나이 대신 역할을 보여준다
+    isTeacher: Boolean = false,
     profileImageUri: Uri? = null,
     onEditProfileClick: () -> Unit = {},
     onFindIdPasswordClick: () -> Unit = {},
@@ -87,9 +89,9 @@ fun MyPageScreen(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // 성별 · 나이
+            // 교사: "교사" / 아동: 성별 · 나이
             Text(
-                text = "$userGender · ${userAge}세",
+                text = if (isTeacher) "교사" else "$userGender · ${userAge}세",
                 fontSize = 14.sp,
                 color = GrayText
             )
@@ -177,7 +179,15 @@ private fun MenuItem(
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7")
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7", name = "교사")
+@Composable
+fun MyPageScreenTeacherPreview() {
+    MaterialTheme {
+        MyPageScreen(userName = "김지연", isTeacher = true)
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7", name = "아동")
 @Composable
 fun MyPageScreenPreview() {
     MaterialTheme {
