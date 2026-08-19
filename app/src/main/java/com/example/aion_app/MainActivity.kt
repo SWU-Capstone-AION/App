@@ -8,6 +8,15 @@ import androidx.activity.compose.setContent
 import com.example.aion_app.navigation.AionNavHost
 import com.example.aion_app.ui.theme.AionTheme
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.example.aion_app.data.messaging.AionMessagingService
+
 // ============================================
 // 기기 판별 기준
 // ============================================
@@ -21,14 +30,16 @@ fun isTabletDevice(context: Context): Boolean =
 
 class MainActivity : ComponentActivity() {
 
+    // 권한 결과는 따로 처리하지 않는다.
+    // 거부해도 앱은 정상 동작하고, 알림만 표시되지 않는다.
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        requestedOrientation = if (isTabletDevice(this)) {
-            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-        } else {
-            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        createNotificationChannel()
+        requestNotificationPermission()
 
         // 시스템바(상태바/내비게이션바) 여백은 AionNavHost 에서 처리한다.
         // 스플래시만 풀블리드로 둬야 해서 현재 라우트를 아는 쪽에 두는 게 맞다.
@@ -38,4 +49,42 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    /**
+     * 알림 채널을 앱 시작 시 미리 만들어 둔다.
+     *
+     * 앱이 백그라운드일 때는 시스템이 알림을 직접 띄우는데,
+     * 그 시점에 채널이 없으면 알림이 조용히 무시된다.
+     */
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (manager.getNotificationChannel(AionMessagingService.CHANNEL_ID) != null) return
+
+        val channel = NotificationChannel(
+            AionMessagingService.CHANNEL_ID,
+            "상동행동 알림",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "아동에게 상동행동이 감지되면 알려줍니다."
+            enableVibration(true)
+        }
+        manager.createNotificationChannel(channel)
+    }
+
+    /** 안드로이드 13부터는 알림 권한을 사용자에게 받아야 한다. */
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+
+        val granted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (!granted) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
 }

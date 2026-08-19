@@ -428,11 +428,12 @@ fun AionNavHost() {
                     navController.navigate(Route.PASSWORD_CHANGE_CHECK)
                 },
                 onLogoutClick = {
-                    loginViewModel.logout()
-                    // 백스택을 통째로 비운다.
-                    // 스플래시는 이미 스택에서 지워졌으므로 popUpTo(0)으로 루트까지 제거.
-                    navController.navigate(Route.SIGN_UP) {
-                        popUpTo(0) { inclusive = true }
+                    loginViewModel.logout {
+                        // 백스택을 통째로 비운다.
+                        // 스플래시는 이미 스택에서 지워졌으므로 popUpTo(0)으로 루트까지 제거.
+                        navController.navigate(Route.SIGN_UP) {
+                            popUpTo(0) { inclusive = true }
+                        }
                     }
                 },
                 onTabSelect = onTabSelect

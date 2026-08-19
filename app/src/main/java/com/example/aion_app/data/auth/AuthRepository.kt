@@ -22,8 +22,8 @@ interface AuthRepository {
     /** 아이디로 가입 이메일을 찾아 비밀번호 재설정 메일 발송 */
     suspend fun sendPasswordReset(loginId: String): Result<Unit>
 
-    /** 로그아웃 */
-    fun logout()
+    /** 로그아웃. 이 기기로 알림이 계속 가지 않도록 FCM 토큰도 지운다. */
+    suspend fun logout()
 }
 
 // ============================================
@@ -88,5 +88,5 @@ class FakeAuthRepository : AuthRepository {
         return Result.success(Unit)
     }
 
-    override fun logout() = Unit
+    override suspend fun logout() = Unit
 }

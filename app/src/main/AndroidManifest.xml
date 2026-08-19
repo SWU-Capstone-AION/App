@@ -11,6 +11,9 @@
         android:name="android.hardware.camera"
         android:required="false" />
 
+    <!-- 알림 권한 (Android 13 이상) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -43,6 +46,20 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- FCM 토큰 갱신 처리 -->
+        <service
+            android:name=".data.messaging.AionMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- 알림 채널 지정 (앱이 백그라운드일 때 시스템이 자동 표시할 알림에 사용) -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="aion_alert" />
 
     </application>
 
