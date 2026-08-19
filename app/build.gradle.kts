@@ -38,6 +38,10 @@ android {
     buildFeatures {
         compose = true
     }
+    // MediaPipe .task 모델은 압축하면 못 읽으므로 그대로 둔다 (모니터링 기능 필수)
+    androidResources {
+        noCompress += "task"
+    }
 }
 
 dependencies {
@@ -70,10 +74,18 @@ dependencies {
     // Firebase의 Task를 코루틴에서 await()로 쓰기 위해 필요
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
+    // ── 상동행동 모니터링 기능 (com.example.aion_app.monitor) ──
+    // collectAsStateWithLifecycle 등 (androidx.lifecycle.compose)
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.camera:camera-view:1.4.1")
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
+
     // Firebase — BoM이 버전을 관리하므로 개별 라이브러리엔 버전 안 씀
     implementation(platform("com.google.firebase:firebase-bom:34.17.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-messaging")
-
 }

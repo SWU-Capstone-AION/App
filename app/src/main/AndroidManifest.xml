@@ -5,10 +5,11 @@
     <!-- 인터넷 권한 (Firebase 통신에 필요) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- 카메라 권한 -->
+    <!-- 카메라 권한 (모니터링 기능) -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- 전면/외장 카메라도 허용해야 하므로 camera.any 사용 -->
     <uses-feature
-        android:name="android.hardware.camera"
+        android:name="android.hardware.camera.any"
         android:required="false" />
 
     <!-- 알림 권한 (Android 13 이상) -->

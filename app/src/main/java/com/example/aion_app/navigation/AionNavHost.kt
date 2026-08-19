@@ -35,6 +35,8 @@ import com.example.aion_app.ui.screen.kids.KidsProfileSetupScreen
 import com.example.aion_app.ui.screen.kids.KidsOnboardingCompleteScreen
 import com.example.aion_app.ui.screen.kids.KidsHomeScreen
 
+import com.example.aion_app.monitor.StereotypyMonitorScreen
+
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aion_app.ui.screen.mypage.MyInfoViewModel
 import androidx.compose.runtime.remember
@@ -81,6 +83,7 @@ fun AionNavHost() {
         // startDestination = Route.MYPAGE     // 마이페이지 테스트용
         // startDestination = Route.KIDS_LOGIN  // 아동용 화면을 폰/프리뷰에서 강제로 볼 때
         // startDestination = Route.ID_FIND    // 아이디 찾기 테스트용
+        // startDestination = Route.MONITOR   // 상동행동 모니터링 화면 테스트용 (카메라 필요, 실기기 권장)
     ) {
         // ===== 하단탭 공용 이동 로직 =====
         // (지역변수라 선언보다 아래에서만 참조 가능 → NavHost 블록 맨 위에 둠)
@@ -362,6 +365,13 @@ fun AionNavHost() {
                     // TODO: 호흡 완료 보상(젤리) 지급
                 }
             )
+        }
+
+        // ===== 상동행동 모니터링 =====
+        // 아직 다른 화면에서 이 경로로 이동하는 진입점은 없다.
+        // 위쪽 startDestination 주석을 풀면 바로 이 화면부터 실행된다.
+        composable(Route.MONITOR) {
+            StereotypyMonitorScreen()
         }
 
         // ===== 홈 =====
