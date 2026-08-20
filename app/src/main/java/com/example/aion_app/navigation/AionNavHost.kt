@@ -77,9 +77,9 @@ fun AionNavHost() {
         modifier = if (isSplash) Modifier
         else Modifier.windowInsetsPadding(WindowInsets.systemBars),
         // 앱 진입: 스플래시부터 시작
-        startDestination = Route.SPLASH
+        // startDestination = Route.SPLASH
         // startDestination = Route.SIGN_UP   // 회원가입 플로우 테스트용
-        // startDestination = Route.HOME       // 홈 테스트용
+        startDestination = Route.HOME       // 홈 테스트용
         // startDestination = Route.MYPAGE     // 마이페이지 테스트용
         // startDestination = Route.KIDS_LOGIN  // 아동용 화면을 폰/프리뷰에서 강제로 볼 때
         // startDestination = Route.ID_FIND    // 아이디 찾기 테스트용

@@ -11,7 +11,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.window.Dialog
 import com.example.aion_app.ui.theme.GrayBackground
 
 import androidx.compose.foundation.rememberScrollState
@@ -44,6 +47,9 @@ import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 
+// 위험 알림 팝업 색상 (디자인 시안의 벽돌색 계열)
+private val DangerRed = Color(0xFFB0453A)
+
 @Composable
 fun HomeScreen(
     classInfo: ClassInfo = ClassInfo(grade = 3, classNum = 4, date = "2026.05.28(목)"),
@@ -58,6 +64,9 @@ fun HomeScreen(
         cautionCount = 7,
         dangerCount = 2
     ),
+    // 위험 판정된 아동. null이 아니면 화면 위에 팝업이 뜬다.
+    dangerAlert: Student? = null,
+    onDangerAlertConfirm: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
     onAlertClick: () -> Unit = {},
     onStudentClick: (Student) -> Unit = {},
@@ -133,6 +142,101 @@ fun HomeScreen(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+
+    // ===== 위험 알림 팝업 =====
+    // 화면 위에 덮어서 표시. 교사가 확인 버튼을 눌러야 닫힌다.
+    if (dangerAlert != null) {
+        DangerAlertDialog(
+            student = dangerAlert,
+            onConfirm = onDangerAlertConfirm
+        )
+    }
+}
+
+// ============================================
+// 위험 알림 팝업
+// ============================================
+// 놓치면 안 되는 알림이라 바깥을 눌러도 닫히지 않게 한다.
+// (뒤로가기도 막아 두어 확인 버튼으로만 닫히도록)
+@Composable
+private fun DangerAlertDialog(
+    student: Student,
+    onConfirm: () -> Unit
+) {
+    Dialog(onDismissRequest = { /* 확인 버튼으로만 닫는다 */ }) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(White),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(28.dp))
+
+            Icon(
+                imageVector = Icons.Filled.Warning,
+                contentDescription = null,
+                tint = DangerRed,
+                modifier = Modifier.size(36.dp)
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "위험",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = DangerRed
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 이름 + 성별·나이
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = student.name,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "${student.gender} · ${student.age}세",
+                    fontSize = 12.sp,
+                    color = GrayText,
+                    modifier = Modifier.padding(bottom = 1.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "즉시 아이의 상태를 확인하세요.",
+                fontSize = 14.sp,
+                color = TextPrimary,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 확인 버튼 — 카드 아래쪽에 꽉 차게
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .background(DangerRed)
+                    .clickable(onClick = onConfirm),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "확인",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = White
+                )
+            }
         }
     }
 }
@@ -661,5 +765,14 @@ private fun defaultStudents(): List<Student> = listOf(
 fun HomeScreenPreview() {
     MaterialTheme {
         HomeScreen()
+    }
+}
+
+// 위험 알림 팝업이 뜬 상태
+@Preview(showBackground = true, showSystemUi = true, name = "위험 알림")
+@Composable
+fun HomeScreenDangerAlertPreview() {
+    MaterialTheme {
+        HomeScreen(dangerAlert = defaultStudents().first())
     }
 }
