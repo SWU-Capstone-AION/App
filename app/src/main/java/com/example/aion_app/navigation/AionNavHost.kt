@@ -130,6 +130,7 @@ fun AionNavHost() {
             }
             val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
             val loginViewModel: LoginViewModel = viewModel()
+            val isTablet = isTabletDevice(LocalContext.current)
 
             SignUpScreen(
                 isLoading = loginViewModel.isLoading,
@@ -153,7 +154,16 @@ fun AionNavHost() {
                     }
                 },
                 onFindIdClick = { navController.navigate(Route.ID_FIND) },
-                onFindPasswordClick = { navController.navigate(Route.PASSWORD_FIND) }
+                onFindPasswordClick = { navController.navigate(Route.PASSWORD_FIND) },
+                // 태블릿에서 아동용 로그인 → 교사용으로 넘어왔다가 다시 돌아가는 경로.
+                // 폰은 아동용 UI 자체를 쓰지 않으므로 null 로 둔다.
+                onKidsClick = if (isTablet) {
+                    {
+                        navController.navigate(Route.KIDS_LOGIN) {
+                            popUpTo(Route.SIGN_UP) { inclusive = true }
+                        }
+                    }
+                } else null
             )
         }
 
