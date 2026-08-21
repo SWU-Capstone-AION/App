@@ -25,9 +25,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.aion_app.data.auth.TeacherInvite
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.DarkHover
+import com.example.aion_app.ui.theme.GreyLightActive
 import com.example.aion_app.ui.theme.Light
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.White
@@ -51,6 +53,10 @@ fun KidsHomeScreen(
     // 지금은 호출부에서 가짜 값을 주고 있어 카메라 없이도 화면 확인이 가능하다.
     stereotypyDetected: Boolean = false,
     points: Int = 0,
+    // 선생님이 보낸 학급 초대. null 이 아니면 팝업이 뜬다.
+    invite: TeacherInvite? = null,
+    isRespondingToInvite: Boolean = false,
+    onInviteRespond: (accept: Boolean) -> Unit = {},
     onProfileClick: () -> Unit = {},
     // "도움이 필요해요"를 눌렀을 때 (교사에게 알림 전송 등)
     onHelpRequest: () -> Unit = {},
@@ -126,6 +132,94 @@ fun KidsHomeScreen(
             KidsCalmPromptDialog(
                 onConfirm = { mode = KidsHomeMode.BREATHING }
             )
+        }
+
+        // 학급 초대는 진정 흐름을 방해하지 않도록 평소 화면일 때만 띄운다
+        if (invite != null && mode == KidsHomeMode.CALM) {
+            KidsTeacherInviteDialog(
+                invite = invite,
+                isResponding = isRespondingToInvite,
+                onRespond = onInviteRespond
+            )
+        }
+    }
+}
+
+// ============================================================
+// 학급 초대 팝업
+// ============================================================
+// 선생님이 연결 요청을 보내면 아이가 수락/거절을 고른다.
+// 수락해야 담당 교사로 확정되고 그때부터 알림이 전달된다.
+@Composable
+private fun BoxScope.KidsTeacherInviteDialog(
+    invite: TeacherInvite,
+    isResponding: Boolean,
+    onRespond: (accept: Boolean) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .matchParentSize()
+            .background(Color(0x33303A66))
+            // 뒤쪽 버튼이 눌리지 않도록 클릭을 흡수만 하고 아무것도 안 한다
+            .clickable(enabled = true) { },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .width(KidsContentWidth)
+                .clip(RoundedCornerShape(16.dp))
+                .background(White),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(28.dp))
+
+            Text(
+                text = "${invite.teacherName} 선생님이\n학급에 초대했어요",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = AionTextDark,
+                textAlign = TextAlign.Center,
+                lineHeight = 26.sp,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            )
+
+            Spacer(Modifier.height(28.dp))
+
+            Row(modifier = Modifier.fillMaxWidth()) {
+                // 거절
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(KidsItemHeight)
+                        .background(GreyLightActive)
+                        .clickable(enabled = !isResponding) { onRespond(false) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "거절",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AionTextDark
+                    )
+                }
+
+                // 수락
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(KidsItemHeight)
+                        .background(Normal)
+                        .clickable(enabled = !isResponding) { onRespond(true) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "수락",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = White
+                    )
+                }
+            }
         }
     }
 }
@@ -217,6 +311,17 @@ private fun KidsHomeScreenPreview() {
 @Composable
 private fun KidsHomePromptPreview() {
     AionTheme { KidsHomeScreen(stereotypyDetected = true, points = 20) }
+}
+
+@Preview(showBackground = true, widthDp = 930, heightDp = 582, name = "홈 (학급 초대)")
+@Composable
+private fun KidsHomeInvitePreview() {
+    AionTheme {
+        KidsHomeScreen(
+            points = 20,
+            invite = TeacherInvite(teacherUid = "uid", teacherName = "박서연")
+        )
+    }
 }
 
 @Preview(showBackground = true, device = "spec:width=1204dp,height=753dp,dpi=340", name = "홈 (실기기)")

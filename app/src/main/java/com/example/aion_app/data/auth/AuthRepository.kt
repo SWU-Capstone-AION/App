@@ -26,7 +26,30 @@ interface AuthRepository {
     suspend fun getCurrentUser(): Result<UserInfo>
 
     /** 이름·성별·생년월일 수정 */
-    suspend fun updateProfile(name: String, gender: String?, birthYear: Int?, birthMonth: Int?, birthDay: Int?): Result<Unit>
+    suspend fun updateProfile(
+        name: String,
+        gender: String?,
+        birthYear: Int?,
+        birthMonth: Int?,
+        birthDay: Int?
+    ): Result<Unit>
+
+    // ===== 담당 아동 연결 =====
+
+    /** 아이디로 아동 계정을 찾는다. 없으면 null. */
+    suspend fun searchChildByLoginId(loginId: String): Result<ChildSearchResult?>
+
+    /** 아동에게 학급 연결을 요청한다. (아동이 수락해야 실제로 연결됨) */
+    suspend fun requestChildLink(childUid: String): Result<Unit>
+
+    /** 현재 로그인한 교사에게 연결된 아동 목록 */
+    suspend fun getMyChildren(): Result<List<LinkedChild>>
+
+    /** 아동 앱에서 호출 — 받아둔 초대가 있으면 돌려준다. */
+    suspend fun getPendingInvite(): Result<TeacherInvite?>
+
+    /** 아동 앱에서 호출 — 초대 수락 또는 거절 */
+    suspend fun respondToInvite(accept: Boolean): Result<Unit>
 
     /** 로그아웃. 이 기기로 알림이 계속 가지 않도록 FCM 토큰도 지운다. */
     suspend fun logout()
@@ -56,34 +79,6 @@ class FakeAuthRepository : AuthRepository {
             return Result.failure(IllegalArgumentException("아이디/비밀번호가 비어있습니다."))
         }
 
-        return Result.success(Unit)
-    }
-
-    override suspend fun getCurrentUser(): Result<UserInfo> {
-        delay(400)
-        return Result.success(
-            UserInfo(
-                uid = "fake-uid",
-                role = UserRole.TEACHER,
-                loginId = "test",
-                email = "test@example.com",
-                name = "김슈니",
-                gender = "여자",
-                birthYear = 1999,
-                birthMonth = 5,
-                birthDay = 12,
-            )
-        )
-    }
-
-    override suspend fun updateProfile(
-        name: String,
-        gender: String?,
-        birthYear: Int?,
-        birthMonth: Int?,
-        birthDay: Int?
-    ): Result<Unit> {
-        delay(500)
         return Result.success(Unit)
     }
 
@@ -119,6 +114,80 @@ class FakeAuthRepository : AuthRepository {
 
     override suspend fun sendPasswordReset(loginId: String): Result<Unit> {
         delay(600)
+        return Result.success(Unit)
+    }
+
+    override suspend fun getCurrentUser(): Result<UserInfo> {
+        delay(400)
+        return Result.success(
+            UserInfo(
+                uid = "fake-uid",
+                role = UserRole.TEACHER,
+                loginId = "test",
+                email = "test@example.com",
+                name = "김슈니",
+                gender = "여자",
+                birthYear = 1999,
+                birthMonth = 5,
+                birthDay = 12,
+            )
+        )
+    }
+
+    override suspend fun updateProfile(
+        name: String,
+        gender: String?,
+        birthYear: Int?,
+        birthMonth: Int?,
+        birthDay: Int?
+    ): Result<Unit> {
+        delay(500)
+        return Result.success(Unit)
+    }
+
+    override suspend fun searchChildByLoginId(loginId: String): Result<ChildSearchResult?> {
+        delay(600)
+
+        // 검색 결과 없음 화면도 확인해볼 수 있게, none으로 시작하면 못 찾은 것으로 처리
+        if (loginId.trim().startsWith("none")) return Result.success(null)
+
+        return Result.success(
+            ChildSearchResult(
+                uid = "fake-child-uid",
+                loginId = loginId.trim(),
+                name = "김지우",
+                gender = "남",
+                birthDateText = "2019.05.17",
+                alreadyLinked = false,
+                hasPendingRequest = false,
+            )
+        )
+    }
+
+    override suspend fun requestChildLink(childUid: String): Result<Unit> {
+        delay(500)
+        return Result.success(Unit)
+    }
+
+    override suspend fun getMyChildren(): Result<List<LinkedChild>> {
+        delay(400)
+        return Result.success(
+            listOf(
+                LinkedChild("uid1", "Jiwoo_0517", "김지우", "남", 9),
+                LinkedChild("uid2", "Jumi_0203", "이주미", "여", 9),
+            )
+        )
+    }
+
+    override suspend fun getPendingInvite(): Result<TeacherInvite?> {
+        delay(400)
+        return Result.success(
+            TeacherInvite(teacherUid = "fake-teacher-uid", teacherName = "박서연")
+        )
+    }
+
+    override suspend fun respondToInvite(accept: Boolean): Result<Unit> {
+        delay(500)
         return Result.success(Unit)
     }
 
