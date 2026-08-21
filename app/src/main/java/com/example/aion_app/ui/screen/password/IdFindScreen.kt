@@ -11,13 +11,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.aion_app.ui.component.*
 import com.example.aion_app.ui.theme.*
 
-// 인증번호 단계는 두지 않는다.
-// Firebase가 코드 메일 발송을 지원하지 않아, 이름 + 이메일 일치 여부로만 확인한다.
+// 아이디 찾기는 로그인 전에 쓰는 기능이라 users 컬렉션을 로그인 없이 조회해야 한다.
+// 그런데 그걸 허용하면 전체 회원 정보(아동 프로필 포함)가 노출되므로
+// 보안 규칙에서 막아두었다.
+//
+// 서버(Django)에 조회 API가 생기면 아래 TODO 자리를 되살리면 된다.
+// 그때까지는 검색을 막고 안내만 보여준다.
+private const val ID_FIND_READY = false
+
 @Composable
 fun IdFindScreen(
     isLoading: Boolean = false,
@@ -66,6 +74,11 @@ fun IdFindScreen(
             }
 
             Spacer(Modifier.height(32.dp))
+
+            if (!ID_FIND_READY) {
+                PreparingCard(onSwitchToPasswordFind = onSwitchToPasswordFind)
+                return@Column
+            }
 
             // 이름 입력
             Text("이름", style = MaterialTheme.typography.titleMedium)
@@ -142,6 +155,47 @@ fun IdFindScreen(
             )
             Spacer(Modifier.height(16.dp))
         }
+    }
+}
+
+// ============================================
+// 준비 중 안내
+// ============================================
+@Composable
+private fun PreparingCard(onSwitchToPasswordFind: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.weight(1f))
+
+        Text(
+            text = "아이디 찾기는\n준비 중입니다",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary,
+            textAlign = TextAlign.Center,
+            lineHeight = 30.sp
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Text(
+            text = "조금만 기다려 주세요.\n비밀번호 찾기는 지금 이용하실 수 있어요.",
+            fontSize = 14.sp,
+            color = GrayText,
+            textAlign = TextAlign.Center,
+            lineHeight = 22.sp
+        )
+
+        Spacer(Modifier.weight(1f))
+
+        AionPrimaryButton(
+            text = "비밀번호 찾기",
+            onClick = onSwitchToPasswordFind
+        )
+
+        Spacer(Modifier.height(16.dp))
     }
 }
 
