@@ -17,6 +17,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.example.aion_app.data.messaging.AionMessagingService
 
+import android.content.Intent
+import com.example.aion_app.data.messaging.AlertBus
+import com.example.aion_app.data.messaging.DangerAlert
+
 // ============================================
 // 기기 판별 기준
 // ============================================
@@ -40,6 +44,9 @@ class MainActivity : ComponentActivity() {
 
         createNotificationChannel()
         requestNotificationPermission()
+
+        // 알림을 눌러서 앱이 열린 경우
+        handleAlertIntent(intent)
 
         // 시스템바(상태바/내비게이션바) 여백은 AionNavHost 에서 처리한다.
         // 스플래시만 풀블리드로 둬야 해서 현재 라우트를 아는 쪽에 두는 게 맞다.
@@ -85,6 +92,37 @@ class MainActivity : ComponentActivity() {
         if (!granted) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
+    }
+
+    // 앱이 이미 떠 있는 상태에서 알림을 누르면 onCreate 대신 여기로 온다
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleAlertIntent(intent)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AlertBus.isAppForeground = true
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AlertBus.isAppForeground = false
+    }
+
+    /** 알림에 실려 온 위험 알림 정보를 팝업으로 넘긴다. */
+    private fun handleAlertIntent(intent: Intent?) {
+        val childId = intent?.getStringExtra(AionMessagingService.EXTRA_CHILD_ID) ?: return
+        val childName = intent.getStringExtra(AionMessagingService.EXTRA_CHILD_NAME) ?: return
+
+        AlertBus.push(
+            DangerAlert(
+                childId = childId,
+                childName = childName,
+                gender = intent.getStringExtra(AionMessagingService.EXTRA_GENDER).orEmpty(),
+                age = intent.getIntExtra(AionMessagingService.EXTRA_AGE, 0),
+            )
+        )
     }
 
 }
