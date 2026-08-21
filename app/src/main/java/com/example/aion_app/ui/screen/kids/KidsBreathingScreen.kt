@@ -3,7 +3,6 @@ package com.example.aion_app.ui.screen.kids
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -12,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.paint
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -86,17 +86,24 @@ fun KidsBreathingScreen(
         onFinish(true)
     }
 
-    // 배경 이미지는 프레임(930x582) 안쪽만 덮는다.
-    // 회전 시 생기는 바깥 여백은 Dark 로 채워 이미지 가장자리와 자연스럽게 이어지게 했다.
-    KidsDesignScale(modifier = Modifier.background(Dark)) {
-        // 가장 먼저 그려야 나머지 요소가 그 위에 온다
-        Image(
-            painter = painterResource(R.drawable.kids_background),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.matchParentSize()
-        )
-
+    // 배경은 시안 프레임(930x582)이 아니라 '화면 전체'를 덮는다.
+    //
+    // KidsDesignScale 은 프레임을 화면 안에 다 넣는 contain 방식이라,
+    // 기기 비율이 프레임 비율(약 1.6)과 다르면 남는 쪽에 여백이 생긴다.
+    // (시스템바 여백이 높이를 깎으면 화면이 더 가로로 길어져 좌우에 여백이 남는다)
+    // 배경을 프레임 안에 넣으면 그 여백이 그대로 보이므로 프레임 밖에 그린다.
+    //
+    // Modifier.paint 는 KidsDesignScale 의 바깥 Box(=화면 전체)에 그림을 그린다.
+    // Crop 이라 여백 없이 꽉 차고, 대신 이미지 가장자리가 조금 잘린다.
+    // background(Dark) 는 이미지가 로드되기 전 한 프레임을 위한 바탕색.
+    KidsDesignScale(
+        modifier = Modifier
+            .background(Dark)
+            .paint(
+                painter = painterResource(R.drawable.kids_background),
+                contentScale = ContentScale.Crop
+            )
+    ) {
         KidsHomeTopBar(
             points = null,          // 호흡 중에는 구슬주머니를 숨긴다 (시안 기준)
             onProfileClick = onProfileClick,

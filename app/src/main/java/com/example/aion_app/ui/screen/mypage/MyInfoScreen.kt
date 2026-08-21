@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.component.AionBottomNavBar
-import com.example.aion_app.ui.theme.BlueLight
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Light
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GrayBackground
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.TextPrimary
@@ -123,7 +123,7 @@ fun MyInfoScreen(
                         .fillMaxWidth()
                         .height(52.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BluePrimary
+                        containerColor = Normal
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -190,7 +190,7 @@ private fun InfoRowWithImage(label: String, imageUri: Uri? = null) {
             modifier = Modifier
                 .size(56.dp)
                 .clip(CircleShape)
-                .background(BlueLight)
+                .background(Light)
         )
     }
 }

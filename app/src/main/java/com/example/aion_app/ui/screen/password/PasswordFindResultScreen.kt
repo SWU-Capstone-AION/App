@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.ui.component.*
 import com.example.aion_app.ui.theme.AionTheme
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Normal
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.White
@@ -52,7 +52,7 @@ fun PasswordFindResultScreen(
                 "보냈습니다.",
                 fontSize = 26.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = BluePrimary,
+                color = Normal,
                 textAlign = TextAlign.Center
             )
 
@@ -84,7 +84,7 @@ fun PasswordFindResultScreen(
                     .fillMaxWidth()
                     .height(52.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = BluePrimary
+                    containerColor = Normal
                 ),
                 shape = RoundedCornerShape(10.dp)
             ) {

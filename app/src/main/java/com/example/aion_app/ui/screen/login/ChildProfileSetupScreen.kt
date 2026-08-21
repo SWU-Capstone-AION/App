@@ -28,7 +28,7 @@ import com.example.aion_app.ui.component.AionPrimaryButton
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.component.AionTextField
 import com.example.aion_app.ui.theme.AionTheme
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GrayBackground
 import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.GrayText
@@ -492,7 +492,7 @@ private fun BirthDatePickerDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(BluePrimary)
+                            .background(Normal)
                             .clickable { onConfirm(year, month, day) }
                             .padding(vertical = 16.dp),
                         contentAlignment = Alignment.Center

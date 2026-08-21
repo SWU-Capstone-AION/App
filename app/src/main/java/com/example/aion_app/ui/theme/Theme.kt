@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 
 private val LightColors = lightColorScheme(
-    primary = BluePrimary,
+    primary = Normal,
     background = White,
     surface = White,
     onPrimary = White,

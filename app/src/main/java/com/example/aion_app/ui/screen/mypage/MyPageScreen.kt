@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionBottomNavBar
-import com.example.aion_app.ui.theme.BlueLight
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Light
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
@@ -74,7 +74,7 @@ fun MyPageScreen(
                 modifier = Modifier
                     .size(110.dp)
                     .clip(CircleShape)
-                    .background(BlueLight)
+                    .background(Light)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -102,7 +102,7 @@ fun MyPageScreen(
             Button(
                 onClick = onEditProfileClick,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = BluePrimary
+                    containerColor = Normal
                 ),
                 shape = RoundedCornerShape(10.dp),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)

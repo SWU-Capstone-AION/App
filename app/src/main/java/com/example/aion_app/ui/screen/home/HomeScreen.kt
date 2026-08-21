@@ -3,8 +3,8 @@ package com.example.aion_app.ui.screen.home
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import com.example.aion_app.ui.theme.BlueLight
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Light
+import com.example.aion_app.ui.theme.Normal
 import androidx.compose.ui.draw.clip
 
 import androidx.compose.foundation.border
@@ -35,12 +35,11 @@ import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.theme.Dark
-import com.example.aion_app.ui.theme.GrayDark
+import com.example.aion_app.ui.theme.GreyDarkActive
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.Green
 import com.example.aion_app.ui.theme.LightActive
 import com.example.aion_app.ui.theme.LightHover
-import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 
@@ -599,7 +598,7 @@ private fun StatsCard(
             text = label,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = GrayDark
+            color = GreyDarkActive
         )
         Spacer(modifier = Modifier.height(8.dp))
         Row(

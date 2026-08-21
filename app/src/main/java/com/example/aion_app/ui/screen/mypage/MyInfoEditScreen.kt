@@ -61,8 +61,8 @@ import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionTopBar
-import com.example.aion_app.ui.theme.BlueLight
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Light
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GrayBackground
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.TextPrimary
@@ -256,7 +256,7 @@ fun MyInfoEditScreen(
                         .fillMaxWidth()
                         .height(52.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BluePrimary
+                        containerColor = Normal
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -411,7 +411,7 @@ private fun GenderOption(
                 Icons.Default.RadioButtonUnchecked
             },
             contentDescription = null,
-            tint = if (isSelected) BluePrimary else GrayText,
+            tint = if (isSelected) Normal else GrayText,
             modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(6.dp))
@@ -445,7 +445,7 @@ private fun EditRowWithImage(label: String) {
             modifier = Modifier
                 .size(56.dp)
                 .clip(CircleShape)
-                .background(BlueLight)
+                .background(Light)
         )
     }
 }
@@ -567,7 +567,7 @@ private fun BirthDatePickerDialog(
                     }
                 }
             ) {
-                Text("확인", color = BluePrimary, fontWeight = FontWeight.Bold)
+                Text("확인", color = Normal, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -638,7 +638,7 @@ private fun SelectableTagChip(
             .fillMaxWidth()
             .height(44.dp)
             .clip(RoundedCornerShape(22.dp))
-            .background(if (isSelected) BlueLight else GrayBackground)
+            .background(if (isSelected) Light else GrayBackground)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -688,7 +688,7 @@ private fun EditRowProfileImage(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(BlueLight)
+                    .background(Light)
             )
 
             // 우하단 카메라 아이콘
