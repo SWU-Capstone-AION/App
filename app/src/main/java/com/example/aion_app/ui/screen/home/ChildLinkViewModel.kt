@@ -20,14 +20,14 @@ class ChildLinkViewModel(
     var isSearching by mutableStateOf(false)
         private set
 
-    /** 검색을 한 번이라도 했는지. 결과 없음 안내를 언제 띄울지 판단용. */
+    /** 검색을 한 번이라도 했는지. '찾는 아이가 없나요?' 안내를 언제 띄울지 판단용. */
     var hasSearched by mutableStateOf(false)
         private set
 
     var searchResult by mutableStateOf<ChildSearchResult?>(null)
         private set
 
-    var isLinking by mutableStateOf(false)
+    var isRequesting by mutableStateOf(false)
         private set
 
     var errorMessage by mutableStateOf<String?>(null)
@@ -52,20 +52,21 @@ class ChildLinkViewModel(
         }
     }
 
-    fun link(childUid: String, onSuccess: () -> Unit) {
-        if (isLinking) return
+    /** 연결 요청 전송. 아동이 태블릿에서 수락해야 실제로 연결된다. */
+    fun requestLink(childUid: String, onSuccess: () -> Unit) {
+        if (isRequesting) return
 
-        isLinking = true
+        isRequesting = true
         errorMessage = null
 
         viewModelScope.launch {
-            authRepository.linkChildToTeacher(childUid)
+            authRepository.requestChildLink(childUid)
                 .onSuccess { onSuccess() }
                 .onFailure { error ->
-                    errorMessage = error.message ?: "연결에 실패했습니다."
+                    errorMessage = error.message ?: "연결 요청에 실패했습니다."
                 }
 
-            isLinking = false
+            isRequesting = false
         }
     }
 }

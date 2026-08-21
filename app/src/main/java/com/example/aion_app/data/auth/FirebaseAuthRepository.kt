@@ -18,8 +18,9 @@ import kotlinx.coroutines.tasks.await
  *   users/{uid}        - 역할, 아이디, 이메일, 이름, FCM 토큰, (아동이면) 아동 프로필
  *   loginIds/{loginId} - 아이디 중복 확인 + 로그인 시 이메일 조회용 역인덱스
  *
- * Firebase Auth는 이메일로 로그인하는데 화면에서는 아이디를 입력받으므로,
- * loginIds 문서에 이메일을 함께 저장해 두고 로그인할 때 조회해서 쓴다.
+ * 아동 계정의 담당 교사는 두 단계로 정해진다.
+ *   pendingTeacherId - 교사가 연결 요청을 보낸 상태
+ *   teacherId        - 아동이 수락해서 확정된 상태
  */
 class FirebaseAuthRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -235,6 +236,10 @@ class FirebaseAuthRepository(
         Unit
     }
 
+    // ============================================
+    // 담당 아동 연결
+    // ============================================
+
     /**
      * 아이디로 아동 계정을 찾는다.
      *
@@ -263,20 +268,22 @@ class FirebaseAuthRepository(
                 uid = uid,
                 loginId = trimmed,
                 name = document.getString("name").orEmpty(),
-                // 목록·카드에는 "남"/"여" 한 글자로 쓴다
+                // 카드에는 "남"/"여" 한 글자로 쓴다
                 gender = document.getString("gender").orEmpty().take(1),
                 birthDateText = if (year == null || month == null || day == null) ""
                 else "%04d.%02d.%02d".format(year, month, day),
                 alreadyLinked = document.getString("teacherId") != null,
+                hasPendingRequest = document.getString("pendingTeacherId") != null,
             )
         }
 
     /**
-     * 찾은 아동을 현재 로그인한 교사에게 연결한다.
+     * 아동에게 학급 연결을 요청한다.
      *
-     * 이미 다른 교사에게 연결된 아동은 가로채지 않는다.
+     * 바로 연결하지 않고 pendingTeacherId에 걸어둔다.
+     * 아동 앱에서 수락해야 teacherId로 옮겨진다.
      */
-    override suspend fun linkChildToTeacher(childUid: String): Result<Unit> = runCatching {
+    override suspend fun requestChildLink(childUid: String): Result<Unit> = runCatching {
         val teacherUid = auth.currentUser?.uid
             ?: throw IllegalStateException("로그인이 필요합니다.")
 
@@ -284,16 +291,109 @@ class FirebaseAuthRepository(
         if (document.getString("role") != ROLE_CHILD) {
             throw IllegalStateException("아동 계정이 아닙니다.")
         }
-
-        val currentTeacher = document.getString("teacherId")
-        if (currentTeacher == teacherUid) return@runCatching Unit  // 이미 내 아동
-        if (currentTeacher != null) {
+        if (document.getString("teacherId") != null) {
             throw IllegalStateException("이미 다른 선생님에게 등록된 아이예요.")
         }
 
+        val pending = document.getString("pendingTeacherId")
+        if (pending == teacherUid) return@runCatching Unit  // 이미 보낸 요청
+        if (pending != null) {
+            throw IllegalStateException("다른 선생님의 연결 요청을 기다리는 중이에요.")
+        }
+
         db.collection("users").document(childUid)
-            .update("teacherId", teacherUid)
+            .update("pendingTeacherId", teacherUid)
             .await()
+
+        Unit
+    }
+
+    /**
+     * 현재 로그인한 교사에게 연결이 확정된 아동 목록.
+     *
+     * teacherId 단일 필드 조회라 복합 색인이 필요 없다.
+     * (요청만 보내고 아직 수락 전인 아이는 teacherId가 없으므로 여기 안 잡힌다)
+     */
+    override suspend fun getMyChildren(): Result<List<LinkedChild>> = runCatching {
+        val teacherUid = auth.currentUser?.uid
+            ?: throw IllegalStateException("로그인이 필요합니다.")
+
+        val snapshot = db.collection("users")
+            .whereEqualTo("teacherId", teacherUid)
+            .get()
+            .await()
+
+        snapshot.documents.map { document ->
+            LinkedChild(
+                uid = document.id,
+                loginId = document.getString("loginId").orEmpty(),
+                name = document.getString("name").orEmpty(),
+                gender = document.getString("gender").orEmpty().take(1),
+                age = calculateAge(
+                    document.getLong("birthYear")?.toInt(),
+                    document.getLong("birthMonth")?.toInt(),
+                    document.getLong("birthDay")?.toInt(),
+                ),
+            )
+        }
+    }
+
+    /** 생년월일로 만 나이를 계산한다. 값이 없으면 0. */
+    private fun calculateAge(year: Int?, month: Int?, day: Int?): Int {
+        if (year == null || month == null || day == null) return 0
+
+        val today = java.util.Calendar.getInstance()
+        val currentYear = today.get(java.util.Calendar.YEAR)
+        val currentMonth = today.get(java.util.Calendar.MONTH) + 1
+        val currentDay = today.get(java.util.Calendar.DAY_OF_MONTH)
+
+        var age = currentYear - year
+        // 아직 올해 생일이 안 지났으면 -1
+        if (currentMonth < month || (currentMonth == month && currentDay < day)) age--
+
+        return age.coerceAtLeast(0)
+    }
+
+    /** 아동 앱에서 호출 — 받아둔 초대가 있으면 교사 정보를 함께 돌려준다. */
+    override suspend fun getPendingInvite(): Result<TeacherInvite?> = runCatching {
+        val childUid = auth.currentUser?.uid
+            ?: throw IllegalStateException("로그인이 필요합니다.")
+
+        val childDoc = db.collection("users").document(childUid).get().await()
+        val teacherUid = childDoc.getString("pendingTeacherId") ?: return@runCatching null
+
+        val teacherDoc = db.collection("users").document(teacherUid).get().await()
+        if (!teacherDoc.exists()) return@runCatching null
+
+        TeacherInvite(
+            teacherUid = teacherUid,
+            teacherName = teacherDoc.getString("name").orEmpty(),
+        )
+    }
+
+    /**
+     * 아동 앱에서 호출 — 초대 수락 또는 거절.
+     *
+     * 수락하면 pendingTeacherId가 teacherId로 옮겨지고, 거절하면 그냥 지워진다.
+     */
+    override suspend fun respondToInvite(accept: Boolean): Result<Unit> = runCatching {
+        val childUid = auth.currentUser?.uid
+            ?: throw IllegalStateException("로그인이 필요합니다.")
+
+        val document = db.collection("users").document(childUid).get().await()
+        val teacherUid = document.getString("pendingTeacherId")
+            ?: return@runCatching Unit  // 이미 처리된 초대
+
+        val updates = if (accept) {
+            mapOf(
+                "teacherId" to teacherUid,
+                "pendingTeacherId" to FieldValue.delete(),
+            )
+        } else {
+            mapOf("pendingTeacherId" to FieldValue.delete())
+        }
+
+        db.collection("users").document(childUid).update(updates).await()
 
         Unit
     }
@@ -347,7 +447,7 @@ class FirebaseAuthRepository(
 
         if (role == ROLE_CHILD) {
             // 담당 교사는 가입 시점에 알 수 없다.
-            // 교사가 '담당 아동 연결' 화면에서 나중에 연결한다.
+            // 교사가 연결 요청을 보내고 아동이 수락하면 채워진다.
             document["teacherId"] = null
 
             // 감각특성·상동행동은 아동에게만 해당하는 항목
