@@ -59,6 +59,12 @@ import com.example.aion_app.ui.screen.report.sampleStudentReport
 import com.example.aion_app.data.auth.UserRole
 import com.example.aion_app.ui.screen.login.LoginViewModel
 
+import androidx.compose.runtime.collectAsState
+import com.example.aion_app.data.messaging.AlertBus
+import com.example.aion_app.ui.screen.home.Student
+import com.example.aion_app.ui.screen.home.StudentStatus
+import com.example.aion_app.ui.screen.home.StressLevel
+
 @Composable
 fun AionNavHost() {
     val navController = rememberNavController()
@@ -386,7 +392,23 @@ fun AionNavHost() {
 
         // ===== 홈 =====
         composable(Route.HOME) {
+            // FCM으로 들어온 위험 알림을 구독한다
+            val dangerAlert by AlertBus.dangerAlert.collectAsState()
+
             HomeScreen(
+                dangerAlert = dangerAlert?.let { alert ->
+                    Student(
+                        id = alert.childId,
+                        name = alert.childName,
+                        gender = alert.gender,
+                        age = alert.age,
+                        status = StudentStatus.ACTIVE,
+                        stressScore = 100,
+                        stressLevel = StressLevel.DANGER,
+                        heartRate = null
+                    )
+                },
+                onDangerAlertConfirm = { AlertBus.clear() },
                 onNotificationClick = {
                     navController.navigate(Route.NOTIFICATION)
                 },
