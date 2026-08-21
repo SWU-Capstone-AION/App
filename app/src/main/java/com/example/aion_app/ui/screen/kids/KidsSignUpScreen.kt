@@ -32,7 +32,7 @@ import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.screen.login.ChildProfile   // 교사용과 같은 데이터 모델을 그대로 사용
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.AionTextDark
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GreyLightActive
 import com.example.aion_app.ui.theme.GreyNormalActive
 
@@ -458,7 +458,7 @@ private fun KidsBirthDatePickerDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(BluePrimary)
+                            .background(Normal)
                             .clickable { onConfirm(year, month, day) }
                             .padding(vertical = 16.dp),
                         contentAlignment = Alignment.Center

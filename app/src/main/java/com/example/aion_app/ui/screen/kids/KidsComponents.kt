@@ -37,13 +37,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.theme.AionTextDark
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.Dark
 import com.example.aion_app.ui.theme.GreyLightActive
 import com.example.aion_app.ui.theme.GreyNormalActive
 import com.example.aion_app.ui.theme.LightActive
 import com.example.aion_app.ui.theme.LightHover
-import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.White
 
 // ============================================================
@@ -209,7 +208,7 @@ fun KidsTextField(
         textStyle = TextStyle(fontSize = 15.sp, color = AionTextDark),
         visualTransformation = visualTransformation,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-        cursorBrush = SolidColor(BluePrimary),
+        cursorBrush = SolidColor(Normal),
         modifier = modifier
             .width(width)
             .height(KidsItemHeight)
@@ -293,8 +292,8 @@ fun KidsPrimaryButton(
 ) {
     val background = when {
         !isPrimary -> GreyLightActive
-        enabled -> BluePrimary
-        else -> BluePrimary.copy(alpha = 0.6f)
+        enabled -> Normal
+        else -> Normal.copy(alpha = 0.6f)
     }
     val contentColor = when {
         !isPrimary && enabled -> AionTextDark

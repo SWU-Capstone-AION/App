@@ -46,7 +46,7 @@ fun IdFindResultScreen(
                 userId,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = BluePrimary,
+                color = Normal,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
@@ -85,7 +85,7 @@ fun IdFindResultScreen(
                     .fillMaxWidth()
                     .height(52.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = BluePrimary
+                    containerColor = Normal
                 ),
                 shape = RoundedCornerShape(10.dp)
             ) {

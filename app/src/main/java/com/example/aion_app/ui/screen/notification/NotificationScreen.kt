@@ -35,7 +35,7 @@ import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.AionTextDark
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GrayBackground
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.Green
@@ -173,7 +173,7 @@ private fun FilterChip(
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) BluePrimary else GrayBackground)
+            .background(if (isSelected) Normal else GrayBackground)
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 8.dp)
     ) {

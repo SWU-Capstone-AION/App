@@ -161,7 +161,7 @@ private fun TabButton(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) BluePrimary else Color.Transparent)
+            .background(if (selected) Normal else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
