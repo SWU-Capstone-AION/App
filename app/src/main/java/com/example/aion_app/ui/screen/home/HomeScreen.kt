@@ -138,6 +138,9 @@ fun HomeScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
+
+                // 아동을 더 연결할 수 있는 진입점
+                AddChildButton(onClick = { showRegisterSheet = true })
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -229,6 +232,34 @@ private fun EmptyChildrenCard(onRegisterClick: () -> Unit) {
                 color = White
             )
         }
+    }
+}
+
+// ============================================
+// 아동 추가 버튼 (목록이 있을 때 아래에 붙는다)
+// ============================================
+@Composable
+private fun AddChildButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(White)
+            .border(
+                width = 1.dp,
+                color = LightActive,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "+ 아동 추가",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Normal
+        )
     }
 }
 
