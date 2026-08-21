@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 class SignUpViewModel(
     // 실제 Firebase 연동 FirebaseAuthRepository().
     // UI만 테스트하려면 FakeAuthRepository()로 바꾸면 된다.
-    private val authRepository: AuthRepository = FakeAuthRepository()
+    private val authRepository: AuthRepository = FirebaseAuthRepository()
 ) : ViewModel() {
 
     // 로그인·회원가입 화면(아이디/비번/유형) 입력값
