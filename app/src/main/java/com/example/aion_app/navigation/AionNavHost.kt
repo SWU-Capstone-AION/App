@@ -412,8 +412,12 @@ fun AionNavHost() {
             val myInfoViewModel: MyInfoViewModel = viewModel()
             val homeViewModel: HomeViewModel = viewModel()
 
-            // 아동 연결 화면에서 돌아왔을 때 목록을 다시 불러온다
-            LaunchedEffect(Unit) { homeViewModel.loadChildren() }
+            // 다른 화면에서 돌아왔을 때 최신 정보로 갱신한다.
+            // (마이페이지에서 이름을 바꿨거나, 아동을 새로 연결했을 수 있다)
+            LaunchedEffect(Unit) {
+                myInfoViewModel.load()
+                homeViewModel.loadChildren()
+            }
 
             val students = homeViewModel.students
 
