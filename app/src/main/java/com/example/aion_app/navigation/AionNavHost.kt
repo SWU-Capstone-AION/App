@@ -65,6 +65,9 @@ import com.example.aion_app.ui.screen.home.Student
 import com.example.aion_app.ui.screen.home.StudentStatus
 import com.example.aion_app.ui.screen.home.StressLevel
 
+import com.example.aion_app.ui.screen.home.ClassInfo
+import com.example.aion_app.ui.screen.home.todayText
+
 @Composable
 fun AionNavHost() {
     val navController = rememberNavController()
@@ -392,10 +395,14 @@ fun AionNavHost() {
 
         // ===== 홈 =====
         composable(Route.HOME) {
-            // FCM으로 들어온 위험 알림을 구독한다
             val dangerAlert by AlertBus.dangerAlert.collectAsState()
+            val myInfoViewModel: MyInfoViewModel = viewModel()
 
             HomeScreen(
+                classInfo = ClassInfo(
+                    teacherName = myInfoViewModel.myInfo.name,
+                    date = todayText()
+                ),
                 dangerAlert = dangerAlert?.let { alert ->
                     Student(
                         id = alert.childId,

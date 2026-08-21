@@ -51,7 +51,7 @@ private val DangerRed = Color(0xFFB0453A)
 
 @Composable
 fun HomeScreen(
-    classInfo: ClassInfo = ClassInfo(grade = 3, classNum = 4, date = "2026.05.28(목)"),
+    classInfo: ClassInfo = ClassInfo(teacherName = "박서연", date = "2026.05.28(목)"),
     recentAlert: HomeAlert? = HomeAlert(
         message = "김지우 학생이 안정 상태에 도달했습니다.",
         timeText = "1분 전"
@@ -266,7 +266,8 @@ private fun HomeTopBar(
             modifier = Modifier.weight(1f)
         ) {
             Text(
-                text = "${classInfo.grade}학년 ${classInfo.classNum}반",
+                text = if (classInfo.teacherName.isBlank()) "AION"
+                else "${classInfo.teacherName} 선생님",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -774,4 +775,10 @@ fun HomeScreenDangerAlertPreview() {
     MaterialTheme {
         HomeScreen(dangerAlert = defaultStudents().first())
     }
+}
+
+/** "2026.08.21(목)" 형태로 오늘 날짜를 만든다 */
+fun todayText(): String {
+    val format = java.text.SimpleDateFormat("yyyy.MM.dd(E)", java.util.Locale.KOREA)
+    return format.format(java.util.Date())
 }

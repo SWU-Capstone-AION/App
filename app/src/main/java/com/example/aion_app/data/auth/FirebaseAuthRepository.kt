@@ -236,6 +236,69 @@ class FirebaseAuthRepository(
     }
 
     /**
+     * 아이디로 아동 계정을 찾는다.
+     *
+     * loginIds 문서로 uid를 얻은 뒤 users 문서를 읽는다.
+     * (컬렉션 검색이 아니라 문서 직접 조회라 색인이 필요 없다)
+     */
+    override suspend fun searchChildByLoginId(loginId: String): Result<ChildSearchResult?> =
+        runCatching {
+            val trimmed = loginId.trim()
+            if (trimmed.isBlank()) return@runCatching null
+
+            val idDoc = db.collection("loginIds").document(trimmed).get().await()
+            val uid = idDoc.getString("uid") ?: return@runCatching null
+
+            val document = db.collection("users").document(uid).get().await()
+            if (!document.exists()) return@runCatching null
+
+            // 교사 계정은 검색 대상이 아니다
+            if (document.getString("role") != ROLE_CHILD) return@runCatching null
+
+            val year = document.getLong("birthYear")?.toInt()
+            val month = document.getLong("birthMonth")?.toInt()
+            val day = document.getLong("birthDay")?.toInt()
+
+            ChildSearchResult(
+                uid = uid,
+                loginId = trimmed,
+                name = document.getString("name").orEmpty(),
+                // 목록·카드에는 "남"/"여" 한 글자로 쓴다
+                gender = document.getString("gender").orEmpty().take(1),
+                birthDateText = if (year == null || month == null || day == null) ""
+                else "%04d.%02d.%02d".format(year, month, day),
+                alreadyLinked = document.getString("teacherId") != null,
+            )
+        }
+
+    /**
+     * 찾은 아동을 현재 로그인한 교사에게 연결한다.
+     *
+     * 이미 다른 교사에게 연결된 아동은 가로채지 않는다.
+     */
+    override suspend fun linkChildToTeacher(childUid: String): Result<Unit> = runCatching {
+        val teacherUid = auth.currentUser?.uid
+            ?: throw IllegalStateException("로그인이 필요합니다.")
+
+        val document = db.collection("users").document(childUid).get().await()
+        if (document.getString("role") != ROLE_CHILD) {
+            throw IllegalStateException("아동 계정이 아닙니다.")
+        }
+
+        val currentTeacher = document.getString("teacherId")
+        if (currentTeacher == teacherUid) return@runCatching Unit  // 이미 내 아동
+        if (currentTeacher != null) {
+            throw IllegalStateException("이미 다른 선생님에게 등록된 아이예요.")
+        }
+
+        db.collection("users").document(childUid)
+            .update("teacherId", teacherUid)
+            .await()
+
+        Unit
+    }
+
+    /**
      * 로그아웃.
      *
      * 저장된 FCM 토큰을 먼저 지운다.
