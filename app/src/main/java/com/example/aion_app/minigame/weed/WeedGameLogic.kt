@@ -61,7 +61,7 @@ class WeedGameEngine(
     private val pullRatio: Float = 0.8f,
     /** 잡은 뒤 손이 이만큼 옆으로 벗어나면 취소 (S 배수) */
     private val cancelDistanceInS: Float = 0.55f,
-    /** 이만큼 아무 진전이 없으면 남은 잡초를 몸 쪽으로 당겨준다 (시연 중 막힘 방지) */
+    /** 이만큼 아무 진전이 없으면 남은 잡초를 몸 쪽으로 당겨준다 (수업 중 막힘 방지) */
     private val assistAfterIdleMs: Long = 30_000L,
     private val nudgeKeepGoingAfterMs: Long = 60_000L,
     private val nudgeHowToQuitAfterMs: Long = 180_000L,
@@ -98,7 +98,7 @@ class WeedGameEngine(
         lastUpdateMs = 0L
     }
 
-    /** 시연 중 인식이 안 될 때 빠져나가기 위한 수동 클리어. */
+    /** 조명이 나쁘거나 인식이 안 될 때 빠져나가기 위한 수동 클리어. */
     fun forceClear() {
         weeds.forEach { it.state = WeedState.PULLED }
         pulledCount = weeds.size

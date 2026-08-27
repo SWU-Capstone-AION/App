@@ -384,7 +384,10 @@ fun AionNavHost() {
         // 게임과 같은 카메라 스트림을 쓰므로 동시 실행은 안 되지만,
         // 화면을 오갈 때 카메라 인계는 정상 동작한다(실기기 확인).
         composable(Route.MONITOR) {
-            StereotypyMonitorScreen()
+            StereotypyMonitorScreen(
+                onWeedGame = { navController.navigate(Route.WEED_GAME) },
+                onBoardGame = { navController.navigate(Route.BOARD_GAME) },
+            )
         }
 
         // ===== 미니게임 =====

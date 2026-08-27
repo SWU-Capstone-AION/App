@@ -75,7 +75,7 @@ private val FillColor = Color(0xFFB0B0B0)
  * @param draw 게임 그래픽. Canvas 안에서 호출된다.
  * @param onExit X 버튼을 눌렀을 때 (홈으로 복귀)
  * @param onRestart 완료 화면의 다시 하기 버튼
- * @param onForceClear 좌상단 구석 길게 누르기 — 인식이 안 될 때 쓰는 시연용 탈출구
+ * @param onForceClear 좌상단 구석 길게 누르기 — 인식이 안 될 때 쓰는 탈출구
  * @param onGameStateChanged 게임 진입/종료 알림. 상동행동 판정을 일시정지시키는 데 쓴다.
  *                           놀이 동작이 팔의 반복 운동이라 감지기에 그대로 걸리기 때문.
  * @param showDebug 손목 위치를 원으로 표시. 배포 시 false.
@@ -234,7 +234,7 @@ fun <S : MinigameStatus> PoseGameHost(
             Text("✕", color = Color.White, fontSize = 22.sp)
         }
 
-        // 시연용 비상구: 좌상단 구석을 길게 누르면 즉시 클리어.
+        // 비상구: 좌상단 구석을 길게 누르면 즉시 클리어. 아이가 막혔을 때 교사가 쓴다.
         Box(
             Modifier
                 .align(Alignment.TopStart)

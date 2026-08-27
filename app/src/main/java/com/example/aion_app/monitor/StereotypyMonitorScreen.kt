@@ -44,7 +44,11 @@ import com.example.aion_app.monitor.ui.PoseOverlay
  * 검출(팔/머리/몸통)은 두 화면 모두에서 백그라운드로 계속 동작.
  */
 @Composable
-fun StereotypyMonitorScreen(modifier: Modifier = Modifier) {
+fun StereotypyMonitorScreen(
+    modifier: Modifier = Modifier,
+    onWeedGame: (() -> Unit)? = null,
+    onBoardGame: (() -> Unit)? = null,
+) {
     val context = LocalContext.current
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -161,6 +165,8 @@ fun StereotypyMonitorScreen(modifier: Modifier = Modifier) {
                         Toast.makeText(context, "선생님께 도움을 요청했어요", Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.fillMaxSize(),
+                    onWeedGame = onWeedGame,
+                    onBoardGame = onBoardGame,
                 )
             }
         } else {

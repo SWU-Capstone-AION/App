@@ -56,7 +56,7 @@ class BoardGameEngine(
     private val erasePerSecond: Float = 1.8f,
     /** 이 비율만큼 지우면 완료. 구석 한 칸까지 강요하지 않는다. */
     private val clearThreshold: Float = 0.93f,
-    /** 이만큼 아무 진전이 없으면 남은 얼룩이 저절로 옅어진다 (시연 중 막힘 방지) */
+    /** 이만큼 아무 진전이 없으면 남은 얼룩이 저절로 옅어진다 (수업 중 막힘 방지) */
     private val assistAfterIdleMs: Long = 30_000L,
     private val nudgeKeepGoingAfterMs: Long = 60_000L,
     private val nudgeHowToQuitAfterMs: Long = 180_000L,
@@ -82,7 +82,7 @@ class BoardGameEngine(
         idleElapsedMs = 0L
     }
 
-    /** 시연 중 인식이 안 될 때 빠져나가기 위한 수동 클리어. */
+    /** 조명이 나쁘거나 인식이 안 될 때 빠져나가기 위한 수동 클리어. */
     fun forceClear() {
         dirt.fill(0f)
     }
