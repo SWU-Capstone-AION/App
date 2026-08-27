@@ -394,8 +394,10 @@ fun KidsOnboardingCompleteScreen(
 // 교사용 ChildProfileSetupScreen 안의 것과 같은 로직이지만 그쪽이 private 이라
 // (그 파일을 건드리지 않기로 해서) 아동용에 같은 구조로 따로 뒀다.
 // 나중에 공유하고 싶으면 교사용 쪽 private → internal 한 단어만 바꾸면 된다.
+//
+// 아동용 마이페이지(KidsMyInfoEditScreen)도 같은 피커를 쓰므로 internal 로 열어 뒀다.
 @Composable
-private fun KidsBirthDatePickerDialog(
+internal fun KidsBirthDatePickerDialog(
     initialYear: Int,
     initialMonth: Int,
     initialDay: Int,
