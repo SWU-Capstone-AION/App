@@ -1,4 +1,4 @@
-package com.example.aion_app.ui.screen.login  // ← 본인 패키지명
+package com.example.aion_app.ui.screen.login
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -43,7 +43,11 @@ fun SignUpScreen(
     onLoginClick: (userId: String, password: String) -> Unit = { _, _ -> },
     onSignUpClick: (type: String) -> Unit = { },
     onFindIdClick: () -> Unit = {},
-    onFindPasswordClick: () -> Unit = {}
+    onFindPasswordClick: () -> Unit = {},
+    // 태블릿에서만 넘어온다. 값이 있으면 '아동용' 토글이 아동용 로그인 화면으로 이동한다.
+    // (아동용 로그인의 '교사용' 버튼과 짝을 이루는 왕복 경로)
+    // 폰에서는 null 이라 기존처럼 가입 유형 선택으로만 동작한다.
+    onKidsClick: (() -> Unit)? = null
 ) {
     var selectedType by remember { mutableStateOf("교사용") }
     var userId by remember { mutableStateOf("") }
@@ -90,7 +94,12 @@ fun SignUpScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             TypeSelectButton("교사용", selectedType == "교사용", { selectedType = "교사용" }, Modifier.weight(1f))
-            TypeSelectButton("아동용", selectedType == "아동용", { selectedType = "아동용" }, Modifier.weight(1f))
+            TypeSelectButton(
+                "아동용",
+                selectedType == "아동용",
+                { onKidsClick?.invoke() ?: run { selectedType = "아동용" } },
+                Modifier.weight(1f)
+            )
         }
 
         Spacer(modifier = Modifier.height(20.dp))

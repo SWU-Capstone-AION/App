@@ -3,8 +3,21 @@ package com.example.aion_app.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ============================================================
-// 디자인 시스템 컬러 (Figma '디자인 시스템(최종)' 기준)
+// 디자인 시스템 컬러
+// ============================================================
+// 피그마 '디자인 시스템(최종)' 팔레트를 그대로 옮긴 파일이다.
 // 토큰 이름 = 피그마 이름 (Light / Normal / Dark + :hover / :active)
+//
+// 구성
+//   1. 팔레트   — 피그마에 정의된 색. 지금 안 쓰는 값도 정의만 해둔다.
+//   2. 별칭     — 화면 코드가 쓰는 이름. 팔레트로 옮기는 중이라 남아 있다.
+//
+// 새 화면은 1번(팔레트)만 쓰고, 2번은 쓰지 않는다.
+// ============================================================
+
+
+// ============================================================
+// 1. 팔레트
 // ============================================================
 
 // ---------- Blue (앱 메인 컬러) ----------
@@ -24,9 +37,7 @@ val Red    = Color(0xFFC05C47)  // 위험(danger)
 val Orange = Color(0xFFCC8D42)  // 주의(caution)
 val Green  = Color(0xFF629F7D)  // 안전/안정(safe)
 
-// ============================================================
-// GreyScale (피그마 'GreyScale' 팔레트)
-// ============================================================
+// ---------- GreyScale ----------
 // ⚠ Blue 쪽이 이미 Light / Normal / Dark / Darker 라는 이름을 쓰고 있어서
 //   그레이스케일에는 Grey 접두사를 붙였다. (Blue 토큰명은 팀 화면들이 쓰는 중이라 유지)
 //
@@ -42,37 +53,33 @@ val GreyNormal       = Color(0xFFC2C8CD)  // Normal
 val GreyLightActive  = Color(0xFFECEEF0)  // Light :active
 val GreyLightHover   = Color(0xFFF6F7F8)  // Light :hover
 val GreyLight        = Color(0xFFF9FAFA)  // Light
-val GreyWhite        = Color(0xFFFFFFFF)  // White  ※ 팔레트 12번째 — 디자인팀 확인 필요
+// White 는 아래 별칭 구역의 White 를 그대로 쓴다 (값 동일, 이름 중복을 피함)
 
-// ---------- 기존 코드 호환 별칭 (팀 화면들이 아직 사용 중 → 유지) ----------
-val BluePrimary = Normal   // = Blue Normal (0xFF6495ED)
-val BlueLight   = Light    // = Blue Light  (0xFFF0F4FD)
 
 // ============================================================
-// 보조 색 — 그레이스케일 도입 전에 각자 만들어 쓰던 값들
+// 2. 별칭 — 화면 코드가 쓰는 이름
 // ============================================================
-// 새 화면에는 위 Grey* 토큰을 쓰고, 아래는 기존 화면 호환용으로만 남긴다.
-// 화면별로 하나씩 Grey* 로 옮긴 뒤 최종적으로 삭제하는 게 목표.
+// 그레이스케일 도입 전에 각자 만들어 쓰던 이름들. 아직 참조가 많아 지우지 못한다.
+// 화면을 하나씩 팔레트 토큰으로 옮긴 뒤 최종적으로 삭제하는 게 목표다.
 //
-//   GrayBackground (#F5F5F5) → GreyLightHover (#F6F7F8)   거의 동일
-//   GrayText       (#9E9E9E) → GreyNormalActive (#9BA0A4)
-//   GrayDark       (#575A5C) → GreyDarkActive   (#575A5C)  ★ 완전 일치
-//   AionFieldBg    (#F6F7F8) → GreyLightHover   (#F6F7F8)  ★ 완전 일치
-//   AionTextGray   (#8E8E8E) → GreyDark         (#92969A)
-//   TextPrimary    (#222222) → AionTextDark     (#2D3C4A)  ※ 본문 텍스트는 그레이스케일이 아니라
-//                                                             파랑 계열 다크(#2D3C4A)가 시안 값
+// 값이 같아 단순 치환이 가능했던 것들은 이미 팔레트로 옮겼다.
+//   BluePrimary → Normal / BlueLight → Light / GrayDark → GreyDarkActive / GreyWhite → White
+//
+// 남은 것 (괄호 안은 현재 참조 수) — 옮기면 색이 미세하게 바뀌므로 화면 확인이 필요하다
+//   GrayBackground (29) → GreyLightHover    #F5F5F5 → #F6F7F8
+//   GrayText       (69) → GreyNormalActive  #9E9E9E → #9BA0A4
+//
+// TextPrimary(62) / AionTextDark(25) 는 둘 다 본문 텍스트인데 값이 다르다.
+// 어느 쪽으로 통일할지 팀에서 정해야 한다. (시안 값은 파랑 계열 다크인 #2D3C4A)
+
+// ---------- 회색 계열 별칭 ----------
 val GrayBackground = Color(0xFFF5F5F5)
 val GrayText       = Color(0xFF9E9E9E)
-val GrayDark       = Color(0xFF575A5C)
-val RedError       = Color(0xFFE53935)   // 팀 에러 색
-val GreenSuccess   = Color(0xFF4CAF50)   // 팀 성공 색
-val TextPrimary    = Color(0xFF222222)
-val White          = Color(0xFFFFFFFF)
+val White          = Color(0xFFFFFFFF)   // 팔레트의 White 이기도 하다
 
-// ---------- AION 공통 ----------
-val AionBlue     = Normal              // = Blue Normal
-val AionOnBlue   = Color(0xFFF2F7FB)   // 파랑 기 도는 배경 — 그레이스케일 아님
-val AionFieldBg  = GreyLightHover      // = Light :hover (#F6F7F8)
-val AionSelected = LightHover          // = Blue Light :hover
-val AionTextDark = Color(0xFF2D3C4A)   // 본문 텍스트
-val AionTextGray = Color(0xFF8E8E8E)
+// ---------- 텍스트 ----------
+val TextPrimary  = Color(0xFF222222)   // 팀 화면들이 쓰는 본문 색
+val AionTextDark = Color(0xFF2D3C4A)   // 시안 기준 본문 색
+
+// ---------- 상태 ----------
+val RedError = Color(0xFFE53935)   // 팀 에러 색

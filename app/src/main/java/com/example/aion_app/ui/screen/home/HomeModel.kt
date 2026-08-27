@@ -26,11 +26,12 @@ data class Student(
     val heartRate: Int? = null    // 심박수 (비활동이면 null)
 )
 
-// 반 정보
+// 홈 상단 정보
+// 학교·학급은 회원가입에서 받지 않으므로 교사 이름을 쓴다.
+// (학년·반 입력을 추가하게 되면 여기에 필드를 늘리면 된다)
 data class ClassInfo(
-    val grade: Int,       // 학년
-    val classNum: Int,    // 반
-    val date: String      // 날짜 (예: "2026.05.28(목)")
+    val teacherName: String = "",   // 교사 이름
+    val date: String = ""           // 날짜 (예: "2026.08.21(목)")
 )
 
 // 알림

@@ -51,7 +51,7 @@ import com.example.aion_app.ui.theme.Orange
 import com.example.aion_app.R
 import com.example.aion_app.ui.theme.Green
 import com.example.aion_app.ui.theme.GrayText
-import com.example.aion_app.ui.theme.GrayDark
+import com.example.aion_app.ui.theme.GreyDarkActive
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 import kotlinx.coroutines.launch
@@ -457,7 +457,7 @@ private fun SummaryCard(
             .border(1.dp, LightActive, RoundedCornerShape(12.dp))
             .padding(vertical = 16.dp, horizontal = 14.dp)
     ) {
-        Text(text = label, fontSize = 14.sp, color = GrayDark, fontWeight = FontWeight.SemiBold)
+        Text(text = label, fontSize = 14.sp, color = GreyDarkActive, fontWeight = FontWeight.SemiBold)
         Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(

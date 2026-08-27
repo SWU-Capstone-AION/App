@@ -61,8 +61,8 @@ import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionTopBar
-import com.example.aion_app.ui.theme.BlueLight
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Light
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GrayBackground
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.TextPrimary
@@ -77,6 +77,8 @@ fun MyInfoEditScreen(
     initialSensitiveStimuli: List<String> = listOf("시각", "청각"),
     initialBehaviorTraits: List<String> = listOf("손이나 팔을 흔들어요", "박수치듯 손을 맞부딪혀요"),
     initialProfileImageUri: Uri? = null,
+    // 감각 자극·행동 특성은 아동에게만 해당하는 항목이라 교사에게는 감춘다
+    isTeacher: Boolean = false,
     onBackClick: () -> Unit = {},
     onSaveClick: (MyInfo) -> Unit = {}
 ) {
@@ -192,39 +194,42 @@ fun MyInfoEditScreen(
                 )
                 EditDivider()
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // ===== 아동 전용 항목 =====
+                if (!isTeacher) {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // 민감하게 반응하는 감각 자극
-                EditSelectableTagSection(
-                    title = "민감하게 반응하는 감각 자극",
-                    allOptions = allSensitiveStimuli,
-                    selectedTags = sensitiveStimuli,
-                    onTagToggle = { tag ->
-                        sensitiveStimuli = if (sensitiveStimuli.contains(tag)) {
-                            sensitiveStimuli - tag    // 이미 선택돼 있으면 → 빼기
-                        } else {
-                            sensitiveStimuli + tag    // 선택 안 돼 있으면 → 추가
+                    // 민감하게 반응하는 감각 자극
+                    EditSelectableTagSection(
+                        title = "민감하게 반응하는 감각 자극",
+                        allOptions = allSensitiveStimuli,
+                        selectedTags = sensitiveStimuli,
+                        onTagToggle = { tag ->
+                            sensitiveStimuli = if (sensitiveStimuli.contains(tag)) {
+                                sensitiveStimuli - tag    // 이미 선택돼 있으면 → 빼기
+                            } else {
+                                sensitiveStimuli + tag    // 선택 안 돼 있으면 → 추가
+                            }
                         }
-                    }
-                )
+                    )
 
-                EditDivider()
+                    EditDivider()
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // 주로 나타나는 행동 특성
-                EditSelectableTagSection(
-                    title = "주로 나타나는 행동 특성",
-                    allOptions = allBehaviorTraits,
-                    selectedTags = behaviorTraits,
-                    onTagToggle = { tag ->
-                        behaviorTraits = if (behaviorTraits.contains(tag)) {
-                            behaviorTraits - tag
-                        } else {
-                            behaviorTraits + tag
+                    // 주로 나타나는 행동 특성
+                    EditSelectableTagSection(
+                        title = "주로 나타나는 행동 특성",
+                        allOptions = allBehaviorTraits,
+                        selectedTags = behaviorTraits,
+                        onTagToggle = { tag ->
+                            behaviorTraits = if (behaviorTraits.contains(tag)) {
+                                behaviorTraits - tag
+                            } else {
+                                behaviorTraits + tag
+                            }
                         }
-                    }
-                )
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(32.dp))
             }
@@ -251,7 +256,7 @@ fun MyInfoEditScreen(
                         .fillMaxWidth()
                         .height(52.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BluePrimary
+                        containerColor = Normal
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -406,7 +411,7 @@ private fun GenderOption(
                 Icons.Default.RadioButtonUnchecked
             },
             contentDescription = null,
-            tint = if (isSelected) BluePrimary else GrayText,
+            tint = if (isSelected) Normal else GrayText,
             modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(6.dp))
@@ -440,7 +445,7 @@ private fun EditRowWithImage(label: String) {
             modifier = Modifier
                 .size(56.dp)
                 .clip(CircleShape)
-                .background(BlueLight)
+                .background(Light)
         )
     }
 }
@@ -490,7 +495,20 @@ private fun EditDivider() {
     HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
 }
 
-@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7")
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7", name = "교사")
+@Composable
+fun MyInfoEditScreenTeacherPreview() {
+    MaterialTheme {
+        MyInfoEditScreen(
+            initialName = "김지연",
+            initialGender = "여자",
+            initialBirthDate = "1999.05.12",
+            isTeacher = true
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7", name = "아동")
 @Composable
 fun MyInfoEditScreenPreview() {
     MaterialTheme {
@@ -549,7 +567,7 @@ private fun BirthDatePickerDialog(
                     }
                 }
             ) {
-                Text("확인", color = BluePrimary, fontWeight = FontWeight.Bold)
+                Text("확인", color = Normal, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
@@ -620,7 +638,7 @@ private fun SelectableTagChip(
             .fillMaxWidth()
             .height(44.dp)
             .clip(RoundedCornerShape(22.dp))
-            .background(if (isSelected) BlueLight else GrayBackground)
+            .background(if (isSelected) Light else GrayBackground)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -670,7 +688,7 @@ private fun EditRowProfileImage(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(BlueLight)
+                    .background(Light)
             )
 
             // 우하단 카메라 아이콘

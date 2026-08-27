@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionBottomNavBar
-import com.example.aion_app.ui.theme.BlueLight
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Light
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
@@ -38,6 +38,8 @@ fun MyPageScreen(
     userName: String = "김슈니",
     userGender: String = "남",
     userAge: Int = 7,
+    // 교사는 성별·나이 대신 역할을 보여준다
+    isTeacher: Boolean = false,
     profileImageUri: Uri? = null,
     onEditProfileClick: () -> Unit = {},
     onFindIdPasswordClick: () -> Unit = {},
@@ -72,7 +74,7 @@ fun MyPageScreen(
                 modifier = Modifier
                     .size(110.dp)
                     .clip(CircleShape)
-                    .background(BlueLight)
+                    .background(Light)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -87,9 +89,9 @@ fun MyPageScreen(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // 성별 · 나이
+            // 교사: "교사" / 아동: 성별 · 나이
             Text(
-                text = "$userGender · ${userAge}세",
+                text = if (isTeacher) "교사" else "$userGender · ${userAge}세",
                 fontSize = 14.sp,
                 color = GrayText
             )
@@ -100,7 +102,7 @@ fun MyPageScreen(
             Button(
                 onClick = onEditProfileClick,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = BluePrimary
+                    containerColor = Normal
                 ),
                 shape = RoundedCornerShape(10.dp),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)
@@ -177,7 +179,15 @@ private fun MenuItem(
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7")
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7", name = "교사")
+@Composable
+fun MyPageScreenTeacherPreview() {
+    MaterialTheme {
+        MyPageScreen(userName = "김지연", isTeacher = true)
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7", name = "아동")
 @Composable
 fun MyPageScreenPreview() {
     MaterialTheme {

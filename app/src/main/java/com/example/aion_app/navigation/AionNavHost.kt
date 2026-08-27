@@ -62,6 +62,23 @@ import com.example.aion_app.ui.screen.report.sampleStudentReport
 import com.example.aion_app.data.auth.UserRole
 import com.example.aion_app.ui.screen.login.LoginViewModel
 
+import androidx.compose.runtime.collectAsState
+import com.example.aion_app.data.messaging.AlertBus
+import com.example.aion_app.ui.screen.home.Student
+import com.example.aion_app.ui.screen.home.StudentStatus
+import com.example.aion_app.ui.screen.home.StressLevel
+
+import com.example.aion_app.ui.screen.home.ClassInfo
+import com.example.aion_app.ui.screen.home.todayText
+
+import com.example.aion_app.ui.screen.home.ChildLinkScreen
+import com.example.aion_app.ui.screen.home.ChildLinkViewModel
+import com.example.aion_app.ui.screen.kids.ChildInviteViewModel
+
+import androidx.compose.runtime.LaunchedEffect
+import com.example.aion_app.ui.screen.home.HomeViewModel
+import com.example.aion_app.ui.screen.home.ClassStats
+
 @Composable
 fun AionNavHost() {
     val navController = rememberNavController()
@@ -135,6 +152,7 @@ fun AionNavHost() {
             }
             val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
             val loginViewModel: LoginViewModel = viewModel()
+            val isTablet = isTabletDevice(LocalContext.current)
 
             SignUpScreen(
                 isLoading = loginViewModel.isLoading,
@@ -158,7 +176,16 @@ fun AionNavHost() {
                     }
                 },
                 onFindIdClick = { navController.navigate(Route.ID_FIND) },
-                onFindPasswordClick = { navController.navigate(Route.PASSWORD_FIND) }
+                onFindPasswordClick = { navController.navigate(Route.PASSWORD_FIND) },
+                // 태블릿에서 아동용 로그인 → 교사용으로 넘어왔다가 다시 돌아가는 경로.
+                // 폰은 아동용 UI 자체를 쓰지 않으므로 null 로 둔다.
+                onKidsClick = if (isTablet) {
+                    {
+                        navController.navigate(Route.KIDS_LOGIN) {
+                            popUpTo(Route.SIGN_UP) { inclusive = true }
+                        }
+                    }
+                } else null
             )
         }
 
@@ -234,6 +261,8 @@ fun AionNavHost() {
             }
             val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
             ChildProfileSetupScreen(
+                // 교사 가입 경로라 감각특성·상동행동은 묻지 않는다
+                includeChildSteps = false,
                 onBackClick = { navController.popBackStack() },
                 onComplete = { profile ->
                     signUpViewModel.updateChildProfile(profile)
@@ -351,6 +380,8 @@ fun AionNavHost() {
 
         // ===== 아동용 홈 =====
         composable(Route.KIDS_HOME) {
+            val inviteViewModel: ChildInviteViewModel = viewModel()
+
             // ★ 상동행동 감지 연결 지점
             // feature/stereotypy-monitor 가 develop 에 들어오면
             // StereotypyMonitorScreen 쪽에서 얻는 StereotypyDetector.State.anyAlarm 을
@@ -358,6 +389,9 @@ fun AionNavHost() {
             KidsHomeScreen(
                 stereotypyDetected = false,
                 points = 20,   // TODO: 실제 포인트 연결
+                invite = inviteViewModel.invite,
+                isRespondingToInvite = inviteViewModel.isResponding,
+                onInviteRespond = { accept -> inviteViewModel.respond(accept) },
                 onProfileClick = {
                     // TODO: 아동용 마이페이지 (시안 나오면 연결)
                 },
@@ -412,7 +446,44 @@ fun AionNavHost() {
 
         // ===== 홈 =====
         composable(Route.HOME) {
+            val dangerAlert by AlertBus.dangerAlert.collectAsState()
+            val myInfoViewModel: MyInfoViewModel = viewModel()
+            val homeViewModel: HomeViewModel = viewModel()
+
+            // 다른 화면에서 돌아왔을 때 최신 정보로 갱신한다.
+            // (마이페이지에서 이름을 바꿨거나, 아동을 새로 연결했을 수 있다)
+            LaunchedEffect(Unit) {
+                myInfoViewModel.load()
+                homeViewModel.loadChildren()
+            }
+
+            val students = homeViewModel.students
+
             HomeScreen(
+                classInfo = ClassInfo(
+                    teacherName = myInfoViewModel.myInfo.name,
+                    date = todayText()
+                ),
+                students = students,
+                classStats = ClassStats(
+                    activeCount = students.count { it.status == StudentStatus.ACTIVE },
+                    totalCount = students.size,
+                    cautionCount = 0,   // TODO: 서버에서 오늘 감지 건수 받아오기
+                    dangerCount = 0
+                ),
+                dangerAlert = dangerAlert?.let { alert ->
+                    Student(
+                        id = alert.childId,
+                        name = alert.childName,
+                        gender = alert.gender,
+                        age = alert.age,
+                        status = StudentStatus.ACTIVE,
+                        stressScore = 100,
+                        stressLevel = StressLevel.DANGER,
+                        heartRate = null
+                    )
+                },
+                onDangerAlertConfirm = { AlertBus.clear() },
                 onNotificationClick = {
                     navController.navigate(Route.NOTIFICATION)
                 },
@@ -422,7 +493,37 @@ fun AionNavHost() {
                 onStudentClick = { student ->
                     // TODO: 학생 상세로 이동
                 },
+                onSearchByIdClick = {
+                    navController.navigate(Route.CHILD_LINK)
+                },
+                onCreateChildAccountClick = {
+                    // TODO: 교사가 대신 가입시키는 흐름 (별도 작업)
+                },
                 onTabSelect = onTabSelect
+            )
+        }
+
+        // ===== 담당 아동 연결 =====
+        composable(Route.CHILD_LINK) {
+            val childLinkViewModel: ChildLinkViewModel = viewModel()
+
+            ChildLinkScreen(
+                isSearching = childLinkViewModel.isSearching,
+                hasSearched = childLinkViewModel.hasSearched,
+                searchResult = childLinkViewModel.searchResult,
+                isRequesting = childLinkViewModel.isRequesting,
+                errorMessage = childLinkViewModel.errorMessage,
+                onBackClick = { navController.popBackStack() },
+                onSearch = { loginId -> childLinkViewModel.search(loginId) },
+                onRequestLink = { child ->
+                    childLinkViewModel.requestLink(child.uid) {
+                        // 요청을 보냈으면 홈으로 돌아간다
+                        navController.popBackStack()
+                    }
+                },
+                onCreateAccountClick = {
+                    // TODO: 교사가 대신 가입시키는 흐름 (별도 작업)
+                }
             )
         }
 
@@ -463,8 +564,9 @@ fun AionNavHost() {
             val info = viewModel.myInfo
             MyPageScreen(
                 userName = info.name,
-                userGender = info.gender.first().toString(),  // "남자" → "남"
-                userAge = calculateAge(info.birthDate),       // "2019.12.21" → 6 (또는 나이)
+                userGender = info.gender.take(1),   // "남자" → "남"
+                userAge = calculateAge(info.birthDate),   // "2019.12.21" → 6
+                isTeacher = info.role == UserRole.TEACHER,
                 profileImageUri = info.profileImageUri,
                 onEditProfileClick = {
                     navController.navigate(Route.MY_INFO)
@@ -476,11 +578,12 @@ fun AionNavHost() {
                     navController.navigate(Route.PASSWORD_CHANGE_CHECK)
                 },
                 onLogoutClick = {
-                    loginViewModel.logout()
-                    // 백스택을 통째로 비운다.
-                    // 스플래시는 이미 스택에서 지워졌으므로 popUpTo(0)으로 루트까지 제거.
-                    navController.navigate(Route.SIGN_UP) {
-                        popUpTo(0) { inclusive = true }
+                    loginViewModel.logout {
+                        // 백스택을 통째로 비운다.
+                        // 스플래시는 이미 스택에서 지워졌으므로 popUpTo(0)으로 루트까지 제거.
+                        navController.navigate(Route.SIGN_UP) {
+                            popUpTo(0) { inclusive = true }
+                        }
                     }
                 },
                 onTabSelect = onTabSelect
@@ -501,6 +604,7 @@ fun AionNavHost() {
                 userBirthDate = info.birthDate,
                 sensitiveStimuli = info.sensitiveStimuli,
                 behaviorTraits = info.behaviorTraits,
+                isTeacher = info.role == UserRole.TEACHER,
                 profileImageUri = info.profileImageUri,
                 onBackClick = { navController.popBackStack() },
                 onEditClick = {
@@ -523,6 +627,7 @@ fun AionNavHost() {
                 initialSensitiveStimuli = info.sensitiveStimuli,
                 initialBehaviorTraits = info.behaviorTraits,
                 initialProfileImageUri = info.profileImageUri,
+                isTeacher = info.role == UserRole.TEACHER,
                 onBackClick = { navController.popBackStack() },
                 onSaveClick = { newInfo ->
                     viewModel.updateMyInfo(newInfo)

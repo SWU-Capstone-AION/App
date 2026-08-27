@@ -28,7 +28,7 @@ import com.example.aion_app.ui.component.AionPrimaryButton
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.component.AionTextField
 import com.example.aion_app.ui.theme.AionTheme
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GrayBackground
 import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.GrayText
@@ -56,6 +56,9 @@ data class ChildProfile(
 // ============================================
 @Composable
 fun ChildProfileSetupScreen(
+    // 감각특성·상동행동은 아동에게만 해당하는 항목이라,
+    // 교사 회원가입에서는 false로 넘겨 1단계(이름·성별·생년월일)만 받는다.
+    includeChildSteps: Boolean = true,
     onBackClick: () -> Unit = {},     // 1단계에서 뒤로가기 누르면 호출 (이전 화면으로)
     onComplete: (ChildProfile) -> Unit = {}    // 마지막 단계 통과 시 호출
 ) {
@@ -77,7 +80,8 @@ fun ChildProfileSetupScreen(
             onBackClick = handleBack,
             onNext = { updated ->
                 profile = updated
-                step = 2
+                // 교사 가입이면 여기서 끝. 아동 가입이면 감각특성 단계로.
+                if (includeChildSteps) step = 2 else onComplete(updated)
             }
         )
         // 시안 4p
@@ -488,7 +492,7 @@ private fun BirthDatePickerDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(BluePrimary)
+                            .background(Normal)
                             .clickable { onConfirm(year, month, day) }
                             .padding(vertical = 16.dp),
                         contentAlignment = Alignment.Center
@@ -679,10 +683,19 @@ private fun BehaviorStepPreview() {
 }
 
 // 전체 플로우 (Interactive Mode로 단계 이동 테스트 가능)
-@Preview(showBackground = true, device = "id:pixel_7", name = "전체 플로우")
+@Preview(showBackground = true, device = "id:pixel_7", name = "전체 플로우 (아동)")
 @Composable
 private fun ChildProfileSetupScreenPreview() {
     AionTheme {
         ChildProfileSetupScreen()
+    }
+}
+
+// 교사 가입 — 1단계에서 바로 완료
+@Preview(showBackground = true, device = "id:pixel_7", name = "전체 플로우 (교사)")
+@Composable
+private fun TeacherProfileSetupScreenPreview() {
+    AionTheme {
+        ChildProfileSetupScreen(includeChildSteps = false)
     }
 }

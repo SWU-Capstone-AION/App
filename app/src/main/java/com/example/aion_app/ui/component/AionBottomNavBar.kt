@@ -10,7 +10,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.aion_app.R
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GrayText
 
 @Composable
@@ -20,7 +20,7 @@ fun AionBottomNavBar(
 ) {
     // 라벨 색만 지정 (아이콘은 커스텀 PNG라 원본 색 사용), 선택 알약 배경 제거
     val itemColors = NavigationBarItemDefaults.colors(
-        selectedTextColor = BluePrimary,
+        selectedTextColor = Normal,
         unselectedTextColor = GrayText,
         indicatorColor = Color.Transparent
     )

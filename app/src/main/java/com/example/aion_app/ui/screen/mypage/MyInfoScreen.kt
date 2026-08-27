@@ -22,8 +22,8 @@ import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.component.AionBottomNavBar
-import com.example.aion_app.ui.theme.BlueLight
-import com.example.aion_app.ui.theme.BluePrimary
+import com.example.aion_app.ui.theme.Light
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GrayBackground
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.TextPrimary
@@ -40,6 +40,8 @@ fun MyInfoScreen(
     userBirthDate: String = "2019.12.21",
     sensitiveStimuli: List<String> = listOf("시각", "청각"),
     behaviorTraits: List<String> = listOf("손이나 팔을 흔들어요", "박수치듯 손을 맞부딪혀요"),
+    // 감각 자극·행동 특성은 아동에게만 해당하는 항목이라 교사에게는 감춘다
+    isTeacher: Boolean = false,
     profileImageUri: Uri? = null,
     onBackClick: () -> Unit = {},
     onEditClick: () -> Unit = {}
@@ -84,23 +86,26 @@ fun MyInfoScreen(
                 InfoRow(label = "생년월일", value = userBirthDate)
                 InfoDivider()
 
-                Spacer(modifier = Modifier.height(16.dp))
+                // ===== 아동 전용 항목 =====
+                if (!isTeacher) {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // 민감하게 반응하는 감각 자극
-                TagSection(
-                    title = "민감하게 반응하는 감각 자극",
-                    tags = sensitiveStimuli
-                )
+                    // 민감하게 반응하는 감각 자극
+                    TagSection(
+                        title = "민감하게 반응하는 감각 자극",
+                        tags = sensitiveStimuli
+                    )
 
-                InfoDivider()
+                    InfoDivider()
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                // 주로 나타나는 행동 특성
-                TagSection(
-                    title = "주로 나타나는 행동 특성",
-                    tags = behaviorTraits
-                )
+                    // 주로 나타나는 행동 특성
+                    TagSection(
+                        title = "주로 나타나는 행동 특성",
+                        tags = behaviorTraits
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(32.dp))
             }
@@ -118,7 +123,7 @@ fun MyInfoScreen(
                         .fillMaxWidth()
                         .height(52.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BluePrimary
+                        containerColor = Normal
                     ),
                     shape = RoundedCornerShape(8.dp)
                 ) {
@@ -185,7 +190,7 @@ private fun InfoRowWithImage(label: String, imageUri: Uri? = null) {
             modifier = Modifier
                 .size(56.dp)
                 .clip(CircleShape)
-                .background(BlueLight)
+                .background(Light)
         )
     }
 }
@@ -235,7 +240,15 @@ private fun InfoDivider() {
     HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
 }
 
-@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7")
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7", name = "교사")
+@Composable
+fun MyInfoScreenTeacherPreview() {
+    MaterialTheme {
+        MyInfoScreen(userName = "김지연", userGender = "여자", userBirthDate = "1999.05.12", isTeacher = true)
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7", name = "아동")
 @Composable
 fun MyInfoScreenPreview() {
     MaterialTheme {

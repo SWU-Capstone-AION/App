@@ -3,16 +3,15 @@ package com.example.aion_app.ui.screen.home
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import com.example.aion_app.ui.theme.BlueLight
-import com.example.aion_app.ui.theme.BluePrimary
 import androidx.compose.ui.draw.clip
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.draw.alpha
-import com.example.aion_app.ui.theme.GrayBackground
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.window.Dialog
 
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -24,6 +23,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,19 +37,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionBottomNavBar
-import com.example.aion_app.ui.theme.Dark
-import com.example.aion_app.ui.theme.GrayDark
+import com.example.aion_app.ui.theme.GreyDarkActive
+import com.example.aion_app.ui.theme.GreyLight
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.Green
 import com.example.aion_app.ui.theme.LightActive
 import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.Normal
+import com.example.aion_app.ui.theme.Red
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 
 @Composable
 fun HomeScreen(
-    classInfo: ClassInfo = ClassInfo(grade = 3, classNum = 4, date = "2026.05.28(목)"),
+    classInfo: ClassInfo = ClassInfo(teacherName = "박서연", date = "2026.05.28(목)"),
     recentAlert: HomeAlert? = HomeAlert(
         message = "김지우 학생이 안정 상태에 도달했습니다.",
         timeText = "1분 전"
@@ -58,12 +62,21 @@ fun HomeScreen(
         cautionCount = 7,
         dangerCount = 2
     ),
+    // 위험 판정된 아동. null이 아니면 화면 위에 팝업이 뜬다.
+    dangerAlert: Student? = null,
+    onDangerAlertConfirm: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
     onAlertClick: () -> Unit = {},
     onStudentClick: (Student) -> Unit = {},
+    // 아동 등록 바텀시트에서 고른 항목
+    onSearchByIdClick: () -> Unit = {},
+    onCreateChildAccountClick: () -> Unit = {},
     onTabSelect: (String) -> Unit = {}
 
 ) {
+    // 등록하기 바텀시트 표시 여부
+    var showRegisterSheet by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             HomeTopBar(
@@ -74,7 +87,6 @@ fun HomeScreen(
         bottomBar = { AionBottomNavBar(selected = "home", onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
-        // 나중에 여기에 콘텐츠 채울 거예요
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -84,13 +96,11 @@ fun HomeScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 최근 알림 배너 (있을 때만 표시)
-            if (recentAlert != null) {
-                RecentAlertBanner(
-                    alert = recentAlert,
-                    onClick = onAlertClick
-                )
-            }
+            // 최근 알림 배너 (알림이 없어도 자리는 유지한다)
+            RecentAlertBanner(
+                alert = recentAlert,
+                onClick = onAlertClick
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -116,23 +126,225 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-// 학생 카드 목록
-            students.forEach { student ->
-                StudentCard(
-                    student = student,
-                    onClick = { onStudentClick(student) }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+            if (students.isEmpty()) {
+                // 아직 담당 아동을 연결하지 않은 상태
+                EmptyChildrenCard(onRegisterClick = { showRegisterSheet = true })
+            } else {
+                // 학생 카드 목록
+                students.forEach { student ->
+                    StudentCard(
+                        student = student,
+                        onClick = { onStudentClick(student) }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+
+                // 아동을 더 연결할 수 있는 진입점
+                AddChildButton(onClick = { showRegisterSheet = true })
             }
+
             Spacer(modifier = Modifier.height(16.dp))
 
 // 오늘의 학급 현황 섹션
             ClassStatsSection(
                 stats = classStats,
-                dateText = "2026.05.28"
+                dateText = classInfo.date.substringBefore("(")
             )
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+
+    // ===== 아동 등록하기 바텀시트 =====
+    if (showRegisterSheet) {
+        ChildRegisterBottomSheet(
+            onDismiss = { showRegisterSheet = false },
+            onSearchByIdClick = {
+                showRegisterSheet = false
+                onSearchByIdClick()
+            },
+            onCreateAccountClick = {
+                showRegisterSheet = false
+                onCreateChildAccountClick()
+            }
+        )
+    }
+
+    // ===== 위험 알림 팝업 =====
+    // 화면 위에 덮어서 표시. 교사가 확인 버튼을 눌러야 닫힌다.
+    if (dangerAlert != null) {
+        DangerAlertDialog(
+            student = dangerAlert,
+            onConfirm = onDangerAlertConfirm
+        )
+    }
+}
+
+// ============================================
+// 등록된 아동이 없을 때 보여주는 안내 카드
+// ============================================
+@Composable
+private fun EmptyChildrenCard(onRegisterClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(White)
+            .border(
+                width = 1.dp,
+                color = LightActive,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .padding(horizontal = 16.dp, vertical = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "아직 등록된 아동이 없어요",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = "실시간으로 아동의 상태를 파악하세요",
+            fontSize = 12.sp,
+            color = GrayText,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Normal)
+                .clickable(onClick = onRegisterClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "+ 등록하기",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = White
+            )
+        }
+    }
+}
+
+// ============================================
+// 아동 추가 버튼 (목록이 있을 때 아래에 붙는다)
+// ============================================
+@Composable
+private fun AddChildButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(White)
+            .border(
+                width = 1.dp,
+                color = LightActive,
+                shape = RoundedCornerShape(10.dp)
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "+ 아동 추가",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Normal
+        )
+    }
+}
+
+// ============================================
+// 위험 알림 팝업
+// ============================================
+// 놓치면 안 되는 알림이라 바깥을 눌러도 닫히지 않게 한다.
+// (뒤로가기도 막아 두어 확인 버튼으로만 닫히도록)
+@Composable
+private fun DangerAlertDialog(
+    student: Student,
+    onConfirm: () -> Unit
+) {
+    Dialog(onDismissRequest = { /* 확인 버튼으로만 닫는다 */ }) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(White),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.height(28.dp))
+
+            Icon(
+                imageVector = Icons.Filled.Warning,
+                contentDescription = null,
+                tint = Red,
+                modifier = Modifier.size(36.dp)
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "위험",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Red
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 이름 + 성별·나이
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = student.name,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "${student.gender} · ${student.age}세",
+                    fontSize = 12.sp,
+                    color = GrayText,
+                    modifier = Modifier.padding(bottom = 1.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "즉시 아이의 상태를 확인하세요.",
+                fontSize = 14.sp,
+                color = TextPrimary,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 확인 버튼 — 카드 아래쪽에 꽉 차게
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .background(Red)
+                    .clickable(onClick = onConfirm),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "확인",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = White
+                )
+            }
         }
     }
 }
@@ -158,12 +370,13 @@ private fun HomeTopBar(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        // 반 정보 (학년, 반 + 날짜)
+        // 교사 이름 + 날짜
         Column(
             modifier = Modifier.weight(1f)
         ) {
             Text(
-                text = "${classInfo.grade}학년 ${classInfo.classNum}반",
+                text = if (classInfo.teacherName.isBlank()) "AION"
+                else "${classInfo.teacherName} 선생님",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary
@@ -180,7 +393,7 @@ private fun HomeTopBar(
             modifier = Modifier
                 .size(40.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFFF9FAFA))
+                .background(GreyLight)
                 .clickable(onClick = onNotificationClick),
             contentAlignment = Alignment.Center
         ) {
@@ -195,7 +408,7 @@ private fun HomeTopBar(
 
 @Composable
 private fun RecentAlertBanner(
-    alert: HomeAlert,
+    alert: HomeAlert?,
     onClick: () -> Unit
 ) {
     Row(
@@ -207,7 +420,10 @@ private fun RecentAlertBanner(
                     colors = listOf(White, LightHover)
                 )
             )
-            .clickable(onClick = onClick),
+            // 알림이 없으면 눌러도 갈 곳이 없다
+            .then(
+                if (alert != null) Modifier.clickable(onClick = onClick) else Modifier
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 왼쪽 파란 세로 바
@@ -235,37 +451,41 @@ private fun RecentAlertBanner(
                 .weight(1f)
                 .padding(vertical = 12.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "NEW",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Normal
-                )
-                Text(
-                    text = " · ${alert.timeText}",
-                    fontSize = 12.sp,
-                    color = Normal
-                )
+            if (alert != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "NEW",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Normal
+                    )
+                    Text(
+                        text = " · ${alert.timeText}",
+                        fontSize = 12.sp,
+                        color = Normal
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
             }
-            Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = alert.message,
+                text = alert?.message ?: "알림 없음",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
+                color = if (alert != null) TextPrimary else GrayText
             )
         }
 
-        // 오른쪽 화살표
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = Normal,
-            modifier = Modifier
-                .padding(end = 12.dp)
-                .size(24.dp)
-        )
+        // 오른쪽 화살표 (알림이 있을 때만)
+        if (alert != null) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Normal,
+                modifier = Modifier
+                    .padding(end = 12.dp)
+                    .size(24.dp)
+            )
+        }
     }
 }
 
@@ -348,7 +568,7 @@ private fun StudentCard(
                     Icon(
                         imageVector = Icons.Filled.Favorite,
                         contentDescription = null,
-                        tint = Color(0xFFC05C47),
+                        tint = Red,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -599,7 +819,7 @@ private fun StatsCard(
             text = label,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = GrayDark
+            color = GreyDarkActive
         )
         Spacer(modifier = Modifier.height(8.dp))
         Row(
@@ -620,6 +840,12 @@ private fun StatsCard(
             )
         }
     }
+}
+
+/** "2026.08.21(목)" 형태로 오늘 날짜를 만든다 */
+fun todayText(): String {
+    val format = java.text.SimpleDateFormat("yyyy.MM.dd(E)", java.util.Locale.KOREA)
+    return format.format(java.util.Date())
 }
 
 // 테스트용 더미 데이터
@@ -661,5 +887,27 @@ private fun defaultStudents(): List<Student> = listOf(
 fun HomeScreenPreview() {
     MaterialTheme {
         HomeScreen()
+    }
+}
+
+// 등록된 아동이 없는 상태
+@Preview(showBackground = true, showSystemUi = true, name = "아동 없음")
+@Composable
+fun HomeScreenEmptyPreview() {
+    MaterialTheme {
+        HomeScreen(
+            recentAlert = null,
+            students = emptyList(),
+            classStats = ClassStats(0, 0, 0, 0)
+        )
+    }
+}
+
+// 위험 알림 팝업이 뜬 상태
+@Preview(showBackground = true, showSystemUi = true, name = "위험 알림")
+@Composable
+fun HomeScreenDangerAlertPreview() {
+    MaterialTheme {
+        HomeScreen(dangerAlert = defaultStudents().first())
     }
 }
