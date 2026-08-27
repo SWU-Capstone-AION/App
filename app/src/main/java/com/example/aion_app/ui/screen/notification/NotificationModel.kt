@@ -13,6 +13,7 @@ data class NotificationItem(
     val type: NotificationType,         // 위험/주의/안정
     val message: String,                // 알림 내용
     val studentName: String,            // 관련 학생 이름 (필터용)
+    val childId: String = "",           // 필터 매칭용 (동명이인 대비)
     val dateGroup: String,              // "오늘 · 5월 28일", "어제 · 5월 27일" 등
     val timeText: String,               // "2분 전"
     val isRead: Boolean = false         // 읽음 여부 (시안: 읽은 알림은 회색 배경)
@@ -21,5 +22,5 @@ data class NotificationItem(
 // 필터 옵션
 sealed class NotificationFilter {
     object All : NotificationFilter()                            // 전체
-    data class Student(val name: String) : NotificationFilter()  // 특정 학생
+    data class Student(val childId: String) : NotificationFilter()  // 특정 학생
 }

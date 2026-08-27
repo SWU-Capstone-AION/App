@@ -3,6 +3,7 @@ package com.example.aion_app.navigation
 import com.example.aion_app.isTabletDevice
 import com.example.aion_app.ui.screen.notification.NotificationScreen
 import com.example.aion_app.ui.screen.splash.SplashScreen
+import com.example.aion_app.ui.screen.notification.NotificationViewModel
 
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
@@ -549,9 +550,16 @@ fun AionNavHost() {
 
         // ===== 알림센터 =====
         composable(Route.NOTIFICATION) {
+            val notificationViewModel: NotificationViewModel = viewModel()
+
             NotificationScreen(
+                children = notificationViewModel.children,
+                notifications = notificationViewModel.notifications,
+                isLoading = notificationViewModel.isLoading,
+                errorMessage = notificationViewModel.errorMessage,
                 onBackClick = { navController.popBackStack() },
-                onTabSelect = onTabSelect      // ← 이게 없어서 하단탭이 안 먹혔음
+                onDelete = { item -> notificationViewModel.delete(item) },
+                onTabSelect = onTabSelect
             )
         }
 

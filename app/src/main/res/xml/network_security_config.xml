@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  안드로이드 9(API 28)부터 평문 HTTP 통신이 기본 차단된다.
+  Django 서버가 노트북에서 http:// 로 돌아가므로 사설망 대역만 예외로 열어둔다.
+
+  실서비스라면 HTTPS를 써야 하지만, 캡스톤 시연은 같은 와이파이 안에서만
+  동작하는 구조라 사설 IP 대역만 허용한다.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- 공유기 사설 IP 대역 (192.168.x.x) -->
+        <domain includeSubdomains="true">192.168.0.1</domain>
+        <domain includeSubdomains="true">192.168.1.1</domain>
+
+        <!-- 에뮬레이터에서 개발 PC를 가리키는 특수 주소 -->
+        <domain includeSubdomains="true">10.0.2.2</domain>
+
+        <!-- 백엔드 담당 노트북. IP가 바뀌면 여기도 함께 바꿔야 한다. -->
+        <domain includeSubdomains="true">192.168.0.10</domain>
+    </domain-config>
+</network-security-config>
