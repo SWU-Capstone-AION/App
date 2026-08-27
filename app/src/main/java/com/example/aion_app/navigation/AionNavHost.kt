@@ -19,6 +19,8 @@ import androidx.navigation.NavType
 import androidx.navigation.navArgument
 
 import com.example.aion_app.ui.screen.home.HomeScreen
+import com.example.aion_app.ui.screen.home.ChildListScreen
+import com.example.aion_app.ui.screen.home.ChildListViewModel
 import com.example.aion_app.ui.screen.mypage.MyInfoScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoEditScreen
 import com.example.aion_app.ui.screen.mypage.MyPageScreen
@@ -571,9 +573,7 @@ fun AionNavHost() {
                 onEditProfileClick = {
                     navController.navigate(Route.MY_INFO)
                 },
-                onFindIdPasswordClick = {
-                    navController.navigate(Route.ID_FIND)
-                },
+                onChildListClick = { navController.navigate(Route.CHILD_LIST) },
                 onChangePasswordClick = {
                     navController.navigate(Route.PASSWORD_CHANGE_CHECK)
                 },
@@ -633,6 +633,23 @@ fun AionNavHost() {
                     viewModel.updateMyInfo(newInfo)
                     navController.popBackStack()
                 }
+            )
+        }
+
+        // ===== 담당 아동 목록 =====
+        composable(Route.CHILD_LIST) {
+            val childListViewModel: ChildListViewModel = viewModel()
+
+            // 아동을 새로 연결하고 돌아왔을 때 목록 갱신
+            LaunchedEffect(Unit) { childListViewModel.load() }
+
+            ChildListScreen(
+                children = childListViewModel.children,
+                isLoading = childListViewModel.isLoading,
+                errorMessage = childListViewModel.errorMessage,
+                onBackClick = { navController.popBackStack() },
+                onUnlink = { child -> childListViewModel.unlink(child.uid) },
+                onAddChildClick = { navController.navigate(Route.CHILD_LINK) }
             )
         }
 

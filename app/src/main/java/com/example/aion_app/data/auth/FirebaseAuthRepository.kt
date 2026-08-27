@@ -338,6 +338,28 @@ class FirebaseAuthRepository(
         }
     }
 
+    /**
+     * 담당 아동 연결을 해제한다.
+     *
+     * 아동 계정은 그대로 두고 teacherId만 비운다.
+     * 아이는 계속 태블릿을 쓸 수 있고, 나중에 다시 연결 요청을 보낼 수도 있다.
+     */
+    override suspend fun unlinkChild(childUid: String): Result<Unit> = runCatching {
+        val teacherUid = auth.currentUser?.uid
+            ?: throw IllegalStateException("로그인이 필요합니다.")
+
+        val document = db.collection("users").document(childUid).get().await()
+        if (document.getString("teacherId") != teacherUid) {
+            throw IllegalStateException("담당하는 아이가 아닙니다.")
+        }
+
+        db.collection("users").document(childUid)
+            .update("teacherId", null)
+            .await()
+
+        Unit
+    }
+
     /** 생년월일로 만 나이를 계산한다. 값이 없으면 0. */
     private fun calculateAge(year: Int?, month: Int?, day: Int?): Int {
         if (year == null || month == null || day == null) return 0

@@ -42,7 +42,7 @@ fun MyPageScreen(
     isTeacher: Boolean = false,
     profileImageUri: Uri? = null,
     onEditProfileClick: () -> Unit = {},
-    onFindIdPasswordClick: () -> Unit = {},
+    onChildListClick: () -> Unit = {},
     onChangePasswordClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {},
     onTabSelect: (String) -> Unit = {}
@@ -119,7 +119,7 @@ fun MyPageScreen(
             HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
 
             // 메뉴 리스트
-            MenuItem(text = "아이디/비밀번호 찾기", onClick = onFindIdPasswordClick)
+            MenuItem(text = "아동 목록", onClick = onChildListClick)
             HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 1.dp)
 
             MenuItem(text = "비밀번호 변경", onClick = onChangePasswordClick)
