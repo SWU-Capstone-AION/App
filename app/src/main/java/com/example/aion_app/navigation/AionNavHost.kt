@@ -21,6 +21,9 @@ import androidx.navigation.navArgument
 import com.example.aion_app.ui.screen.home.HomeScreen
 import com.example.aion_app.ui.screen.home.ChildListScreen
 import com.example.aion_app.ui.screen.home.ChildListViewModel
+import com.example.aion_app.ui.screen.kids.KidsMyPageScreen
+import com.example.aion_app.ui.screen.kids.KidsMyInfoScreen
+import com.example.aion_app.ui.screen.kids.KidsMyInfoEditScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoEditScreen
 import com.example.aion_app.ui.screen.mypage.MyPageScreen
@@ -395,7 +398,7 @@ fun AionNavHost() {
                 isRespondingToInvite = inviteViewModel.isResponding,
                 onInviteRespond = { accept -> inviteViewModel.respond(accept) },
                 onProfileClick = {
-                    // TODO: 아동용 마이페이지 (시안 나오면 연결)
+                    navController.navigate(Route.KIDS_MYPAGE)
                 },
                 onHelpRequest = {
                     // TODO: 교사에게 도움 요청 알림 전송
@@ -411,6 +414,85 @@ fun AionNavHost() {
                 },
                 onMonitorClick = {
                     navController.navigate(Route.MONITOR)
+                }
+            )
+        }
+
+        // ===== 아동용 마이페이지 =====
+        // MyInfoViewModel 은 교사용과 같은 것을 쓴다 (역할별 분기가 이미 들어 있음).
+        // 세 화면이 같은 인스턴스를 보도록 KIDS_MYPAGE 백스택 엔트리에 묶는다.
+        composable(Route.KIDS_MYPAGE) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.KIDS_MYPAGE)
+            }
+            val viewModel: MyInfoViewModel = viewModel(parentEntry)
+            val loginViewModel: LoginViewModel = viewModel()
+
+            val info = viewModel.myInfo
+            KidsMyPageScreen(
+                userName = info.name,
+                userGender = info.gender.take(1),          // "남자" → "남"
+                userAge = calculateAge(info.birthDate),
+                profileImageUri = info.profileImageUri,
+                onBackClick = { navController.popBackStack() },
+                onEditProfileClick = {
+                    navController.navigate(Route.KIDS_MY_INFO)
+                },
+                // TODO: 비밀번호 변경은 아직 교사용(폰 크기) 화면이다.
+                //       아동용 시안이 나오면 아동용 화면으로 교체할 것.
+                onChangePasswordClick = {
+                    navController.navigate(Route.PASSWORD_CHANGE_CHECK)
+                },
+                onLogoutClick = {
+                    loginViewModel.logout {
+                        // 아동 기기라 로그아웃 후에는 아동용 로그인으로 돌아간다
+                        navController.navigate(Route.KIDS_LOGIN) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+            )
+        }
+
+        composable(Route.KIDS_MY_INFO) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.KIDS_MYPAGE)
+            }
+            val viewModel: MyInfoViewModel = viewModel(parentEntry)
+
+            val info = viewModel.myInfo
+            KidsMyInfoScreen(
+                userName = info.name,
+                userGender = info.gender,
+                userBirthDate = info.birthDate,
+                sensitiveStimuli = info.sensitiveStimuli,
+                behaviorTraits = info.behaviorTraits,
+                profileImageUri = info.profileImageUri,
+                onBackClick = { navController.popBackStack() },
+                onEditClick = {
+                    navController.navigate(Route.KIDS_MY_INFO_EDIT)
+                }
+            )
+        }
+
+        composable(Route.KIDS_MY_INFO_EDIT) {
+            val parentEntry = remember(it) {
+                navController.getBackStackEntry(Route.KIDS_MYPAGE)
+            }
+            val viewModel: MyInfoViewModel = viewModel(parentEntry)
+
+            val info = viewModel.myInfo
+            KidsMyInfoEditScreen(
+                initialName = info.name,
+                initialGender = info.gender,
+                initialBirthDate = info.birthDate,
+                initialSensitiveStimuli = info.sensitiveStimuli,
+                initialBehaviorTraits = info.behaviorTraits,
+                initialProfileImageUri = info.profileImageUri,
+                onBackClick = { navController.popBackStack() },
+                onSaveClick = { newInfo ->
+                    viewModel.updateMyInfo(newInfo)
+                    navController.popBackStack()
                 }
             )
         }

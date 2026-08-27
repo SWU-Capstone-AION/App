@@ -16,6 +16,11 @@ object Route {
     const val KIDS_ONBOARDING_COMPLETE = "kids_onboarding_complete"  // 아동용 시안 6p
     const val KIDS_HOME = "kids_home"    // 아동용 홈 (+ 진정 팝업 / 호흡)
 
+    // 아동용 마이페이지 (시안 1p ~ 5p)
+    const val KIDS_MYPAGE       = "kids_mypage"
+    const val KIDS_MY_INFO      = "kids_my_info"
+    const val KIDS_MY_INFO_EDIT = "kids_my_info_edit"
+
     const val CHILD_LINK = "child_link"
     const val CHILD_LIST = "child_list"
 

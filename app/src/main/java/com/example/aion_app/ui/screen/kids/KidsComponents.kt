@@ -142,6 +142,8 @@ fun KidsScreenFrame(
     topBar: (@Composable () -> Unit)? = null,
     bottomButton: (@Composable () -> Unit)? = null,
     bottomPadding: Dp = 32.dp,
+    // 가운데 본문 열의 폭. 로그인/회원가입은 329, 마이페이지는 320 (시안이 다름)
+    contentWidth: Dp = KidsContentWidth,
     content: @Composable ColumnScope.() -> Unit
 ) {
     // 프레임 바깥 여백도 본문과 같은 흰색으로 채워, 세로 화면에서 배경이 비치지 않게 한다
@@ -161,7 +163,7 @@ fun KidsScreenFrame(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Column(
-                        modifier = Modifier.width(KidsContentWidth),
+                        modifier = Modifier.width(contentWidth),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         content = content
                     )

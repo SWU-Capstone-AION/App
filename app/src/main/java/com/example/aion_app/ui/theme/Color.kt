@@ -80,6 +80,7 @@ val White          = Color(0xFFFFFFFF)   // 팔레트의 White 이기도 하다
 // ---------- 텍스트 ----------
 val TextPrimary  = Color(0xFF222222)   // 팀 화면들이 쓰는 본문 색
 val AionTextDark = Color(0xFF2D3C4A)   // 시안 기준 본문 색
+val AionTextValue = Color(0xFF3A4D5F)  // 시안 기준 '값' 색 (마이페이지 이름·성별·생년월일)
 
 // ---------- 상태 ----------
 val RedError = Color(0xFFE53935)   // 팀 에러 색
