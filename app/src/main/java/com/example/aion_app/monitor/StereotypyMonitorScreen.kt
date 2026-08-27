@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.aion_app.monitor.audio.AlarmSound
 import com.example.aion_app.monitor.camera.PoseCameraView
+import com.example.aion_app.monitor.pose.MinigameGate
 import com.example.aion_app.monitor.pose.PoseIndex
 import com.example.aion_app.monitor.pose.PoseLandmarkerHelper
 import com.example.aion_app.monitor.pose.StereotypyDetector
@@ -43,7 +44,11 @@ import com.example.aion_app.monitor.ui.PoseOverlay
  * 검출(팔/머리/몸통)은 두 화면 모두에서 백그라운드로 계속 동작.
  */
 @Composable
-fun StereotypyMonitorScreen(modifier: Modifier = Modifier) {
+fun StereotypyMonitorScreen(
+    modifier: Modifier = Modifier,
+    onWeedGame: (() -> Unit)? = null,
+    onBoardGame: (() -> Unit)? = null,
+) {
     val context = LocalContext.current
     var hasCameraPermission by remember {
         mutableStateOf(
@@ -82,6 +87,10 @@ fun StereotypyMonitorScreen(modifier: Modifier = Modifier) {
                         fpsTimes.removeFirst()
                     }
                     fps = fpsTimes.size
+
+                    // 미니게임 중에는 판정을 멈춘다.
+                    // 잡초 뽑기의 팔 상하 반복이 상동행동 조건에 그대로 걸려 알림이 나가기 때문.
+                    detector.setPaused(MinigameGate.active)
 
                     if (running) {
                         val lm = b.result.landmarks().firstOrNull()
@@ -130,23 +139,13 @@ fun StereotypyMonitorScreen(modifier: Modifier = Modifier) {
                         running = true
                     },
                     onStop = { running = false },
+                    onBack = { teacherMode = false },
                     modifier = Modifier.fillMaxSize(),
                 )
                 AlarmBanner(
                     show = running && detState?.anyAlarm == true,
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = 60.dp),
                 )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(12.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xCC02070E))
-                        .clickable { teacherMode = false }
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text("◀ 아동 화면", color = Color(0xFF34C6FF))
-                }
             } else {
                 ChildScreen(
                     alarm = running && detState?.anyAlarm == true,
@@ -156,6 +155,8 @@ fun StereotypyMonitorScreen(modifier: Modifier = Modifier) {
                         Toast.makeText(context, "선생님께 도움을 요청했어요", Toast.LENGTH_SHORT).show()
                     },
                     modifier = Modifier.fillMaxSize(),
+                    onWeedGame = onWeedGame,
+                    onBoardGame = onBoardGame,
                 )
             }
         } else {

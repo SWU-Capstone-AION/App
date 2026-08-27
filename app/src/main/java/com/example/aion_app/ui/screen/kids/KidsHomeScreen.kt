@@ -61,7 +61,13 @@ fun KidsHomeScreen(
     // "도움이 필요해요"를 눌렀을 때 (교사에게 알림 전송 등)
     onHelpRequest: () -> Unit = {},
     // 호흡 4회를 끝까지 마쳤을 때 (포인트 지급 등)
-    onBreathingComplete: () -> Unit = {}
+    onBreathingComplete: () -> Unit = {},
+    // 잡초 뽑기 미니게임으로 이동
+    onWeedGameClick: () -> Unit = {},
+    // 칠판 지우기 미니게임으로 이동
+    onBoardGameClick: () -> Unit = {},
+    // 상동행동 모니터링 화면으로 이동
+    onMonitorClick: () -> Unit = {}
 ) {
     var mode by remember { mutableStateOf(KidsHomeMode.CALM) }
 
@@ -117,6 +123,35 @@ fun KidsHomeScreen(
                 color = DarkHover
             )
         }
+
+        // 미니게임 진입. 도움 버튼 바로 위에 둘을 나란히 놓는다.
+        // (38dp + 버튼 높이 50dp + 간격 12dp = 100dp)
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 100.dp)
+                .width(KidsContentWidth),
+            horizontalArrangement = Arrangement.spacedBy(13.dp)
+        ) {
+            KidsMinigameButton(
+                text = "잡초 뽑기",
+                onClick = onWeedGameClick,
+                modifier = Modifier.weight(1f)
+            )
+            KidsMinigameButton(
+                text = "칠판 지우기",
+                onClick = onBoardGameClick,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        // 모니터링 진입. 아이가 늘 쓰는 기능이 아니라서 로고 아래 작게 둔다.
+        KidsMonitorButton(
+            onClick = onMonitorClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = KidsScreenPadding, top = 64.dp)
+        )
 
         KidsHelpButton(
             onClick = {
@@ -221,6 +256,62 @@ private fun BoxScope.KidsTeacherInviteDialog(
                 }
             }
         }
+    }
+}
+
+// ============================================================
+// 미니게임 진입 버튼
+// ============================================================
+// 높이는 도움 버튼과 같은 50, 폭은 둘이 나란히 서서 329를 채운다.
+@Composable
+private fun KidsMinigameButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .width(KidsContentWidth)
+            .height(KidsItemHeight)
+            .clip(RoundedCornerShape(KidsCorner))
+            .background(Normal)
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = White
+        )
+    }
+}
+
+// ============================================================
+// 모니터링 진입 버튼
+// ============================================================
+// 미니게임 버튼과 달리 아이가 직접 고르는 놀이가 아니라 관찰 모드로 들어가는 입구다.
+// 그래서 하단 놀이 버튼들과 섞지 않고 위쪽에 작게 뒀다.
+@Composable
+private fun KidsMonitorButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(32.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(White)
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "모니터링",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = Normal
+        )
     }
 }
 

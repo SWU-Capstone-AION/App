@@ -41,4 +41,8 @@ object Route {
 
     // 상동행동 모니터링
     const val MONITOR = "monitor"
+
+    // 미니게임
+    const val WEED_GAME = "weed_game"
+    const val BOARD_GAME = "board_game"
 }

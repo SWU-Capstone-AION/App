@@ -63,6 +63,9 @@ fun ChildScreen(
     onOpenTeacher: () -> Unit,
     onHelp: () -> Unit,
     modifier: Modifier = Modifier,
+    // 미니게임 진입. 넘기지 않으면 버튼이 그려지지 않는다.
+    onWeedGame: (() -> Unit)? = null,
+    onBoardGame: (() -> Unit)? = null,
 ) {
     var mode by remember { mutableStateOf(ChildMode.CALM) }
 
@@ -83,6 +86,8 @@ fun ChildScreen(
                 points = points,
                 onOpenTeacher = onOpenTeacher,
                 onHelp = { onHelp(); mode = ChildMode.PROMPT },
+                onWeedGame = onWeedGame,
+                onBoardGame = onBoardGame,
                 modifier = Modifier.fillMaxSize(),
             )
             if (mode == ChildMode.PROMPT) {
@@ -98,6 +103,8 @@ private fun CalmView(
     points: Int,
     onOpenTeacher: () -> Unit,
     onHelp: () -> Unit,
+    onWeedGame: (() -> Unit)? = null,
+    onBoardGame: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val transition = rememberInfiniteTransition(label = "orb")
@@ -146,6 +153,17 @@ private fun CalmView(
                 Text("잘하고 있어요!", color = InkBlue, fontWeight = FontWeight.Bold, fontSize = 26.sp)
                 Spacer(Modifier.height(22.dp))
                 HelpButton(dark = false, onHelp = onHelp)
+
+                // 감지가 도는 동안에도 아이가 바로 놀이로 넘어갈 수 있게 둔다.
+                // 게임에 들어가면 카메라를 게임이 가져가고, 상동행동 판정은
+                // MinigameGate 로 멈춘다 (놀이 동작이 판정에 걸리기 때문).
+                if (onWeedGame != null || onBoardGame != null) {
+                    Spacer(Modifier.height(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        onWeedGame?.let { GameButton("🌿  잡초 뽑기", it) }
+                        onBoardGame?.let { GameButton("🧽  칠판 지우기", it) }
+                    }
+                }
             }
         }
     }
@@ -311,6 +329,19 @@ private fun TopBar(points: Int?, dark: Boolean, onOpenTeacher: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) { Text("👤", fontSize = 26.sp) }
         }
+    }
+}
+
+@Composable
+private fun GameButton(label: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color(0xFFFFFFFF))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 26.dp, vertical = 14.dp),
+    ) {
+        Text(label, color = InkBlue, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
     }
 }
 
