@@ -21,6 +21,7 @@ import androidx.navigation.navArgument
 import com.example.aion_app.ui.screen.home.HomeScreen
 import com.example.aion_app.ui.screen.home.ChildListScreen
 import com.example.aion_app.ui.screen.home.ChildListViewModel
+import com.example.aion_app.monitor.StereotypyDetectionHost
 import com.example.aion_app.ui.screen.kids.KidsMyPageScreen
 import com.example.aion_app.ui.screen.kids.KidsMyInfoScreen
 import com.example.aion_app.ui.screen.kids.KidsMyInfoEditScreen
@@ -387,35 +388,47 @@ fun AionNavHost() {
         composable(Route.KIDS_HOME) {
             val inviteViewModel: ChildInviteViewModel = viewModel()
 
-            // ★ 상동행동 감지 연결 지점
-            // feature/stereotypy-monitor 가 develop 에 들어오면
-            // StereotypyMonitorScreen 쪽에서 얻는 StereotypyDetector.State.anyAlarm 을
-            // stereotypyDetected 로 넘기면 된다. 지금은 카메라 없이 화면만 확인하는 단계라 false.
-            KidsHomeScreen(
-                stereotypyDetected = false,
-                points = 20,   // TODO: 실제 포인트 연결
-                invite = inviteViewModel.invite,
-                isRespondingToInvite = inviteViewModel.isResponding,
-                onInviteRespond = { accept -> inviteViewModel.respond(accept) },
-                onProfileClick = {
-                    navController.navigate(Route.KIDS_MYPAGE)
-                },
-                onHelpRequest = {
-                    // TODO: 교사에게 도움 요청 알림 전송
-                },
-                onBreathingComplete = {
-                    // TODO: 호흡 완료 보상(젤리) 지급
-                },
-                onWeedGameClick = {
-                    navController.navigate(Route.WEED_GAME)
-                },
-                onBoardGameClick = {
-                    navController.navigate(Route.BOARD_GAME)
-                },
-                onMonitorClick = {
-                    navController.navigate(Route.MONITOR)
-                }
-            )
+            // 홈 뒤에서 카메라 + 상동행동 감지를 돌린다.
+            // 감지되면 KidsHomeScreen 이 알아서 진정 제안 팝업으로 넘어간다.
+            //   감지 → 팝업 → 호흡 4회 → 홈 복귀
+            //
+            // 카메라 권한을 거부해도 홈은 그대로 동작하고 감지만 꺼진다.
+            //
+            // ⚠ enabled 를 현재 라우트로 묶는 이유
+            //   카메라는 한 번에 한 곳만 쓸 수 있다. 그런데 화면 전환 애니메이션 동안에는
+            //   나가는 화면과 들어오는 화면이 잠깐 같이 컴포지션에 남는다.
+            //   그대로 두면 모니터링/미니게임이 카메라를 잡으려는 순간 홈이 아직 붙들고 있어
+            //   바인딩이 실패한다.
+            //   navigate() 시점에 라우트가 먼저 바뀌므로, 여기서 끊으면 순서가 보장된다.
+            StereotypyDetectionHost(
+                enabled = backStackEntry?.destination?.route == Route.KIDS_HOME
+            ) { stereotypyDetected ->
+                KidsHomeScreen(
+                    stereotypyDetected = stereotypyDetected,
+                    points = 20,   // TODO: 실제 포인트 연결
+                    invite = inviteViewModel.invite,
+                    isRespondingToInvite = inviteViewModel.isResponding,
+                    onInviteRespond = { accept -> inviteViewModel.respond(accept) },
+                    onProfileClick = {
+                        navController.navigate(Route.KIDS_MYPAGE)
+                    },
+                    onHelpRequest = {
+                        // TODO: 교사에게 도움 요청 알림 전송
+                    },
+                    onBreathingComplete = {
+                        // TODO: 호흡 완료 보상(젤리) 지급
+                    },
+                    onWeedGameClick = {
+                        navController.navigate(Route.WEED_GAME)
+                    },
+                    onBoardGameClick = {
+                        navController.navigate(Route.BOARD_GAME)
+                    },
+                    onMonitorClick = {
+                        navController.navigate(Route.MONITOR)
+                    }
+                )
+            }
         }
 
         // ===== 아동용 마이페이지 =====
