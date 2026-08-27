@@ -86,7 +86,15 @@ service cloud.firestore {
           && isEmpty(request.resource.data, 'pendingTeacherId')
           && (request.resource.data.get('teacherId', null)
                 == resource.data.get('pendingTeacherId', null)
-              || isEmpty(request.resource.data, 'teacherId')));
+              || isEmpty(request.resource.data, 'teacherId')))
+
+        // (4) 교사가 담당 아동 연결을 해제하는 경우.
+        //     자기가 담당하던 아이만 놓을 수 있고, 비우는 것만 가능하다.
+        //     (다른 교사에게 넘기거나 가로챌 수 없음)
+        || (isSignedIn()
+          && onlyChanges(['teacherId'])
+          && resource.data.get('teacherId', null) == request.auth.uid
+          && isEmpty(request.resource.data, 'teacherId'));
 
       // --- 삭제 ---
       // 앱에 탈퇴 기능이 없다. 필요하면 콘솔에서 지운다.

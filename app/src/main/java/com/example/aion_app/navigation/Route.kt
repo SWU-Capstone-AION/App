@@ -17,6 +17,7 @@ object Route {
     const val KIDS_HOME = "kids_home"    // 아동용 홈 (+ 진정 팝업 / 호흡)
 
     const val CHILD_LINK = "child_link"
+    const val CHILD_LIST = "child_list"
 
     const val PASSWORD_FIND = "password_find"
     const val PASSWORD_FIND_RESULT = "password_find_result"

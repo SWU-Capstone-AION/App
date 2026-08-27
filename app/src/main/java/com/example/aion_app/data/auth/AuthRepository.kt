@@ -42,14 +42,22 @@ interface AuthRepository {
     /** 아동에게 학급 연결을 요청한다. (아동이 수락해야 실제로 연결됨) */
     suspend fun requestChildLink(childUid: String): Result<Unit>
 
-    /** 현재 로그인한 교사에게 연결된 아동 목록 */
-    suspend fun getMyChildren(): Result<List<LinkedChild>>
-
     /** 아동 앱에서 호출 — 받아둔 초대가 있으면 돌려준다. */
     suspend fun getPendingInvite(): Result<TeacherInvite?>
 
     /** 아동 앱에서 호출 — 초대 수락 또는 거절 */
     suspend fun respondToInvite(accept: Boolean): Result<Unit>
+
+    /** 현재 로그인한 교사에게 연결된 아동 목록 */
+    suspend fun getMyChildren(): Result<List<LinkedChild>>
+
+    /**
+     * 담당 아동 연결을 해제한다.
+     *
+     * 아동 계정 자체는 지우지 않는다. teacherId만 비우므로
+     * 아이는 계속 태블릿을 쓸 수 있고 나중에 다시 연결할 수도 있다.
+     */
+    suspend fun unlinkChild(childUid: String): Result<Unit>
 
     /** 로그아웃. 이 기기로 알림이 계속 가지 않도록 FCM 토큰도 지운다. */
     suspend fun logout()
@@ -169,6 +177,18 @@ class FakeAuthRepository : AuthRepository {
         return Result.success(Unit)
     }
 
+    override suspend fun getPendingInvite(): Result<TeacherInvite?> {
+        delay(400)
+        return Result.success(
+            TeacherInvite(teacherUid = "fake-teacher-uid", teacherName = "박서연")
+        )
+    }
+
+    override suspend fun respondToInvite(accept: Boolean): Result<Unit> {
+        delay(500)
+        return Result.success(Unit)
+    }
+
     override suspend fun getMyChildren(): Result<List<LinkedChild>> {
         delay(400)
         return Result.success(
@@ -179,15 +199,8 @@ class FakeAuthRepository : AuthRepository {
         )
     }
 
-    override suspend fun getPendingInvite(): Result<TeacherInvite?> {
+    override suspend fun unlinkChild(childUid: String): Result<Unit> {
         delay(400)
-        return Result.success(
-            TeacherInvite(teacherUid = "fake-teacher-uid", teacherName = "박서연")
-        )
-    }
-
-    override suspend fun respondToInvite(accept: Boolean): Result<Unit> {
-        delay(500)
         return Result.success(Unit)
     }
 
