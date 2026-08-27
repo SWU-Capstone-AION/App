@@ -372,13 +372,17 @@ fun AionNavHost() {
                 },
                 onBoardGameClick = {
                     navController.navigate(Route.BOARD_GAME)
+                },
+                onMonitorClick = {
+                    navController.navigate(Route.MONITOR)
                 }
             )
         }
 
         // ===== 상동행동 모니터링 =====
-        // 아직 다른 화면에서 이 경로로 이동하는 진입점은 없다.
-        // 위쪽 startDestination 주석을 풀면 바로 이 화면부터 실행된다.
+        // 아동용 홈 좌상단 '모니터링' 버튼으로 들어온다.
+        // 게임과 같은 카메라 스트림을 쓰므로 동시 실행은 안 되지만,
+        // 화면을 오갈 때 카메라 인계는 정상 동작한다(실기기 확인).
         composable(Route.MONITOR) {
             StereotypyMonitorScreen()
         }

@@ -59,7 +59,9 @@ fun KidsHomeScreen(
     // 잡초 뽑기 미니게임으로 이동
     onWeedGameClick: () -> Unit = {},
     // 칠판 지우기 미니게임으로 이동
-    onBoardGameClick: () -> Unit = {}
+    onBoardGameClick: () -> Unit = {},
+    // 상동행동 모니터링 화면으로 이동
+    onMonitorClick: () -> Unit = {}
 ) {
     var mode by remember { mutableStateOf(KidsHomeMode.CALM) }
 
@@ -137,6 +139,14 @@ fun KidsHomeScreen(
             )
         }
 
+        // 모니터링 진입. 아이가 늘 쓰는 기능이 아니라서 로고 아래 작게 둔다.
+        KidsMonitorButton(
+            onClick = onMonitorClick,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = KidsScreenPadding, top = 64.dp)
+        )
+
         KidsHelpButton(
             onClick = {
                 onHelpRequest()
@@ -179,6 +189,34 @@ private fun KidsMinigameButton(
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = White
+        )
+    }
+}
+
+// ============================================================
+// 모니터링 진입 버튼
+// ============================================================
+// 미니게임 버튼과 달리 아이가 직접 고르는 놀이가 아니라 관찰 모드로 들어가는 입구다.
+// 그래서 하단 놀이 버튼들과 섞지 않고 위쪽에 작게 뒀다.
+@Composable
+private fun KidsMonitorButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(32.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(White)
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "모니터링",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = Normal
         )
     }
 }
