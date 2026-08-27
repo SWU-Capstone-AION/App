@@ -32,6 +32,7 @@ data class WeedView(
 data class GameSnapshot(
     val weeds: List<WeedView> = emptyList(),
     override val wrists: List<Vec2> = emptyList(),
+    override val handSize: Float = 0f,
     val pulled: Int = 0,
     val total: Int = 0,
     override val progress: Float = 0f,
@@ -51,6 +52,8 @@ class WeedGameEngine(
     private val maxRadiusInS: Float = 1.35f,
     /** 위쪽 반원에 배치할 비율. 앉은 자세면 아래쪽은 책상에 가린다. */
     private val upperHalfBias: Float = 0.7f,
+    /** 손 아이콘 크기 (S 배수). 잡초(0.35S)보다 작아야 무엇을 잡는지 가리지 않는다. */
+    private val handSizeInS: Float = 0.26f,
     /** 잡초 높이 (S 배수) */
     private val weedHeightInS: Float = 0.35f,
     /** 히트박스 가로 반폭 (S 배수) */
@@ -321,6 +324,7 @@ class WeedGameEngine(
         return GameSnapshot(
             weeds = weeds.map { WeedView(it.id, it.pos, weedHeightInS * anchorS, it.state) },
             wrists = wrists,
+            handSize = handSizeInS * anchorS,
             pulled = pulledCount,
             total = total,
             progress = progress,

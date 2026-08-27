@@ -35,7 +35,6 @@ fun WeedGameScreen(
         title = "잡초를 전부 뽑아보자!",
         clearedMessage = "다 뽑았어! 잘했어",
         onExit = onExit,
-        onRestart = { engine.reset() },
         onForceClear = { engine.forceClear() },
         onGameStateChanged = onGameStateChanged,
         update = { pose, nowMs -> engine.update(pose, nowMs) },

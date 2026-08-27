@@ -38,7 +38,6 @@ fun BoardGameScreen(
         title = "칠판을 깨끗하게 지워보자!",
         clearedMessage = "칠판이 반짝반짝해! 잘했어",
         onExit = onExit,
-        onRestart = { engine.reset() },
         onForceClear = { engine.forceClear() },
         onGameStateChanged = onGameStateChanged,
         update = { pose, nowMs -> engine.update(pose, nowMs) },

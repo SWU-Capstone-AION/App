@@ -14,6 +14,8 @@ interface MinigameStatus {
     /** 어깨가 잡히는가. 안 잡히면 아이가 자리에 없는 것으로 본다. */
     val poseVisible: Boolean
     val wrists: List<Vec2>
+    /** 손 아이콘 크기(픽셀). 어깨폭 기준이라 아이가 가까이 오면 함께 커진다. */
+    val handSize: Float
     val nudge: Nudge
     val cleared: Boolean
 }

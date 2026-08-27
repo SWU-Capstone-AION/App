@@ -36,10 +36,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -55,6 +55,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
+
+/**
+ * 손 아이콘용 Paint. 프레임마다 새로 만들면 낭비라 한 번만 만들어 재사용한다.
+ * 그리기는 UI 스레드에서만 일어나므로 공유해도 안전하다.
+ */
+private val handPaint = android.graphics.Paint().apply {
+    isAntiAlias = true
+    textAlign = android.graphics.Paint.Align.CENTER
+}
 
 private val PillBackground = Color(0xE6E0E0E0)
 private val PillText = Color(0xFF1A1A1A)
@@ -74,7 +83,6 @@ private val FillColor = Color(0xFFB0B0B0)
  * @param update 매 프레임 호출. **MediaPipe 결과 콜백(백그라운드 스레드)에서 돌아간다.**
  * @param draw 게임 그래픽. Canvas 안에서 호출된다.
  * @param onExit X 버튼을 눌렀을 때 (홈으로 복귀)
- * @param onRestart 완료 화면의 다시 하기 버튼
  * @param onForceClear 좌상단 구석 길게 누르기 — 인식이 안 될 때 쓰는 탈출구
  * @param onGameStateChanged 게임 진입/종료 알림. 상동행동 판정을 일시정지시키는 데 쓴다.
  *                           놀이 동작이 팔의 반복 운동이라 감지기에 그대로 걸리기 때문.
@@ -85,7 +93,6 @@ fun <S : MinigameStatus> PoseGameHost(
     title: String,
     clearedMessage: String,
     onExit: () -> Unit,
-    onRestart: () -> Unit,
     onForceClear: () -> Unit,
     onGameStateChanged: (Boolean) -> Unit,
     update: (PoseInput, Long) -> S,
@@ -203,16 +210,7 @@ fun <S : MinigameStatus> PoseGameHost(
         ) {
             if (state != null) {
                 draw(this, state)
-                if (showDebug) {
-                    state.wrists.forEach { wrist ->
-                        drawCircle(
-                            color = Color(0x99FF7043),
-                            radius = 22f,
-                            center = Offset(wrist.x, wrist.y),
-                            style = Stroke(width = 4f),
-                        )
-                    }
-                }
+                drawHands(state)
             }
         }
 
@@ -274,13 +272,36 @@ fun <S : MinigameStatus> PoseGameHost(
         }
 
         if (state?.cleared == true) {
-            ClearedOverlay(message = clearedMessage, onRestart = onRestart)
+            ClearedOverlay(message = clearedMessage, onExit = onExit)
         }
     }
 }
 
+/**
+ * 손목 위치에 손바닥 아이콘을 그린다.
+ * 아이가 "내 손이 저기구나"를 한눈에 알아야 해서 크게 그리고, 배경이 밝든 어둡든
+ * 보이도록 그림자를 깐다. 크기는 어깨폭 기준이라 아이가 가까이 오면 함께 커진다.
+ */
+private fun DrawScope.drawHands(state: MinigameStatus) {
+    val handSize = state.handSize
+    if (handSize <= 1f) return
+
+    handPaint.textSize = handSize
+    handPaint.setShadowLayer(handSize * 0.12f, 0f, handSize * 0.03f, android.graphics.Color.argb(140, 0, 0, 0))
+    val metrics = handPaint.fontMetrics
+    val baselineOffset = -(metrics.ascent + metrics.descent) / 2f
+
+    drawIntoCanvas { canvas ->
+        state.wrists.forEach { wrist ->
+            canvas.nativeCanvas.drawText(HAND_ICON, wrist.x, wrist.y + baselineOffset, handPaint)
+        }
+    }
+}
+
+private const val HAND_ICON = "✋"
+
 @Composable
-private fun BoxScope.ClearedOverlay(message: String, onRestart: () -> Unit) {
+private fun BoxScope.ClearedOverlay(message: String, onExit: () -> Unit) {
     Box(
         Modifier.fillMaxSize().background(Color(0x99000000)),
         contentAlignment = Alignment.Center,
@@ -291,10 +312,10 @@ private fun BoxScope.ClearedOverlay(message: String, onRestart: () -> Unit) {
                 Modifier
                     .padding(top = 24.dp)
                     .background(Color.White, RoundedCornerShape(24.dp))
-                    .clickable { onRestart() }
+                    .clickable { onExit() }
                     .padding(horizontal = 32.dp, vertical = 14.dp)
             ) {
-                Text("다시 하기", color = PillText, fontSize = 18.sp)
+                Text("종료", color = PillText, fontSize = 18.sp)
             }
         }
     }

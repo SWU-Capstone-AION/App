@@ -35,6 +35,7 @@ data class BoardSnapshot(
     /** 지우개 반경(픽셀). 아이가 어디를 문지르는지 보여주는 데 쓴다. */
     val eraserRadius: Float = 0f,
     override val wrists: List<Vec2> = emptyList(),
+    override val handSize: Float = 0f,
     override val progress: Float = 0f,
     override val poseVisible: Boolean = false,
     override val nudge: Nudge = Nudge.NONE,
@@ -50,6 +51,8 @@ class BoardGameEngine(
     private val boardHeightInS: Float = 2.0f,
     /** 칠판 중심을 어깨 중심에서 위로 올리는 양 (S 배수). 앉은 자세면 아래쪽은 책상에 가린다. */
     private val boardLiftInS: Float = 0.45f,
+    /** 손 아이콘 크기 (S 배수). 아이가 한눈에 알아볼 만큼 크게. */
+    private val handSizeInS: Float = 0.55f,
     /** 지우개 반경 (S 배수). 손 하나가 덮는 크기. */
     private val eraserRadiusInS: Float = 0.3f,
     /** 지우개 한가운데가 닿았을 때 초당 지워지는 양. 낮추면 여러 번 문질러야 한다. */
@@ -250,6 +253,7 @@ class BoardGameEngine(
             cells = cells,
             eraserRadius = eraserRadius,
             wrists = wrists,
+            handSize = handSizeInS * anchorS,
             progress = progress.coerceIn(0f, 1f),
             poseVisible = poseVisible,
             nudge = nudge,

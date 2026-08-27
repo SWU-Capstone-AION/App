@@ -139,23 +139,13 @@ fun StereotypyMonitorScreen(
                         running = true
                     },
                     onStop = { running = false },
+                    onBack = { teacherMode = false },
                     modifier = Modifier.fillMaxSize(),
                 )
                 AlarmBanner(
                     show = running && detState?.anyAlarm == true,
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = 60.dp),
                 )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(12.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xCC02070E))
-                        .clickable { teacherMode = false }
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text("◀ 아동 화면", color = Color(0xFF34C6FF))
-                }
             } else {
                 ChildScreen(
                     alarm = running && detState?.anyAlarm == true,

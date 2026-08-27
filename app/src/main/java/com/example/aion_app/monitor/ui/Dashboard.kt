@@ -65,10 +65,11 @@ fun Dashboard(
     running: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
-        TopBar(state, fps, inferenceMs, running, onStart, onStop)
+        TopBar(state, fps, inferenceMs, running, onStart, onStop, onBack)
         Row(modifier = Modifier.fillMaxWidth().weight(1f).padding(8.dp)) {
             // 좌측 클러스터
             Column(
@@ -100,6 +101,7 @@ private fun TopBar(
     running: Boolean,
     onStart: () -> Unit,
     onStop: () -> Unit,
+    onBack: (() -> Unit)? = null,
 ) {
     val (statusText, statusColor) = when {
         !running -> "대기 중" to InkDim
@@ -121,6 +123,10 @@ private fun TopBar(
             Text("STEREOTYPY MONITORING", color = Blue, fontSize = 12.sp, fontFamily = Mono)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // 아동 화면으로 돌아가기. 하단에 두면 눈에 안 띄어서 정지 버튼 옆에 붙였다.
+            if (onBack != null) {
+                PillButton("◀ 뒤로", Blue) { onBack() }
+            }
             PillButton(if (running) "■ 정지" else "▶ 시작", if (running) Red else Blue) {
                 if (running) onStop() else onStart()
             }
