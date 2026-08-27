@@ -42,4 +42,5 @@ object Route {
 
     // 미니게임
     const val WEED_GAME = "weed_game"
+    const val BOARD_GAME = "board_game"
 }

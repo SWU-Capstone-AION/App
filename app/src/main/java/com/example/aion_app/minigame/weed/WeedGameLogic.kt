@@ -1,5 +1,9 @@
 package com.example.aion_app.minigame.weed
 
+import com.example.aion_app.minigame.MinigameStatus
+import com.example.aion_app.minigame.Nudge
+import com.example.aion_app.minigame.PoseInput
+import com.example.aion_app.minigame.Vec2
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
@@ -15,26 +19,7 @@ import kotlin.random.Random
  * 스케일 기준: S = 두 어깨 사이의 픽셀 거리
  */
 
-data class Vec2(val x: Float, val y: Float)
-
 enum class WeedState { IDLE, GRABBED, PULLED }
-
-enum class Nudge { NONE, KEEP_GOING, HOW_TO_QUIT }
-
-/**
- * 매 프레임 엔진에 들어오는 입력. 화면 픽셀 좌표.
- *
- * [viewWidth]/[viewHeight] 는 잡초를 화면 안에 가둬 두는 데 쓴다.
- * 0 이면 제한 없이 몸 기준 반경 그대로 놓는다(단위 테스트용).
- */
-data class PoseInput(
-    val leftShoulder: Vec2? = null,
-    val rightShoulder: Vec2? = null,
-    val leftWrist: Vec2? = null,
-    val rightWrist: Vec2? = null,
-    val viewWidth: Float = 0f,
-    val viewHeight: Float = 0f,
-)
 
 /** 매 프레임 엔진이 뱉는 출력. UI는 이것만 보고 그린다. */
 data class WeedView(
@@ -46,14 +31,14 @@ data class WeedView(
 
 data class GameSnapshot(
     val weeds: List<WeedView> = emptyList(),
-    val wrists: List<Vec2> = emptyList(),
+    override val wrists: List<Vec2> = emptyList(),
     val pulled: Int = 0,
     val total: Int = 0,
-    val progress: Float = 0f,
-    val poseVisible: Boolean = false,
-    val nudge: Nudge = Nudge.NONE,
-    val cleared: Boolean = false,
-)
+    override val progress: Float = 0f,
+    override val poseVisible: Boolean = false,
+    override val nudge: Nudge = Nudge.NONE,
+    override val cleared: Boolean = false,
+) : MinigameStatus
 
 class WeedGameEngine(
     /** 생성할 잡초 개수. 목업보다 적은 게 맞다 — 너무 많으면 겹쳐서 구분이 안 된다. */

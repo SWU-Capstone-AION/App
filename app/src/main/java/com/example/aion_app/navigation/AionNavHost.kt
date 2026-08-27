@@ -38,6 +38,7 @@ import com.example.aion_app.ui.screen.kids.KidsHomeScreen
 import com.example.aion_app.monitor.StereotypyMonitorScreen
 import com.example.aion_app.monitor.pose.MinigameGate
 import com.example.aion_app.minigame.weed.WeedGameScreen
+import com.example.aion_app.minigame.board.BoardGameScreen
 
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aion_app.ui.screen.mypage.MyInfoViewModel
@@ -87,6 +88,7 @@ fun AionNavHost() {
         // startDestination = Route.ID_FIND    // 아이디 찾기 테스트용
         // startDestination = Route.MONITOR   // 상동행동 모니터링 화면 테스트용 (카메라 필요, 실기기 권장)
         // startDestination = Route.WEED_GAME // 잡초 뽑기 미니게임 테스트용 (카메라 필요, 실기기 권장)
+        // startDestination = Route.BOARD_GAME // 칠판 지우기 미니게임 테스트용 (카메라 필요, 실기기 권장)
     ) {
         // ===== 하단탭 공용 이동 로직 =====
         // (지역변수라 선언보다 아래에서만 참조 가능 → NavHost 블록 맨 위에 둠)
@@ -367,6 +369,9 @@ fun AionNavHost() {
                 },
                 onWeedGameClick = {
                     navController.navigate(Route.WEED_GAME)
+                },
+                onBoardGameClick = {
+                    navController.navigate(Route.BOARD_GAME)
                 }
             )
         }
@@ -378,12 +383,20 @@ fun AionNavHost() {
             StereotypyMonitorScreen()
         }
 
-        // ===== 미니게임: 잡초 뽑기 =====
-        // onGameStateChanged 는 반드시 연결해 둔다.
-        // 뽑는 동작이 팔 상하 반복이라 상동행동 판정에 그대로 걸리기 때문에,
+        // ===== 미니게임 =====
+        // onGameStateChanged 는 두 게임 모두 반드시 연결해 둔다.
+        // 놀이 동작(팔 상하 반복 / 좌우 문지르기)이 상동행동 판정에 그대로 걸리기 때문에,
         // 게임 중에는 MinigameGate 로 판정을 멈춘다.
         composable(Route.WEED_GAME) {
             WeedGameScreen(
+                onExit = { navController.popBackStack() },
+                onGameStateChanged = { playing -> MinigameGate.active = playing },
+                showDebug = true,   // TODO: 배포 시 false (손목 위치 원 표시)
+            )
+        }
+
+        composable(Route.BOARD_GAME) {
+            BoardGameScreen(
                 onExit = { navController.popBackStack() },
                 onGameStateChanged = { playing -> MinigameGate.active = playing },
                 showDebug = true,   // TODO: 배포 시 false (손목 위치 원 표시)
