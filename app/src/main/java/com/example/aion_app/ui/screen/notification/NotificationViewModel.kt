@@ -7,11 +7,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aion_app.data.alert.AlertDto
 import com.example.aion_app.data.alert.AlertRepository
+import com.example.aion_app.data.alert.parseIsoDate
+import com.example.aion_app.data.alert.toDateGroup
+import com.example.aion_app.data.alert.toRelativeTime
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
 
 // ============================================
 // 알림센터용 ViewModel
@@ -81,10 +80,7 @@ class NotificationViewModel(
     }
 }
 
-// ============================================
-// 서버 응답 → 화면 모델 변환
-// ============================================
-
+/** 서버 응답 → 알림센터 화면 모델 */
 private fun AlertDto.toNotificationItem(): NotificationItem {
     val occurred = parseIsoDate(occurredAt)
 
@@ -101,49 +97,4 @@ private fun AlertDto.toNotificationItem(): NotificationItem {
         dateGroup = occurred.toDateGroup(),
         timeText = occurred.toRelativeTime(),
     )
-}
-
-/** "2026-08-27T10:03:00+09:00" → Date. 파싱 실패하면 현재 시각. */
-private fun parseIsoDate(text: String): Date {
-    val patterns = listOf(
-        "yyyy-MM-dd'T'HH:mm:ssXXX",
-        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
-    )
-    for (pattern in patterns) {
-        runCatching {
-            return SimpleDateFormat(pattern, Locale.KOREA).parse(text)!!
-        }
-    }
-    return Date()
-}
-
-/** "오늘 · 8월 27일" / "어제 · 8월 26일" / "8월 20일" */
-private fun Date.toDateGroup(): String {
-    val label = SimpleDateFormat("M월 d일", Locale.KOREA).format(this)
-
-    val target = Calendar.getInstance().apply { time = this@toDateGroup }
-    val today = Calendar.getInstance()
-    val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
-
-    return when {
-        target.isSameDay(today) -> "오늘 · $label"
-        target.isSameDay(yesterday) -> "어제 · $label"
-        else -> label
-    }
-}
-
-private fun Calendar.isSameDay(other: Calendar): Boolean =
-    get(Calendar.YEAR) == other.get(Calendar.YEAR) &&
-            get(Calendar.DAY_OF_YEAR) == other.get(Calendar.DAY_OF_YEAR)
-
-/** "방금 전" / "5분 전" / "3시간 전" / "2일 전" */
-private fun Date.toRelativeTime(): String {
-    val minutes = (System.currentTimeMillis() - time) / 60_000
-
-    return when {
-        minutes < 1 -> "방금 전"
-        minutes < 60 -> "${minutes}분 전"
-        minutes < 60 * 24 -> "${minutes / 60}시간 전"
-        else -> "${minutes / (60 * 24)}일 전"
-    }
 }

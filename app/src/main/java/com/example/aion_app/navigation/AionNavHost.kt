@@ -454,10 +454,12 @@ fun AionNavHost() {
             val homeViewModel: HomeViewModel = viewModel()
 
             // 다른 화면에서 돌아왔을 때 최신 정보로 갱신한다.
-            // (마이페이지에서 이름을 바꿨거나, 아동을 새로 연결했을 수 있다)
+            // (마이페이지에서 이름을 바꿨거나, 아동을 새로 연결했거나,
+            //  알림센터에서 알림을 지웠을 수 있다)
             LaunchedEffect(Unit) {
                 myInfoViewModel.load()
                 homeViewModel.loadChildren()
+                homeViewModel.loadAlerts()
             }
 
             val students = homeViewModel.students
@@ -467,12 +469,13 @@ fun AionNavHost() {
                     teacherName = myInfoViewModel.myInfo.name,
                     date = todayText()
                 ),
+                recentAlert = homeViewModel.recentAlert,
                 students = students,
                 classStats = ClassStats(
                     activeCount = students.count { it.status == StudentStatus.ACTIVE },
                     totalCount = students.size,
-                    cautionCount = 0,   // TODO: 서버에서 오늘 감지 건수 받아오기
-                    dangerCount = 0
+                    cautionCount = homeViewModel.todayCautionCount,
+                    dangerCount = homeViewModel.todayDangerCount
                 ),
                 dangerAlert = dangerAlert?.let { alert ->
                     Student(
@@ -491,7 +494,8 @@ fun AionNavHost() {
                     navController.navigate(Route.NOTIFICATION)
                 },
                 onAlertClick = {
-                    // TODO: 알림 상세로 이동
+                    // 배너를 누르면 알림센터로
+                    navController.navigate(Route.NOTIFICATION)
                 },
                 onStudentClick = { student ->
                     // TODO: 학생 상세로 이동
