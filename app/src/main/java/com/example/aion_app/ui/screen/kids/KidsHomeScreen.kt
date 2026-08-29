@@ -1,5 +1,6 @@
 package com.example.aion_app.ui.screen.kids
 
+import android.os.SystemClock
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -46,11 +47,32 @@ import com.example.aion_app.ui.theme.White
 //   BREATHING 호흡 가이드 (KidsBreathingScreen.kt)
 private enum class KidsHomeMode { CALM, PROMPT, BREATHING }
 
+// 진정 팝업을 띄운 뒤 다음 팝업까지 최소 간격.
+//
+// StereotypyDetector 의 anyAlarm 은 흔들림이 이어지는 동안 계속 true 로 남는다.
+// 쿨다운이 없으면 호흡을 마치고 홈으로 돌아오자마자 팝업이 다시 떠서
+// 아이가 화면에 갇히게 된다.
+//
+// ⚠ 30초는 임시값이다. 실제 아동 반응을 보고 팀에서 정할 것.
+//   (KidsBreathTimeoutMs 와 함께 조정 필요)
+const val KidsPromptCooldownMs = 30_000L
+
+// 구체 + 문구 묶음을 화면 정중앙보다 위로 올리는 양.
+//
+// 정중앙(Alignment.Center)에 두면 시안 프레임(930x582) 기준으로
+//   구체+문구    143 ~ 439
+//   미니게임 버튼 432 ~ 482
+// 라서 문구가 버튼 위로 파고든다. 글로우는 requiredSize 라 레이아웃에 잡히지도 않고
+// 그대로 버튼 위까지 번진다.
+//
+// 위로 50 올리면 문구 하단이 389 가 되어 버튼까지 43dp 여유가 생긴다.
+private val KidsHomeOrbOffsetY = (-50).dp
+
 @Composable
 fun KidsHomeScreen(
-    // ===== 상동행동 감지 연결 지점 ★ =====
-    // feature/stereotypy-monitor 의 StereotypyDetector.State.anyAlarm 을 그대로 넘기면 된다.
-    // 지금은 호출부에서 가짜 값을 주고 있어 카메라 없이도 화면 확인이 가능하다.
+    // ===== 상동행동 감지 =====
+    // StereotypyDetectionHost 가 넘겨주는 StereotypyDetector.State.anyAlarm.
+    // 기본값 false 라 프리뷰/에뮬레이터에서는 카메라 없이도 화면 확인이 된다.
     stereotypyDetected: Boolean = false,
     points: Int = 0,
     // 선생님이 보낸 학급 초대. null 이 아니면 팝업이 뜬다.
@@ -71,11 +93,22 @@ fun KidsHomeScreen(
 ) {
     var mode by remember { mutableStateOf(KidsHomeMode.CALM) }
 
+    // 마지막으로 팝업을 띄운 시각. 쿨다운 판단에만 쓴다.
+    var lastPromptAt by remember { mutableLongStateOf(0L) }
+
     // 감지되면 자동으로 진정 제안 팝업. 이미 팝업/호흡 중이면 방해하지 않는다.
-    LaunchedEffect(stereotypyDetected) {
-        if (stereotypyDetected && mode == KidsHomeMode.CALM) {
-            mode = KidsHomeMode.PROMPT
-        }
+    //
+    // mode 도 키에 넣어야 한다. 호흡을 마치고 CALM 으로 돌아왔을 때
+    // 아직 흔들림이 이어지고 있으면(anyAlarm 계속 true) 다시 판단해야 하기 때문.
+    // 대신 쿨다운으로 연속 재발동을 막는다.
+    LaunchedEffect(stereotypyDetected, mode) {
+        if (!stereotypyDetected || mode != KidsHomeMode.CALM) return@LaunchedEffect
+
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastPromptAt < KidsPromptCooldownMs) return@LaunchedEffect
+
+        lastPromptAt = now
+        mode = KidsHomeMode.PROMPT
     }
 
     if (mode == KidsHomeMode.BREATHING) {
@@ -97,7 +130,9 @@ fun KidsHomeScreen(
         )
 
         Column(
-            modifier = Modifier.align(Alignment.Center),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = KidsHomeOrbOffsetY),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // 아주 느린 숨쉬기 애니메이션 (평소에도 살아있는 느낌)
