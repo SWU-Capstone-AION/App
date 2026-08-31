@@ -314,6 +314,8 @@ fun AionNavHost() {
             val loginViewModel: LoginViewModel = viewModel()
 
             KidsLoginScreen(
+                isLoading = loginViewModel.isLoading,
+                errorMessage = loginViewModel.errorMessage,
                 onTeacherClick = {
                     // 토글에서 '교사용' → 교사용 로그인 화면으로
                     navController.navigate(Route.SIGN_UP) {
