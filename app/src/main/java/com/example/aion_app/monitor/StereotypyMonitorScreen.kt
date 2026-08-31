@@ -3,12 +3,13 @@ package com.example.aion_app.monitor
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.SystemClock
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,7 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.aion_app.monitor.audio.AlarmSound
 import com.example.aion_app.monitor.camera.PoseCameraView
@@ -34,26 +37,34 @@ import com.example.aion_app.monitor.pose.PoseIndex
 import com.example.aion_app.monitor.pose.PoseLandmarkerHelper
 import com.example.aion_app.monitor.pose.StereotypyDetector
 import com.example.aion_app.monitor.ui.AlarmBanner
-import com.example.aion_app.monitor.ui.ChildScreen
 import com.example.aion_app.monitor.ui.Dashboard
 import com.example.aion_app.monitor.ui.PoseOverlay
 
-/**
- * 메인 앱에 삽입되는 상동행동 모니터링 화면 진입점.
- * 기본은 아동 화면(구/호흡)이며, 우상단 프로필로 선생님 대시보드로 전환한다.
- * 검출(팔/머리/몸통)은 두 화면 모두에서 백그라운드로 계속 동작.
- */
+// ============================================================
+// 상동행동 모니터링(인식) 화면
+// ============================================================
+// 아동용 홈(KidsHomeScreen) 좌상단 '모니터링' 버튼으로 들어온다.
+//
+// 이 화면은 '인식 결과를 보여주는 화면'만 담당한다.
+//   카메라 프리뷰 + 스켈레톤 오버레이 + 판정 대시보드(HUD)
+//
+// 아동이 평소에 보는 화면(구체 / 진정 팝업 / 호흡)은 KidsHomeScreen 하나로 합쳤다.
+// 예전에는 여기서도 ChildScreen 으로 같은 화면을 한 번 더 그려서 아동 홈이 두 개였는데,
+// 그쪽은 삭제했다. 홈 뒤에서 도는 감지는 StereotypyDetectionHost 가 맡는다.
+//
+// ⚠ 카메라는 한 번에 한 곳만 쓸 수 있다.
+//   홈 → 모니터링 이동 시 홈의 StereotypyDetectionHost 가 먼저 카메라를 놓아준다.
+//   (AionNavHost 에서 enabled 를 현재 라우트로 묶어 순서를 보장한다)
 @Composable
 fun StereotypyMonitorScreen(
     modifier: Modifier = Modifier,
-    onWeedGame: (() -> Unit)? = null,
-    onBoardGame: (() -> Unit)? = null,
+    onBack: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                PackageManager.PERMISSION_GRANTED
+                    PackageManager.PERMISSION_GRANTED
         )
     }
     val launcher = rememberLauncherForActivityResult(
@@ -73,7 +84,6 @@ fun StereotypyMonitorScreen(
     var running by remember { mutableStateOf(true) }
     val alarmSound = remember { AlarmSound() }
     val lastAlarmCount = remember { intArrayOf(0) }
-    var teacherMode by remember { mutableStateOf(false) } // false=아동 화면, true=선생님 대시보드
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
         if (hasCameraPermission) {
@@ -120,48 +130,71 @@ fun StereotypyMonitorScreen(
                 },
                 onError = { status = it },
             )
-            if (teacherMode) {
-                PoseOverlay(
-                    result = bundle?.result,
-                    imageWidth = bundle?.inputImageWidth ?: 0,
-                    imageHeight = bundle?.inputImageHeight ?: 0,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                Dashboard(
-                    state = detState,
-                    fps = fps,
-                    inferenceMs = bundle?.inferenceTimeMs,
-                    running = running,
-                    onStart = {
-                        detector.reset()
-                        detState = null
-                        lastAlarmCount[0] = 0
-                        running = true
-                    },
-                    onStop = { running = false },
-                    onBack = { teacherMode = false },
-                    modifier = Modifier.fillMaxSize(),
-                )
-                AlarmBanner(
-                    show = running && detState?.anyAlarm == true,
-                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 60.dp),
-                )
-            } else {
-                ChildScreen(
-                    alarm = running && detState?.anyAlarm == true,
-                    points = 20,
-                    onOpenTeacher = { teacherMode = true },
-                    onHelp = {
-                        Toast.makeText(context, "선생님께 도움을 요청했어요", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier.fillMaxSize(),
-                    onWeedGame = onWeedGame,
-                    onBoardGame = onBoardGame,
+
+            PoseOverlay(
+                result = bundle?.result,
+                imageWidth = bundle?.inputImageWidth ?: 0,
+                imageHeight = bundle?.inputImageHeight ?: 0,
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            // 대시보드 상단 '뒤로'로 아동 홈에 돌아간다.
+            Dashboard(
+                state = detState,
+                fps = fps,
+                inferenceMs = bundle?.inferenceTimeMs,
+                running = running,
+                onStart = {
+                    detector.reset()
+                    detState = null
+                    lastAlarmCount[0] = 0
+                    running = true
+                },
+                onStop = { running = false },
+                onBack = onBack,
+                modifier = Modifier.fillMaxSize(),
+            )
+
+            AlarmBanner(
+                show = running && detState?.anyAlarm == true,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 60.dp),
+            )
+
+            // 모델 로드 실패 등은 하단에 조용히 표시만 한다.
+            if (status.isNotBlank()) {
+                Text(
+                    text = status,
+                    color = Color(0xFFFF5A3C),
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 12.dp),
                 )
             }
         } else {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("카메라 권한이 필요합니다", color = Color.White)
+            // 권한이 없으면 인식 자체가 불가능하다. 홈으로 돌아갈 길만 남긴다.
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text("카메라 권한이 필요합니다", color = Color.White, fontSize = 16.sp)
+
+                Box(
+                    modifier = Modifier
+                        .padding(top = 16.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF34C6FF))
+                        .clickable { onBack() }
+                        .padding(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = "돌아가기",
+                        color = Color.Black,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
             }
         }
     }
