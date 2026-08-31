@@ -337,9 +337,8 @@ fun AionNavHost() {
             val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
             KidsSignUpAccountScreen(
                 onBackClick = { navController.popBackStack() },
-                onCheckDuplicate = { _ ->
-                    // TODO: 백엔드 아이디 중복확인 API 연결
-                },
+                onCheckDuplicate = { signUpViewModel.checkDuplicateId(it) },
+                duplicateMessage = signUpViewModel.idCheckMessage,
                 onNext = { userId, password ->
                     signUpViewModel.updateType("아동용")
                     signUpViewModel.updateAccount(userId, password)
