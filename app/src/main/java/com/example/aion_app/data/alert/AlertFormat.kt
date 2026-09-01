@@ -41,7 +41,8 @@ internal fun Date.toDateGroup(): String {
 
 /** "방금 전" / "5분 전" / "3시간 전" / "2일 전" */
 internal fun Date.toRelativeTime(): String {
-    val minutes = (System.currentTimeMillis() - time) / 60_000
+    // 서버와 기기의 시계가 어긋나면 음수가 나올 수 있다. 그때는 방금 전으로 본다.
+    val minutes = ((System.currentTimeMillis() - time) / 60_000).coerceAtLeast(0)
 
     return when {
         minutes < 1 -> "방금 전"
