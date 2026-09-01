@@ -20,6 +20,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // 서버 주소는 local.properties 에서 읽는다.
+        // 백엔드 담당 노트북 IP가 바뀌어도 코드를 고치지 않고 그 파일만 바꾸면 된다.
+        val serverUrl = org.jetbrains.kotlin.konan.properties.Properties().apply {
+            val file = rootProject.file("local.properties")
+            if (file.exists()) load(file.inputStream())
+        }.getProperty("aion.server.url") ?: "http://192.168.0.10:8000"
+
+        buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
     }
 
     buildTypes {
@@ -37,6 +46,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     // MediaPipe .task 모델은 압축하면 못 읽으므로 그대로 둔다 (모니터링 기능 필수)
     androidResources {
@@ -88,4 +98,9 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-messaging")
+
+    // 서버 통신 (Django 알림 API)
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    debugImplementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 }

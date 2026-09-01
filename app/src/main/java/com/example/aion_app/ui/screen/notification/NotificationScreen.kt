@@ -19,7 +19,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,18 +47,20 @@ import com.example.aion_app.ui.theme.White
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationScreen(
-    studentNames: List<String> = listOf("김지우", "이주미"),
-    notifications: List<NotificationItem> = defaultNotifications(),
+    // 필터 칩에 쓸 (childId, 이름) 목록.
+    // 동명이인이 있을 수 있어 매칭은 id로 하고 화면에는 이름만 보여준다.
+    children: List<Pair<String, String>> = emptyList(),
+    notifications: List<NotificationItem> = emptyList(),
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
     onBackClick: () -> Unit = {},
+    onDelete: (NotificationItem) -> Unit = {},
     onTabSelect: (String) -> Unit = {}     // 하단탭 이동 콜백 (이 화면만 빠져 있었음)
 ) {
     // 현재 선택된 필터
     var selectedFilter: NotificationFilter by remember {
         mutableStateOf(NotificationFilter.All)
     }
-
-    // 삭제 가능하도록 state로 관리
-    val notificationList = remember { notifications.toMutableStateList() }
 
     Scaffold(
         topBar = {
@@ -82,43 +84,89 @@ fun NotificationScreen(
 
             // 필터 칩 목록 (가로 스크롤)
             FilterChipRow(
-                studentNames = studentNames,
+                children = children,
                 selectedFilter = selectedFilter,
                 onFilterSelect = { selectedFilter = it }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 알림 목록 (날짜별 그룹핑 + 세로 스크롤)
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp)
-            ) {
-                val filteredNotifications = when (val f = selectedFilter) {
-                    is NotificationFilter.All -> notificationList
-                    is NotificationFilter.Student -> notificationList.filter { it.studentName == f.name }
+            when {
+                isLoading -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Normal,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
 
-                // 날짜별로 그룹핑 (원본 순서 유지)
-                val grouped = filteredNotifications.groupBy { it.dateGroup }
+                errorMessage != null -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = errorMessage,
+                            fontSize = 14.sp,
+                            color = GrayText,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 22.sp
+                        )
+                    }
+                }
 
-                grouped.forEach { (dateGroup, items) ->
-                    DateGroupHeader(dateText = dateGroup)
-                    Spacer(modifier = Modifier.height(8.dp))
+                else -> {
+                    // 알림 목록 (날짜별 그룹핑 + 세로 스크롤)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 20.dp)
+                    ) {
+                        val filteredNotifications = when (val f = selectedFilter) {
+                            is NotificationFilter.All -> notifications
+                            is NotificationFilter.Student ->
+                                notifications.filter { it.childId == f.childId }
+                        }
 
-                    items.forEach { notification ->
-                        key(notification.id) {
-                            SwipeableNotificationCard(
-                                item = notification,
-                                onDelete = { notificationList.remove(notification) }
+                        if (filteredNotifications.isEmpty()) {
+                            Text(
+                                text = "받은 알림이 없어요.",
+                                fontSize = 14.sp,
+                                color = GrayText,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 60.dp)
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+
+                        // 날짜별로 그룹핑 (원본 순서 유지)
+                        val grouped = filteredNotifications.groupBy { it.dateGroup }
+
+                        grouped.forEach { (dateGroup, items) ->
+                            DateGroupHeader(dateText = dateGroup)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            items.forEach { notification ->
+                                key(notification.id) {
+                                    SwipeableNotificationCard(
+                                        item = notification,
+                                        onDelete = { onDelete(notification) }
+                                    )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
@@ -130,13 +178,26 @@ fun NotificationScreen(
 @Composable
 fun NotificationScreenPreview() {
     AionTheme {
-        NotificationScreen()
+        NotificationScreen(
+            children = listOf("c1" to "김지우", "c2" to "이주미"),
+            notifications = previewNotifications()
+        )
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, device = "id:pixel_7", name = "연결 실패")
+@Composable
+fun NotificationScreenErrorPreview() {
+    AionTheme {
+        NotificationScreen(
+            errorMessage = "알림을 불러올 수 없어요.\n네트워크 연결을 확인해 주세요."
+        )
     }
 }
 
 @Composable
 private fun FilterChipRow(
-    studentNames: List<String>,
+    children: List<Pair<String, String>>,
     selectedFilter: NotificationFilter,
     onFilterSelect: (NotificationFilter) -> Unit
 ) {
@@ -152,13 +213,13 @@ private fun FilterChipRow(
             onClick = { onFilterSelect(NotificationFilter.All) }
         )
 
-        studentNames.forEach { name ->
+        children.forEach { (childId, name) ->
             Spacer(modifier = Modifier.width(8.dp))
             FilterChip(
                 label = name,
                 isSelected = selectedFilter is NotificationFilter.Student
-                        && selectedFilter.name == name,
-                onClick = { onFilterSelect(NotificationFilter.Student(name)) }
+                        && selectedFilter.childId == childId,
+                onClick = { onFilterSelect(NotificationFilter.Student(childId)) }
             )
         }
     }
@@ -353,16 +414,15 @@ private data class NotificationStyle(
     val iconRes: Int
 )
 
-// 테스트용 더미 데이터
-// - '안정 · 김지우 정상 범위' 알림을 맨 위로
-// - 맨 위 제외하고 n분 전 = 5, 8, 10, 20, 30 순서
-private fun defaultNotifications(): List<NotificationItem> = listOf(
+// 프리뷰 전용 더미 데이터
+private fun previewNotifications(): List<NotificationItem> = listOf(
     NotificationItem(
         id = "4",
         type = NotificationType.STABLE,
         message = "김지우 학생이 정상 범위로 돌아왔어요.",
         studentName = "김지우",
-        dateGroup = "오늘 · 5월 28일",
+        childId = "c1",
+        dateGroup = "오늘 · 8월 27일",
         timeText = "방금 전"
     ),
     NotificationItem(
@@ -370,55 +430,17 @@ private fun defaultNotifications(): List<NotificationItem> = listOf(
         type = NotificationType.DANGER,
         message = "즉시 상태를 확인하세요.",
         studentName = "김지우",
-        dateGroup = "오늘 · 5월 28일",
+        childId = "c1",
+        dateGroup = "오늘 · 8월 27일",
         timeText = "5분 전"
-    ),
-    NotificationItem(
-        id = "2",
-        type = NotificationType.CAUTION,
-        message = "김지우 학생의 위험점수가 상승 중이에요.",
-        studentName = "김지우",
-        dateGroup = "오늘 · 5월 28일",
-        timeText = "8분 전"
-    ),
-    NotificationItem(
-        id = "3",
-        type = NotificationType.CAUTION,
-        message = "김지우 학생의 위험점수가 상승 중이에요.",
-        studentName = "김지우",
-        dateGroup = "오늘 · 5월 28일",
-        timeText = "10분 전"
-    ),
-    NotificationItem(
-        id = "5",
-        type = NotificationType.STABLE,
-        message = "이주미 학생이 정상 범위로 돌아왔어요.",
-        studentName = "이주미",
-        dateGroup = "오늘 · 5월 28일",
-        timeText = "20분 전"
     ),
     NotificationItem(
         id = "6",
         type = NotificationType.CAUTION,
         message = "이주미 학생의 위험점수가 상승 중이에요.",
         studentName = "이주미",
-        dateGroup = "오늘 · 5월 28일",
+        childId = "c2",
+        dateGroup = "오늘 · 8월 27일",
         timeText = "30분 전"
     ),
-    NotificationItem(
-        id = "7",
-        type = NotificationType.STABLE,
-        message = "김지우 학생이 정상 범위로 돌아왔어요.",
-        studentName = "김지우",
-        dateGroup = "어제 · 5월 27일",
-        timeText = "1일 전"
-    ),
-    NotificationItem(
-        id = "8",
-        type = NotificationType.DANGER,
-        message = "즉시 상태를 확인하세요.",
-        studentName = "이주미",
-        dateGroup = "어제 · 5월 27일",
-        timeText = "1일 전"
-    )
 )
