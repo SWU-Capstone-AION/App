@@ -37,10 +37,14 @@ class AlertRepository(
         val teacherUid = auth.currentUser?.uid
             ?: throw IllegalStateException("로그인이 필요합니다.")
 
+        android.util.Log.d("AION_API", "요청: ${BuildConfig.SERVER_URL} / teacherId=$teacherUid")
+
         val response = api.getAlerts(teacherId = teacherUid, limit = limit)
         if (!response.ok) throw IllegalStateException("알림을 불러오지 못했습니다.")
 
         response.alerts
+    }.onFailure { error ->
+        android.util.Log.e("AION_API", "알림 조회 실패", error)
     }
 
     /** 알림 한 건 삭제. 서버에서도 감춰진다. */
