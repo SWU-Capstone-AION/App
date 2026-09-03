@@ -25,6 +25,8 @@ import com.example.aion_app.monitor.StereotypyDetectionHost
 import com.example.aion_app.ui.screen.kids.KidsMyPageScreen
 import com.example.aion_app.ui.screen.kids.KidsMyInfoScreen
 import com.example.aion_app.ui.screen.kids.KidsMyInfoEditScreen
+import com.example.aion_app.ui.screen.kids.KidsPasswordChangeCheckScreen
+import com.example.aion_app.ui.screen.kids.KidsPasswordChangeScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoScreen
 import com.example.aion_app.ui.screen.mypage.MyInfoEditScreen
 import com.example.aion_app.ui.screen.mypage.MyPageScreen
@@ -140,6 +142,8 @@ fun AionNavHost() {
             val isTablet = isTabletDevice(LocalContext.current)
 
             SplashScreen(
+                // 태블릿이면 아동용 스플래시 에셋으로 (가로 비율)
+                isKids = isTablet,
                 onFinish = {
                     val next = if (isTablet) Route.KIDS_LOGIN else Route.SIGN_UP
                     navController.navigate(next) {
@@ -310,6 +314,8 @@ fun AionNavHost() {
             val loginViewModel: LoginViewModel = viewModel()
 
             KidsLoginScreen(
+                isLoading = loginViewModel.isLoading,
+                errorMessage = loginViewModel.errorMessage,
                 onTeacherClick = {
                     // 토글에서 '교사용' → 교사용 로그인 화면으로
                     navController.navigate(Route.SIGN_UP) {
@@ -451,10 +457,8 @@ fun AionNavHost() {
                 onEditProfileClick = {
                     navController.navigate(Route.KIDS_MY_INFO)
                 },
-                // TODO: 비밀번호 변경은 아직 교사용(폰 크기) 화면이다.
-                //       아동용 시안이 나오면 아동용 화면으로 교체할 것.
                 onChangePasswordClick = {
-                    navController.navigate(Route.PASSWORD_CHANGE_CHECK)
+                    navController.navigate(Route.KIDS_PASSWORD_CHANGE_CHECK)
                 },
                 onLogoutClick = {
                     loginViewModel.logout {
@@ -506,6 +510,31 @@ fun AionNavHost() {
                 onSaveClick = { newInfo ->
                     viewModel.updateMyInfo(newInfo)
                     navController.popBackStack()
+                }
+            )
+        }
+
+        // ===== 아동용 비밀번호 변경 =====
+        // 마이페이지 → '비밀번호 변경'.
+        // 교사용(PASSWORD_CHANGE_CHECK / PASSWORD_CHANGE)은 폰 세로 Scaffold + 하단탭 구조라
+        // 태블릿에서 비율이 어긋난다. 아동용은 930x582 프레임으로 따로 그린 화면을 쓴다.
+        composable(Route.KIDS_PASSWORD_CHANGE_CHECK) {
+            KidsPasswordChangeCheckScreen(
+                onBackClick = { navController.popBackStack() },
+                onNextClick = { _, _ ->
+                    // TODO: 현재 비밀번호 검증(Firebase reauthenticate) 후 이동
+                    navController.navigate(Route.KIDS_PASSWORD_CHANGE)
+                }
+            )
+        }
+
+        composable(Route.KIDS_PASSWORD_CHANGE) {
+            KidsPasswordChangeScreen(
+                onBackClick = { navController.popBackStack() },
+                onChangeSuccess = {
+                    // TODO: 실제 비밀번호 변경 반영
+                    // 변경이 끝나면 확인 단계까지 걷어내고 마이페이지로 돌아간다
+                    navController.popBackStack(Route.KIDS_MYPAGE, inclusive = false)
                 }
             )
         }

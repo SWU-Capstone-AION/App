@@ -33,6 +33,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
@@ -198,6 +199,9 @@ fun KidsTextField(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     placeholder: String = "",
+    // 시안 9p 의 "변경한 비밀번호를 한 번 더 입력해 주세요" 처럼
+    // 안내 문구가 길어 본문(15)보다 작게 들어가는 칸이 있다.
+    placeholderFontSize: TextUnit = 15.sp,
     width: Dp = KidsContentWidth,
     keyboardType: KeyboardType = KeyboardType.Text,
     visualTransformation: VisualTransformation = VisualTransformation.None,
@@ -225,7 +229,7 @@ fun KidsTextField(
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 if (value.isEmpty() && placeholder.isNotEmpty()) {
-                    Text(placeholder, fontSize = 15.sp, color = GreyNormalActive)
+                    Text(placeholder, fontSize = placeholderFontSize, color = GreyNormalActive)
                 }
                 innerTextField()
             }
@@ -248,8 +252,12 @@ fun KidsPasswordField(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     placeholder: String = "",
+    placeholderFontSize: TextUnit = 15.sp,
     width: Dp = KidsContentWidth,
-    showToggle: Boolean = false
+    showToggle: Boolean = false,
+    // 눈 아이콘 대신 다른 것을 오른쪽에 놓고 싶을 때 (예: 유효성 체크 아이콘).
+    // showToggle 이 true 면 눈 아이콘이 우선한다.
+    trailingIcon: (@Composable () -> Unit)? = null
 ) {
     var visible by remember { mutableStateOf(false) }
 
@@ -258,11 +266,12 @@ fun KidsPasswordField(
         onValueChange = onValueChange,
         modifier = modifier,
         placeholder = placeholder,
+        placeholderFontSize = placeholderFontSize,
         width = width,
         keyboardType = KeyboardType.Password,
         visualTransformation = if (visible) VisualTransformation.None
         else PasswordVisualTransformation(),
-        trailingIcon = if (!showToggle) null else {
+        trailingIcon = if (!showToggle) trailingIcon else {
             {
                 Image(
                     painter = painterResource(

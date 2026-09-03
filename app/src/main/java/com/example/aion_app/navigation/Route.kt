@@ -21,6 +21,11 @@ object Route {
     const val KIDS_MY_INFO      = "kids_my_info"
     const val KIDS_MY_INFO_EDIT = "kids_my_info_edit"
 
+    // 아동용 비밀번호 변경 (시안 4p ~ 15p)
+    // 교사용 PASSWORD_CHANGE_CHECK / PASSWORD_CHANGE 는 폰 세로 기준이라 따로 둔다.
+    const val KIDS_PASSWORD_CHANGE_CHECK = "kids_password_change_check"
+    const val KIDS_PASSWORD_CHANGE       = "kids_password_change"
+
     const val CHILD_LINK = "child_link"
     const val CHILD_LIST = "child_list"
 
