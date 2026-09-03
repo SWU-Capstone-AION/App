@@ -23,6 +23,7 @@ import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.GreyLightActive
 import com.example.aion_app.ui.theme.GreyNormalActive
 import com.example.aion_app.ui.theme.LightHover
+import com.example.aion_app.ui.theme.RedError
 
 // 로고 크기 (프리뷰 보고 이 두 값만 조절하면 됨)
 private val LogoSymbolWidth = 79.dp
@@ -35,6 +36,10 @@ private val LogoTextWidth = 75.dp
 // 토글에서 '교사용'을 누르면 교사용 로그인 화면으로 넘어간다(onTeacherClick).
 @Composable
 fun KidsLoginScreen(
+    // 교사용 SignUpScreen 과 같은 형식으로 로그인 상태를 받는다.
+    // (아이디가 틀린 경우와 비밀번호가 틀린 경우를 구분해서 알려주지 않는 정책도 그대로)
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
     onTeacherClick: () -> Unit = {},
     onLoginClick: (userId: String, password: String) -> Unit = { _, _ -> },
     onSignUpClick: () -> Unit = {}
@@ -82,17 +87,45 @@ fun KidsLoginScreen(
 
         KidsSectionLabel("비밀번호")
         Spacer(Modifier.height(8.dp))
+        // 아이가 직접 입력하다 보니 오타가 잦아 표시/숨김 토글을 켠다.
+        // (시안에는 없지만 교사용 AionPasswordField 는 항상 눈 아이콘이 있다)
         KidsPasswordField(
             value = password,
             onValueChange = { password = it },
-            placeholder = ""
+            placeholder = "",
+            showToggle = true
         )
 
-        Spacer(Modifier.height(32.dp))
+        // ===== 로그인 실패 메시지 =====
+        // 비밀번호 칸과 로그인 버튼 사이 여백(32) 안에 메시지를 넣는다.
+        // Spacer 대신 같은 높이의 Box 를 두면 메시지가 떴다 사라져도
+        // 아래 버튼들이 움직이지 않는다.
+        //
+        // 회원가입 화면의 안내 문구와 같이 왼쪽 정렬, 칸에서 8 띄운다.
+        Box(
+            modifier = Modifier
+                .width(KidsContentWidth)
+                .height(32.dp)
+        ) {
+            if (errorMessage != null) {
+                Text(
+                    text = errorMessage,
+                    fontSize = 12.sp,
+                    lineHeight = 14.sp,
+                    color = RedError,
+                    maxLines = 2,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = 8.dp)
+                        .fillMaxWidth()
+                )
+            }
+        }
 
         KidsPrimaryButton(
-            text = "로그인",
+            text = if (isLoading) "로그인 중..." else "로그인",
             onClick = { onLoginClick(userId, password) },
+            enabled = !isLoading && userId.isNotBlank() && password.isNotBlank(),
             isPrimary = true
         )
 
@@ -101,6 +134,7 @@ fun KidsLoginScreen(
         KidsPrimaryButton(
             text = "회원가입",
             onClick = onSignUpClick,
+            enabled = !isLoading,
             isPrimary = false
         )
 
@@ -186,7 +220,8 @@ fun KidsSignUpAccountScreen(
         KidsPasswordField(
             value = password,
             onValueChange = { password = it },
-            placeholder = ""
+            placeholder = "",
+            showToggle = true
         )
 
         Spacer(Modifier.height(8.dp))
@@ -215,6 +250,14 @@ private fun KidsLoginScreenPreview() {
 @Composable
 private fun KidsSignUpAccountScreenPreview() {
     AionTheme { KidsSignUpAccountScreen() }
+}
+
+@Preview(showBackground = true, widthDp = 930, heightDp = 582, name = "1p 로그인 실패")
+@Composable
+private fun KidsLoginScreenErrorPreview() {
+    AionTheme {
+        KidsLoginScreen(errorMessage = "아이디 또는 비밀번호가 올바르지 않습니다.")
+    }
 }
 
 // 실기기(갤럭시탭 S9 FE+ 가로) 크기에서 확인용
