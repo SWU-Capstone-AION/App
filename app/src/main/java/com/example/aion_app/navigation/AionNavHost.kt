@@ -511,17 +511,18 @@ fun AionNavHost() {
             )
         }
 
-        // ===== 상동행동 모니터링 =====
+        // ===== 상동행동 모니터링(인식 화면) =====
         // 아동용 홈 좌상단 '모니터링' 버튼으로 들어온다.
+        // 카메라 프리뷰 + 스켈레톤 + 판정 대시보드만 보여준다.
+        // 미니게임 진입은 아동 홈에만 두고 여기서는 뺐다(입구가 두 군데면 헷갈림).
+        //
         // 게임과 같은 카메라 스트림을 쓰므로 동시 실행은 안 되지만,
         // 화면을 오갈 때 카메라 인계는 정상 동작한다(실기기 확인).
         composable(Route.MONITOR) {
             StereotypyMonitorScreen(
-                onWeedGame = { navController.navigate(Route.WEED_GAME) },
-                onBoardGame = { navController.navigate(Route.BOARD_GAME) },
+                onBack = { navController.popBackStack() },
             )
         }
-
         // ===== 미니게임 =====
         // onGameStateChanged 는 두 게임 모두 반드시 연결해 둔다.
         // 놀이 동작(팔 상하 반복 / 좌우 문지르기)이 상동행동 판정에 그대로 걸리기 때문에,
