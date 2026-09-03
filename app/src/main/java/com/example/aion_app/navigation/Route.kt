@@ -56,4 +56,22 @@ object Route {
     // 미니게임
     const val WEED_GAME = "weed_game"
     const val BOARD_GAME = "board_game"
+
+    // ===== 상동행동 감지를 계속 돌릴 화면 =====
+    // 여기 있는 라우트에 머무는 동안에는 화면이 바뀌어도 카메라를 놓지 않는다.
+    // 목록 밖으로 나가면 즉시 카메라를 놓고 판정도 초기화한다.
+    //
+    // ⚠ MONITOR / WEED_GAME / BOARD_GAME 은 일부러 뺐다.
+    //   카메라는 한 번에 한 곳만 쓸 수 있는데 그 화면들이 직접 카메라를 잡기 때문이다.
+    // ⚠ 교사용 화면과 로그인 전 화면도 뺐다. 아동이 사용 중일 때만 감지한다.
+    //
+    // 아동용 화면을 새로 추가하면 여기에도 같이 넣어야 감지가 이어진다.
+    val KIDS_DETECTION_ROUTES = setOf(
+        KIDS_HOME,
+        KIDS_MYPAGE,
+        KIDS_MY_INFO,
+        KIDS_MY_INFO_EDIT,
+        KIDS_PASSWORD_CHANGE_CHECK,
+        KIDS_PASSWORD_CHANGE,
+    )
 }

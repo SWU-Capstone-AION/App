@@ -5,6 +5,8 @@ import com.example.aion_app.ui.screen.notification.NotificationScreen
 import com.example.aion_app.ui.screen.splash.SplashScreen
 import com.example.aion_app.ui.screen.notification.NotificationViewModel
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -23,6 +25,7 @@ import com.example.aion_app.ui.screen.home.HomeScreen
 import com.example.aion_app.ui.screen.home.ChildListScreen
 import com.example.aion_app.ui.screen.home.ChildListViewModel
 import com.example.aion_app.monitor.StereotypyDetectionHost
+import com.example.aion_app.monitor.StereotypySignal
 import com.example.aion_app.ui.screen.kids.KidsMyPageScreen
 import com.example.aion_app.ui.screen.kids.KidsMyInfoScreen
 import com.example.aion_app.ui.screen.kids.KidsMyInfoEditScreen
@@ -101,316 +104,311 @@ fun AionNavHost() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val isSplash = backStackEntry?.destination?.route == Route.SPLASH
 
-    NavHost(
-        navController = navController,
-        modifier = if (isSplash) Modifier
-        else Modifier.windowInsetsPadding(WindowInsets.systemBars),
-        // 앱 진입: 스플래시부터 시작
-        startDestination = Route.SPLASH
-        // startDestination = Route.SIGN_UP   // 회원가입 플로우 테스트용
-        // startDestination = Route.HOME       // 홈 테스트용
-        // startDestination = Route.MYPAGE     // 마이페이지 테스트용
-        // startDestination = Route.KIDS_LOGIN  // 아동용 화면을 폰/프리뷰에서 강제로 볼 때
-        // startDestination = Route.ID_FIND    // 아이디 찾기 테스트용
-        // startDestination = Route.MONITOR   // 상동행동 모니터링 화면 테스트용 (카메라 필요, 실기기 권장)
-        // startDestination = Route.WEED_GAME // 잡초 뽑기 미니게임 테스트용 (카메라 필요, 실기기 권장)
-        // startDestination = Route.BOARD_GAME // 칠판 지우기 미니게임 테스트용 (카메라 필요, 실기기 권장)
-    ) {
-        // ===== 하단탭 공용 이동 로직 =====
-        // (지역변수라 선언보다 아래에서만 참조 가능 → NavHost 블록 맨 위에 둠)
-        val onTabSelect: (String) -> Unit = { tab ->
-            val route = when (tab) {
-                "home" -> Route.HOME
-                "report" -> Route.REPORT
-                "mypage" -> Route.MYPAGE
-                else -> Route.HOME
-            }
-            navController.navigate(route) {
-                popUpTo(Route.HOME) { saveState = true }
-                launchSingleTop = true
-                restoreState = true
-            }
-        }
+    Box(modifier = Modifier.fillMaxSize()) {
 
-        // ===== 스플래시 =====
-        // 기기 종류로 진입 화면을 나눈다.
-        //   태블릿(sw600dp 이상) → 아동용 로그인
-        //   폰                   → 교사용 로그인
-        //
-        // 판별은 MainActivity 의 화면 회전 결정과 반드시 같은 기준이어야 하므로
-        // 동일한 isTabletDevice() 를 함께 쓴다. (기준이 갈리면 '폰인데 가로' 같은 버그가 난다)
-        composable(Route.SPLASH) {
-            val isTablet = isTabletDevice(LocalContext.current)
-
-            SplashScreen(
-                // 태블릿이면 아동용 스플래시 에셋으로 (가로 비율)
-                isKids = isTablet,
-                onFinish = {
-                    val next = if (isTablet) Route.KIDS_LOGIN else Route.SIGN_UP
-                    navController.navigate(next) {
-                        popUpTo(Route.SPLASH) { inclusive = true }  // 스플래시는 스택에서 제거
-                    }
+        NavHost(
+            navController = navController,
+            modifier = if (isSplash) Modifier
+            else Modifier.windowInsetsPadding(WindowInsets.systemBars),
+            // 앱 진입: 스플래시부터 시작
+            startDestination = Route.SPLASH
+            // startDestination = Route.SIGN_UP   // 회원가입 플로우 테스트용
+            // startDestination = Route.HOME       // 홈 테스트용
+            // startDestination = Route.MYPAGE     // 마이페이지 테스트용
+            // startDestination = Route.KIDS_LOGIN  // 아동용 화면을 폰/프리뷰에서 강제로 볼 때
+            // startDestination = Route.ID_FIND    // 아이디 찾기 테스트용
+            // startDestination = Route.MONITOR   // 상동행동 모니터링 화면 테스트용 (카메라 필요, 실기기 권장)
+            // startDestination = Route.WEED_GAME // 잡초 뽑기 미니게임 테스트용 (카메라 필요, 실기기 권장)
+            // startDestination = Route.BOARD_GAME // 칠판 지우기 미니게임 테스트용 (카메라 필요, 실기기 권장)
+        ) {
+            // ===== 하단탭 공용 이동 로직 =====
+            // (지역변수라 선언보다 아래에서만 참조 가능 → NavHost 블록 맨 위에 둠)
+            val onTabSelect: (String) -> Unit = { tab ->
+                val route = when (tab) {
+                    "home" -> Route.HOME
+                    "report" -> Route.REPORT
+                    "mypage" -> Route.MYPAGE
+                    else -> Route.HOME
                 }
-            )
-        }
-
-        // ===== 회원가입 플로우 =====
-        // 세 화면이 같은 SignUpViewModel을 공유하도록 SIGN_UP 진입점을 parentEntry로 묶음
-        // (MyInfoViewModel을 MYPAGE 그래프에서 공유하는 방식과 동일한 패턴)
-        composable(Route.SIGN_UP) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.SIGN_UP)
+                navController.navigate(route) {
+                    popUpTo(Route.HOME) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
             }
-            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
-            val loginViewModel: LoginViewModel = viewModel()
-            val isTablet = isTabletDevice(LocalContext.current)
 
-            SignUpScreen(
-                isLoading = loginViewModel.isLoading,
-                errorMessage = loginViewModel.errorMessage,
-                onLoginClick = { userId, password ->
-                    loginViewModel.login(userId, password) { role ->
-                        // 토글이 아니라 서버에 저장된 역할을 따라 분기한다
-                        val next = if (role == UserRole.CHILD) Route.KIDS_HOME else Route.HOME
+            // ===== 스플래시 =====
+            // 기기 종류로 진입 화면을 나눈다.
+            //   태블릿(sw600dp 이상) → 아동용 로그인
+            //   폰                   → 교사용 로그인
+            //
+            // 판별은 MainActivity 의 화면 회전 결정과 반드시 같은 기준이어야 하므로
+            // 동일한 isTabletDevice() 를 함께 쓴다. (기준이 갈리면 '폰인데 가로' 같은 버그가 난다)
+            composable(Route.SPLASH) {
+                val isTablet = isTabletDevice(LocalContext.current)
+
+                SplashScreen(
+                    // 태블릿이면 아동용 스플래시 에셋으로 (가로 비율)
+                    isKids = isTablet,
+                    onFinish = {
+                        val next = if (isTablet) Route.KIDS_LOGIN else Route.SIGN_UP
                         navController.navigate(next) {
-                            popUpTo(Route.SIGN_UP) { inclusive = true }
+                            popUpTo(Route.SPLASH) { inclusive = true }  // 스플래시는 스택에서 제거
                         }
                     }
-                },
-                onSignUpClick = { type ->
-                    signUpViewModel.updateType(type)
-                    // 토글에서 '아동용'을 고르면 아동용 회원가입 플로우로 분기
-                    if (type == "아동용") {
-                        navController.navigate(Route.KIDS_SIGN_UP_ACCOUNT)
-                    } else {
-                        navController.navigate(Route.SIGN_UP_ACCOUNT)
-                    }
-                },
-                onFindIdClick = { navController.navigate(Route.ID_FIND) },
-                onFindPasswordClick = { navController.navigate(Route.PASSWORD_FIND) },
-                // 태블릿에서 아동용 로그인 → 교사용으로 넘어왔다가 다시 돌아가는 경로.
-                // 폰은 아동용 UI 자체를 쓰지 않으므로 null 로 둔다.
-                onKidsClick = if (isTablet) {
-                    {
-                        navController.navigate(Route.KIDS_LOGIN) {
-                            popUpTo(Route.SIGN_UP) { inclusive = true }
-                        }
-                    }
-                } else null
-            )
-        }
-
-        // ===== 회원가입: 아이디 + 비밀번호 (시안 2p) =====
-        composable(Route.SIGN_UP_ACCOUNT) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.SIGN_UP)
+                )
             }
-            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
-            SignUpAccountScreen(
-                onBackClick = { navController.popBackStack() },
-                onCheckDuplicate = { signUpViewModel.checkDuplicateId(it) },
-                duplicateMessage = signUpViewModel.idCheckMessage,
-                onNext = { userId, email, password ->
-                    signUpViewModel.updateAccount(userId, password, email)
-                    navController.navigate(Route.CHILD_PROFILE_SETUP)
-                }
-            )
-        }
-        // ===== 아이디 찾기 =====
-        composable(Route.ID_FIND) {
-            val idFindViewModel: IdFindViewModel = viewModel()
 
-            IdFindScreen(
-                isLoading = idFindViewModel.isLoading,
-                errorMessage = idFindViewModel.errorMessage,
-                onBackClick = { navController.popBackStack() },
-                onFindSuccess = { name, email ->
-                    idFindViewModel.findId(name, email) { loginId ->
-                        // 이름에 한글·공백이 들어갈 수 있어 인코딩해서 넘긴다
-                        navController.navigate(
-                            "${Route.ID_FIND_RESULT}/${Uri.encode(loginId)}/${Uri.encode(name)}"
-                        )
-                    }
-                },
-                onSwitchToPasswordFind = {
-                    navController.navigate(Route.PASSWORD_FIND) {
-                        popUpTo(Route.ID_FIND) { inclusive = true }
-                    }
+            // ===== 회원가입 플로우 =====
+            // 세 화면이 같은 SignUpViewModel을 공유하도록 SIGN_UP 진입점을 parentEntry로 묶음
+            // (MyInfoViewModel을 MYPAGE 그래프에서 공유하는 방식과 동일한 패턴)
+            composable(Route.SIGN_UP) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.SIGN_UP)
                 }
-            )
-        }
+                val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+                val loginViewModel: LoginViewModel = viewModel()
+                val isTablet = isTabletDevice(LocalContext.current)
 
-        composable(
-            route = "${Route.ID_FIND_RESULT}/{userId}/{name}",
-            arguments = listOf(
-                navArgument("userId") { type = NavType.StringType },
-                navArgument("name") { type = NavType.StringType }
-            )
-        ) { backStackEntry ->
-            val userId = backStackEntry.arguments?.getString("userId") ?: ""
-            val name = backStackEntry.arguments?.getString("name") ?: ""
-            IdFindResultScreen(
-                nickname = name,
-                userId = userId,
-                onBackClick = { navController.popBackStack() },
-                onPasswordFindClick = {
-                    navController.navigate(Route.PASSWORD_FIND) {
-                        popUpTo(Route.ID_FIND) { inclusive = true }
-                    }
-                },
-                onLoginClick = {
-                    // 로그인 화면으로 (찾기 흐름은 스택에서 정리)
-                    navController.navigate(Route.SIGN_UP) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
-            )
-        }
-        composable(Route.CHILD_PROFILE_SETUP) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.SIGN_UP)
-            }
-            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
-            ChildProfileSetupScreen(
-                // 교사 가입 경로라 감각특성·상동행동은 묻지 않는다
-                includeChildSteps = false,
-                onBackClick = { navController.popBackStack() },
-                onComplete = { profile ->
-                    signUpViewModel.updateChildProfile(profile)
-                    // 아직 SIGN_UP을 스택에서 안 지움 — ViewModel을 OnboardingComplete에서도 써야 해서
-                    navController.navigate(Route.ONBOARDING_COMPLETE)
-                }
-            )
-        }
-        composable(Route.ONBOARDING_COMPLETE) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.SIGN_UP)
-            }
-            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
-            OnboardingCompleteScreen(
-                isSubmitting = signUpViewModel.isSubmitting,
-                onConfirmClick = {
-                    // ===== 백엔드 연결 지점 =====
-                    // submit() 내부에서 AuthRepository.register()를 호출함.
-                    // 지금은 FakeAuthRepository라 거의 항상 성공으로 옴.
-                    signUpViewModel.submit { success ->
-                        if (success) {
-                            // 회원가입 완료 → 홈으로 (회원가입 플로우 전체를 스택/ViewModel에서 정리)
-                            navController.navigate(Route.HOME) {
+                SignUpScreen(
+                    isLoading = loginViewModel.isLoading,
+                    errorMessage = loginViewModel.errorMessage,
+                    onLoginClick = { userId, password ->
+                        loginViewModel.login(userId, password) { role ->
+                            // 토글이 아니라 서버에 저장된 역할을 따라 분기한다
+                            val next = if (role == UserRole.CHILD) Route.KIDS_HOME else Route.HOME
+                            navController.navigate(next) {
                                 popUpTo(Route.SIGN_UP) { inclusive = true }
                             }
+                        }
+                    },
+                    onSignUpClick = { type ->
+                        signUpViewModel.updateType(type)
+                        // 토글에서 '아동용'을 고르면 아동용 회원가입 플로우로 분기
+                        if (type == "아동용") {
+                            navController.navigate(Route.KIDS_SIGN_UP_ACCOUNT)
                         } else {
-                            // TODO: 실패 시 에러 메시지 노출 (signUpViewModel.submitError 사용)
+                            navController.navigate(Route.SIGN_UP_ACCOUNT)
+                        }
+                    },
+                    onFindIdClick = { navController.navigate(Route.ID_FIND) },
+                    onFindPasswordClick = { navController.navigate(Route.PASSWORD_FIND) },
+                    // 태블릿에서 아동용 로그인 → 교사용으로 넘어왔다가 다시 돌아가는 경로.
+                    // 폰은 아동용 UI 자체를 쓰지 않으므로 null 로 둔다.
+                    onKidsClick = if (isTablet) {
+                        {
+                            navController.navigate(Route.KIDS_LOGIN) {
+                                popUpTo(Route.SIGN_UP) { inclusive = true }
+                            }
+                        }
+                    } else null
+                )
+            }
+
+            // ===== 회원가입: 아이디 + 비밀번호 (시안 2p) =====
+            composable(Route.SIGN_UP_ACCOUNT) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.SIGN_UP)
+                }
+                val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+                SignUpAccountScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onCheckDuplicate = { signUpViewModel.checkDuplicateId(it) },
+                    duplicateMessage = signUpViewModel.idCheckMessage,
+                    onNext = { userId, email, password ->
+                        signUpViewModel.updateAccount(userId, password, email)
+                        navController.navigate(Route.CHILD_PROFILE_SETUP)
+                    }
+                )
+            }
+            // ===== 아이디 찾기 =====
+            composable(Route.ID_FIND) {
+                val idFindViewModel: IdFindViewModel = viewModel()
+
+                IdFindScreen(
+                    isLoading = idFindViewModel.isLoading,
+                    errorMessage = idFindViewModel.errorMessage,
+                    onBackClick = { navController.popBackStack() },
+                    onFindSuccess = { name, email ->
+                        idFindViewModel.findId(name, email) { loginId ->
+                            // 이름에 한글·공백이 들어갈 수 있어 인코딩해서 넘긴다
+                            navController.navigate(
+                                "${Route.ID_FIND_RESULT}/${Uri.encode(loginId)}/${Uri.encode(name)}"
+                            )
+                        }
+                    },
+                    onSwitchToPasswordFind = {
+                        navController.navigate(Route.PASSWORD_FIND) {
+                            popUpTo(Route.ID_FIND) { inclusive = true }
                         }
                     }
-                }
-            )
-        }
+                )
+            }
 
-        // ===== 아동용 로그인 / 회원가입 =====
-        // 아동용 3개 화면(2p~6p)이 SignUpViewModel 하나를 공유하도록
-        // KIDS_SIGN_UP_ACCOUNT 진입점을 parentEntry 로 묶는다.
-        // (교사용 로그인에서 '아동용'을 골라 들어와도, 아동용 로그인에서 들어와도 동일하게 동작)
-        composable(Route.KIDS_LOGIN) {
-            val loginViewModel: LoginViewModel = viewModel()
-
-            KidsLoginScreen(
-                isLoading = loginViewModel.isLoading,
-                errorMessage = loginViewModel.errorMessage,
-                onTeacherClick = {
-                    // 토글에서 '교사용' → 교사용 로그인 화면으로
-                    navController.navigate(Route.SIGN_UP) {
-                        popUpTo(Route.KIDS_LOGIN) { inclusive = true }
+            composable(
+                route = "${Route.ID_FIND_RESULT}/{userId}/{name}",
+                arguments = listOf(
+                    navArgument("userId") { type = NavType.StringType },
+                    navArgument("name") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val userId = backStackEntry.arguments?.getString("userId") ?: ""
+                val name = backStackEntry.arguments?.getString("name") ?: ""
+                IdFindResultScreen(
+                    nickname = name,
+                    userId = userId,
+                    onBackClick = { navController.popBackStack() },
+                    onPasswordFindClick = {
+                        navController.navigate(Route.PASSWORD_FIND) {
+                            popUpTo(Route.ID_FIND) { inclusive = true }
+                        }
+                    },
+                    onLoginClick = {
+                        // 로그인 화면으로 (찾기 흐름은 스택에서 정리)
+                        navController.navigate(Route.SIGN_UP) {
+                            popUpTo(0) { inclusive = true }
+                        }
                     }
-                },
-                onLoginClick = { userId, password ->
-                    loginViewModel.login(userId, password) { role ->
-                        val next = if (role == UserRole.CHILD) Route.KIDS_HOME else Route.HOME
-                        navController.navigate(next) {
+                )
+            }
+            composable(Route.CHILD_PROFILE_SETUP) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.SIGN_UP)
+                }
+                val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+                ChildProfileSetupScreen(
+                    // 교사 가입 경로라 감각특성·상동행동은 묻지 않는다
+                    includeChildSteps = false,
+                    onBackClick = { navController.popBackStack() },
+                    onComplete = { profile ->
+                        signUpViewModel.updateChildProfile(profile)
+                        // 아직 SIGN_UP을 스택에서 안 지움 — ViewModel을 OnboardingComplete에서도 써야 해서
+                        navController.navigate(Route.ONBOARDING_COMPLETE)
+                    }
+                )
+            }
+            composable(Route.ONBOARDING_COMPLETE) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.SIGN_UP)
+                }
+                val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+                OnboardingCompleteScreen(
+                    isSubmitting = signUpViewModel.isSubmitting,
+                    onConfirmClick = {
+                        // ===== 백엔드 연결 지점 =====
+                        // submit() 내부에서 AuthRepository.register()를 호출함.
+                        // 지금은 FakeAuthRepository라 거의 항상 성공으로 옴.
+                        signUpViewModel.submit { success ->
+                            if (success) {
+                                // 회원가입 완료 → 홈으로 (회원가입 플로우 전체를 스택/ViewModel에서 정리)
+                                navController.navigate(Route.HOME) {
+                                    popUpTo(Route.SIGN_UP) { inclusive = true }
+                                }
+                            } else {
+                                // TODO: 실패 시 에러 메시지 노출 (signUpViewModel.submitError 사용)
+                            }
+                        }
+                    }
+                )
+            }
+
+            // ===== 아동용 로그인 / 회원가입 =====
+            // 아동용 3개 화면(2p~6p)이 SignUpViewModel 하나를 공유하도록
+            // KIDS_SIGN_UP_ACCOUNT 진입점을 parentEntry 로 묶는다.
+            // (교사용 로그인에서 '아동용'을 골라 들어와도, 아동용 로그인에서 들어와도 동일하게 동작)
+            composable(Route.KIDS_LOGIN) {
+                val loginViewModel: LoginViewModel = viewModel()
+
+                KidsLoginScreen(
+                    isLoading = loginViewModel.isLoading,
+                    errorMessage = loginViewModel.errorMessage,
+                    onTeacherClick = {
+                        // 토글에서 '교사용' → 교사용 로그인 화면으로
+                        navController.navigate(Route.SIGN_UP) {
                             popUpTo(Route.KIDS_LOGIN) { inclusive = true }
                         }
-                    }
-                },
-                onSignUpClick = {
-                    navController.navigate(Route.KIDS_SIGN_UP_ACCOUNT)
-                }
-            )
-        }
-
-        composable(Route.KIDS_SIGN_UP_ACCOUNT) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.KIDS_SIGN_UP_ACCOUNT)
-            }
-            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
-            KidsSignUpAccountScreen(
-                onBackClick = { navController.popBackStack() },
-                onCheckDuplicate = { signUpViewModel.checkDuplicateId(it) },
-                duplicateMessage = signUpViewModel.idCheckMessage,
-                onNext = { userId, password ->
-                    signUpViewModel.updateType("아동용")
-                    signUpViewModel.updateAccount(userId, password)
-                    navController.navigate(Route.KIDS_PROFILE_SETUP)
-                }
-            )
-        }
-
-        composable(Route.KIDS_PROFILE_SETUP) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.KIDS_SIGN_UP_ACCOUNT)
-            }
-            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
-            KidsProfileSetupScreen(
-                onBackClick = { navController.popBackStack() },
-                onComplete = { profile ->
-                    signUpViewModel.updateChildProfile(profile)
-                    navController.navigate(Route.KIDS_ONBOARDING_COMPLETE)
-                }
-            )
-        }
-
-        composable(Route.KIDS_ONBOARDING_COMPLETE) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.KIDS_SIGN_UP_ACCOUNT)
-            }
-            val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
-            KidsOnboardingCompleteScreen(
-                isSubmitting = signUpViewModel.isSubmitting,
-                onNextClick = {
-                    // 교사용과 같은 AuthRepository.register() 를 그대로 탄다.
-                    signUpViewModel.submit { success ->
-                        if (success) {
-                            navController.navigate(Route.KIDS_HOME) {
-                                popUpTo(Route.KIDS_SIGN_UP_ACCOUNT) { inclusive = true }
+                    },
+                    onLoginClick = { userId, password ->
+                        loginViewModel.login(userId, password) { role ->
+                            val next = if (role == UserRole.CHILD) Route.KIDS_HOME else Route.HOME
+                            navController.navigate(next) {
+                                popUpTo(Route.KIDS_LOGIN) { inclusive = true }
                             }
-                        } else {
-                            // TODO: 실패 시 에러 메시지 노출 (signUpViewModel.submitError 사용)
+                        }
+                    },
+                    onSignUpClick = {
+                        navController.navigate(Route.KIDS_SIGN_UP_ACCOUNT)
+                    }
+                )
+            }
+
+            composable(Route.KIDS_SIGN_UP_ACCOUNT) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.KIDS_SIGN_UP_ACCOUNT)
+                }
+                val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+                KidsSignUpAccountScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onCheckDuplicate = { signUpViewModel.checkDuplicateId(it) },
+                    duplicateMessage = signUpViewModel.idCheckMessage,
+                    onNext = { userId, password ->
+                        signUpViewModel.updateType("아동용")
+                        signUpViewModel.updateAccount(userId, password)
+                        navController.navigate(Route.KIDS_PROFILE_SETUP)
+                    }
+                )
+            }
+
+            composable(Route.KIDS_PROFILE_SETUP) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.KIDS_SIGN_UP_ACCOUNT)
+                }
+                val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+                KidsProfileSetupScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onComplete = { profile ->
+                        signUpViewModel.updateChildProfile(profile)
+                        navController.navigate(Route.KIDS_ONBOARDING_COMPLETE)
+                    }
+                )
+            }
+
+            composable(Route.KIDS_ONBOARDING_COMPLETE) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.KIDS_SIGN_UP_ACCOUNT)
+                }
+                val signUpViewModel: SignUpViewModel = viewModel(parentEntry)
+                KidsOnboardingCompleteScreen(
+                    isSubmitting = signUpViewModel.isSubmitting,
+                    onNextClick = {
+                        // 교사용과 같은 AuthRepository.register() 를 그대로 탄다.
+                        signUpViewModel.submit { success ->
+                            if (success) {
+                                navController.navigate(Route.KIDS_HOME) {
+                                    popUpTo(Route.KIDS_SIGN_UP_ACCOUNT) { inclusive = true }
+                                }
+                            } else {
+                                // TODO: 실패 시 에러 메시지 노출 (signUpViewModel.submitError 사용)
+                            }
                         }
                     }
-                }
-            )
-        }
+                )
+            }
 
-        // ===== 아동용 홈 =====
-        composable(Route.KIDS_HOME) {
-            val inviteViewModel: ChildInviteViewModel = viewModel()
+            // ===== 아동용 홈 =====
+            composable(Route.KIDS_HOME) {
+                val inviteViewModel: ChildInviteViewModel = viewModel()
 
-            // 홈 뒤에서 카메라 + 상동행동 감지를 돌린다.
-            // 감지되면 KidsHomeScreen 이 알아서 진정 제안 팝업으로 넘어간다.
-            //   감지 → 팝업 → 호흡 4회 → 홈 복귀
-            //
-            // 카메라 권한을 거부해도 홈은 그대로 동작하고 감지만 꺼진다.
-            //
-            // ⚠ enabled 를 현재 라우트로 묶는 이유
-            //   카메라는 한 번에 한 곳만 쓸 수 있다. 그런데 화면 전환 애니메이션 동안에는
-            //   나가는 화면과 들어오는 화면이 잠깐 같이 컴포지션에 남는다.
-            //   그대로 두면 모니터링/미니게임이 카메라를 잡으려는 순간 홈이 아직 붙들고 있어
-            //   바인딩이 실패한다.
-            //   navigate() 시점에 라우트가 먼저 바뀌므로, 여기서 끊으면 순서가 보장된다.
-            StereotypyDetectionHost(
-                enabled = backStackEntry?.destination?.route == Route.KIDS_HOME
-            ) { stereotypyDetected ->
+                // 감지 파이프라인은 NavHost 바깥의 StereotypyDetectionHost 가 돌린다.
+                // (이 파일 맨 아래) 여기서는 결과만 읽어 쓴다.
+                //
+                // 감지되면 KidsHomeScreen 이 알아서 진정 제안 팝업으로 넘어간다.
+                //   감지 → 팝업 → 호흡 4회 → 홈 복귀
+                //
+                // 마이페이지 등 다른 아동용 화면에 있는 동안 감지된 경우,
+                // 홈으로 돌아온 시점에 팝업이 뜬다.
                 KidsHomeScreen(
-                    stereotypyDetected = stereotypyDetected,
+                    stereotypyDetected = StereotypySignal.detected,
                     points = 20,   // TODO: 실제 포인트 연결
                     invite = inviteViewModel.invite,
                     isRespondingToInvite = inviteViewModel.isResponding,
@@ -435,418 +433,428 @@ fun AionNavHost() {
                     }
                 )
             }
-        }
 
-        // ===== 아동용 마이페이지 =====
-        // MyInfoViewModel 은 교사용과 같은 것을 쓴다 (역할별 분기가 이미 들어 있음).
-        // 세 화면이 같은 인스턴스를 보도록 KIDS_MYPAGE 백스택 엔트리에 묶는다.
-        composable(Route.KIDS_MYPAGE) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.KIDS_MYPAGE)
-            }
-            val viewModel: MyInfoViewModel = viewModel(parentEntry)
-            val loginViewModel: LoginViewModel = viewModel()
+            // ===== 아동용 마이페이지 =====
+            // MyInfoViewModel 은 교사용과 같은 것을 쓴다 (역할별 분기가 이미 들어 있음).
+            // 세 화면이 같은 인스턴스를 보도록 KIDS_MYPAGE 백스택 엔트리에 묶는다.
+            composable(Route.KIDS_MYPAGE) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.KIDS_MYPAGE)
+                }
+                val viewModel: MyInfoViewModel = viewModel(parentEntry)
+                val loginViewModel: LoginViewModel = viewModel()
 
-            val info = viewModel.myInfo
-            KidsMyPageScreen(
-                userName = info.name,
-                userGender = info.gender.take(1),          // "남자" → "남"
-                userAge = calculateAge(info.birthDate),
-                profileImageUri = info.profileImageUri,
-                onBackClick = { navController.popBackStack() },
-                onEditProfileClick = {
-                    navController.navigate(Route.KIDS_MY_INFO)
-                },
-                onChangePasswordClick = {
-                    navController.navigate(Route.KIDS_PASSWORD_CHANGE_CHECK)
-                },
-                onLogoutClick = {
-                    loginViewModel.logout {
-                        // 아동 기기라 로그아웃 후에는 아동용 로그인으로 돌아간다
-                        navController.navigate(Route.KIDS_LOGIN) {
-                            popUpTo(0) { inclusive = true }
+                val info = viewModel.myInfo
+                KidsMyPageScreen(
+                    userName = info.name,
+                    userGender = info.gender.take(1),          // "남자" → "남"
+                    userAge = calculateAge(info.birthDate),
+                    profileImageUri = info.profileImageUri,
+                    onBackClick = { navController.popBackStack() },
+                    onEditProfileClick = {
+                        navController.navigate(Route.KIDS_MY_INFO)
+                    },
+                    onChangePasswordClick = {
+                        navController.navigate(Route.KIDS_PASSWORD_CHANGE_CHECK)
+                    },
+                    onLogoutClick = {
+                        loginViewModel.logout {
+                            // 아동 기기라 로그아웃 후에는 아동용 로그인으로 돌아간다
+                            navController.navigate(Route.KIDS_LOGIN) {
+                                popUpTo(0) { inclusive = true }
+                            }
                         }
                     }
-                }
-            )
-        }
-
-        composable(Route.KIDS_MY_INFO) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.KIDS_MYPAGE)
-            }
-            val viewModel: MyInfoViewModel = viewModel(parentEntry)
-
-            val info = viewModel.myInfo
-            KidsMyInfoScreen(
-                userName = info.name,
-                userGender = info.gender,
-                userBirthDate = info.birthDate,
-                sensitiveStimuli = info.sensitiveStimuli,
-                behaviorTraits = info.behaviorTraits,
-                profileImageUri = info.profileImageUri,
-                onBackClick = { navController.popBackStack() },
-                onEditClick = {
-                    navController.navigate(Route.KIDS_MY_INFO_EDIT)
-                }
-            )
-        }
-
-        composable(Route.KIDS_MY_INFO_EDIT) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.KIDS_MYPAGE)
-            }
-            val viewModel: MyInfoViewModel = viewModel(parentEntry)
-
-            val info = viewModel.myInfo
-            KidsMyInfoEditScreen(
-                initialName = info.name,
-                initialGender = info.gender,
-                initialBirthDate = info.birthDate,
-                initialSensitiveStimuli = info.sensitiveStimuli,
-                initialBehaviorTraits = info.behaviorTraits,
-                initialProfileImageUri = info.profileImageUri,
-                onBackClick = { navController.popBackStack() },
-                onSaveClick = { newInfo ->
-                    viewModel.updateMyInfo(newInfo)
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // ===== 아동용 비밀번호 변경 =====
-        // 마이페이지 → '비밀번호 변경'.
-        // 교사용(PASSWORD_CHANGE_CHECK / PASSWORD_CHANGE)은 폰 세로 Scaffold + 하단탭 구조라
-        // 태블릿에서 비율이 어긋난다. 아동용은 930x582 프레임으로 따로 그린 화면을 쓴다.
-        composable(Route.KIDS_PASSWORD_CHANGE_CHECK) {
-            KidsPasswordChangeCheckScreen(
-                onBackClick = { navController.popBackStack() },
-                onNextClick = { _, _ ->
-                    // TODO: 현재 비밀번호 검증(Firebase reauthenticate) 후 이동
-                    navController.navigate(Route.KIDS_PASSWORD_CHANGE)
-                }
-            )
-        }
-
-        composable(Route.KIDS_PASSWORD_CHANGE) {
-            KidsPasswordChangeScreen(
-                onBackClick = { navController.popBackStack() },
-                onChangeSuccess = {
-                    // TODO: 실제 비밀번호 변경 반영
-                    // 변경이 끝나면 확인 단계까지 걷어내고 마이페이지로 돌아간다
-                    navController.popBackStack(Route.KIDS_MYPAGE, inclusive = false)
-                }
-            )
-        }
-
-        // ===== 상동행동 모니터링(인식 화면) =====
-        // 아동용 홈 좌상단 '모니터링' 버튼으로 들어온다.
-        // 카메라 프리뷰 + 스켈레톤 + 판정 대시보드만 보여준다.
-        // 미니게임 진입은 아동 홈에만 두고 여기서는 뺐다(입구가 두 군데면 헷갈림).
-        //
-        // 게임과 같은 카메라 스트림을 쓰므로 동시 실행은 안 되지만,
-        // 화면을 오갈 때 카메라 인계는 정상 동작한다(실기기 확인).
-        composable(Route.MONITOR) {
-            StereotypyMonitorScreen(
-                onBack = { navController.popBackStack() },
-            )
-        }
-        // ===== 미니게임 =====
-        // onGameStateChanged 는 두 게임 모두 반드시 연결해 둔다.
-        // 놀이 동작(팔 상하 반복 / 좌우 문지르기)이 상동행동 판정에 그대로 걸리기 때문에,
-        // 게임 중에는 MinigameGate 로 판정을 멈춘다.
-        composable(Route.WEED_GAME) {
-            WeedGameScreen(
-                onExit = { navController.popBackStack() },
-                onGameStateChanged = { playing -> MinigameGate.active = playing },
-                showDebug = true,   // TODO: 배포 시 false (손목 위치 원 표시)
-            )
-        }
-
-        composable(Route.BOARD_GAME) {
-            BoardGameScreen(
-                onExit = { navController.popBackStack() },
-                onGameStateChanged = { playing -> MinigameGate.active = playing },
-                showDebug = true,   // TODO: 배포 시 false (손목 위치 원 표시)
-            )
-        }
-
-        // ===== 홈 =====
-        composable(Route.HOME) {
-            val dangerAlert by AlertBus.dangerAlert.collectAsState()
-            val myInfoViewModel: MyInfoViewModel = viewModel()
-            val homeViewModel: HomeViewModel = viewModel()
-
-            // 다른 화면에서 돌아왔을 때 최신 정보로 갱신한다.
-            // (마이페이지에서 이름을 바꿨거나, 아동을 새로 연결했거나,
-            //  알림센터에서 알림을 지웠을 수 있다)
-            LaunchedEffect(Unit) {
-                myInfoViewModel.load()
-                homeViewModel.loadChildren()
-                homeViewModel.loadAlerts()
+                )
             }
 
-            val students = homeViewModel.students
+            composable(Route.KIDS_MY_INFO) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.KIDS_MYPAGE)
+                }
+                val viewModel: MyInfoViewModel = viewModel(parentEntry)
 
-            HomeScreen(
-                classInfo = ClassInfo(
-                    teacherName = myInfoViewModel.myInfo.name,
-                    date = todayText()
-                ),
-                recentAlert = homeViewModel.recentAlert,
-                students = students,
-                classStats = ClassStats(
-                    activeCount = students.count { it.status == StudentStatus.ACTIVE },
-                    totalCount = students.size,
-                    cautionCount = homeViewModel.todayCautionCount,
-                    dangerCount = homeViewModel.todayDangerCount
-                ),
-                dangerAlert = dangerAlert?.let { alert ->
-                    Student(
-                        id = alert.childId,
-                        name = alert.childName,
-                        gender = alert.gender,
-                        age = alert.age,
-                        status = StudentStatus.ACTIVE,
-                        stressScore = 100,
-                        stressLevel = StressLevel.DANGER,
-                        heartRate = null
-                    )
-                },
-                onDangerAlertConfirm = { AlertBus.clear() },
-                onNotificationClick = {
-                    navController.navigate(Route.NOTIFICATION)
-                },
-                onAlertClick = {
-                    // 배너를 누르면 알림센터로
-                    navController.navigate(Route.NOTIFICATION)
-                },
-                onStudentClick = { student ->
-                    // TODO: 학생 상세로 이동
-                },
-                onSearchByIdClick = {
-                    navController.navigate(Route.CHILD_LINK)
-                },
-                onCreateChildAccountClick = {
-                    // TODO: 교사가 대신 가입시키는 흐름 (별도 작업)
-                },
-                onTabSelect = onTabSelect
-            )
-        }
+                val info = viewModel.myInfo
+                KidsMyInfoScreen(
+                    userName = info.name,
+                    userGender = info.gender,
+                    userBirthDate = info.birthDate,
+                    sensitiveStimuli = info.sensitiveStimuli,
+                    behaviorTraits = info.behaviorTraits,
+                    profileImageUri = info.profileImageUri,
+                    onBackClick = { navController.popBackStack() },
+                    onEditClick = {
+                        navController.navigate(Route.KIDS_MY_INFO_EDIT)
+                    }
+                )
+            }
 
-        // ===== 담당 아동 연결 =====
-        composable(Route.CHILD_LINK) {
-            val childLinkViewModel: ChildLinkViewModel = viewModel()
+            composable(Route.KIDS_MY_INFO_EDIT) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.KIDS_MYPAGE)
+                }
+                val viewModel: MyInfoViewModel = viewModel(parentEntry)
 
-            ChildLinkScreen(
-                isSearching = childLinkViewModel.isSearching,
-                hasSearched = childLinkViewModel.hasSearched,
-                searchResult = childLinkViewModel.searchResult,
-                isRequesting = childLinkViewModel.isRequesting,
-                errorMessage = childLinkViewModel.errorMessage,
-                onBackClick = { navController.popBackStack() },
-                onSearch = { loginId -> childLinkViewModel.search(loginId) },
-                onRequestLink = { child ->
-                    childLinkViewModel.requestLink(child.uid) {
-                        // 요청을 보냈으면 홈으로 돌아간다
+                val info = viewModel.myInfo
+                KidsMyInfoEditScreen(
+                    initialName = info.name,
+                    initialGender = info.gender,
+                    initialBirthDate = info.birthDate,
+                    initialSensitiveStimuli = info.sensitiveStimuli,
+                    initialBehaviorTraits = info.behaviorTraits,
+                    initialProfileImageUri = info.profileImageUri,
+                    onBackClick = { navController.popBackStack() },
+                    onSaveClick = { newInfo ->
+                        viewModel.updateMyInfo(newInfo)
                         navController.popBackStack()
                     }
-                },
-                onCreateAccountClick = {
-                    // TODO: 교사가 대신 가입시키는 흐름 (별도 작업)
-                }
-            )
-        }
-
-        // ===== 리포트 =====
-        composable(Route.REPORT) {
-            ReportListScreen(
-                onStudentClick = { student ->
-                    navController.navigate("${Route.REPORT_DETAIL}/${student.id}")
-                },
-                onTabSelect = onTabSelect
-            )
-        }
-        composable("${Route.REPORT_DETAIL}/{studentId}") { entry ->
-            val studentId = entry.arguments?.getString("studentId") ?: "2"
-            ReportDetailScreen(
-                report = sampleStudentReport(studentId),
-                onBackClick = { navController.popBackStack() },
-                onTabSelect = onTabSelect
-            )
-        }
-
-        // ===== 알림센터 =====
-        composable(Route.NOTIFICATION) {
-            val notificationViewModel: NotificationViewModel = viewModel()
-
-            NotificationScreen(
-                children = notificationViewModel.children,
-                notifications = notificationViewModel.notifications,
-                isLoading = notificationViewModel.isLoading,
-                errorMessage = notificationViewModel.errorMessage,
-                onBackClick = { navController.popBackStack() },
-                onDelete = { item -> notificationViewModel.delete(item) },
-                onTabSelect = onTabSelect
-            )
-        }
-
-        // ===== 마이페이지 =====
-        composable(Route.MYPAGE) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.MYPAGE)
+                )
             }
-            val viewModel: MyInfoViewModel = viewModel(parentEntry)
-            val loginViewModel: LoginViewModel = viewModel()
 
-            val info = viewModel.myInfo
-            MyPageScreen(
-                userName = info.name,
-                userGender = info.gender.take(1),   // "남자" → "남"
-                userAge = calculateAge(info.birthDate),   // "2019.12.21" → 6
-                isTeacher = info.role == UserRole.TEACHER,
-                profileImageUri = info.profileImageUri,
-                onEditProfileClick = {
-                    navController.navigate(Route.MY_INFO)
-                },
-                onChildListClick = { navController.navigate(Route.CHILD_LIST) },
-                onChangePasswordClick = {
-                    navController.navigate(Route.PASSWORD_CHANGE_CHECK)
-                },
-                onLogoutClick = {
-                    loginViewModel.logout {
-                        // 백스택을 통째로 비운다.
-                        // 스플래시는 이미 스택에서 지워졌으므로 popUpTo(0)으로 루트까지 제거.
+            // ===== 아동용 비밀번호 변경 =====
+            // 마이페이지 → '비밀번호 변경'.
+            // 교사용(PASSWORD_CHANGE_CHECK / PASSWORD_CHANGE)은 폰 세로 Scaffold + 하단탭 구조라
+            // 태블릿에서 비율이 어긋난다. 아동용은 930x582 프레임으로 따로 그린 화면을 쓴다.
+            composable(Route.KIDS_PASSWORD_CHANGE_CHECK) {
+                KidsPasswordChangeCheckScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onNextClick = { _, _ ->
+                        // TODO: 현재 비밀번호 검증(Firebase reauthenticate) 후 이동
+                        navController.navigate(Route.KIDS_PASSWORD_CHANGE)
+                    }
+                )
+            }
+
+            composable(Route.KIDS_PASSWORD_CHANGE) {
+                KidsPasswordChangeScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onChangeSuccess = {
+                        // TODO: 실제 비밀번호 변경 반영
+                        // 변경이 끝나면 확인 단계까지 걷어내고 마이페이지로 돌아간다
+                        navController.popBackStack(Route.KIDS_MYPAGE, inclusive = false)
+                    }
+                )
+            }
+
+            // ===== 상동행동 모니터링(인식 화면) =====
+            // 아동용 홈 좌상단 '모니터링' 버튼으로 들어온다.
+            // 카메라 프리뷰 + 스켈레톤 + 판정 대시보드만 보여준다.
+            // 미니게임 진입은 아동 홈에만 두고 여기서는 뺐다(입구가 두 군데면 헷갈림).
+            //
+            // 게임과 같은 카메라 스트림을 쓰므로 동시 실행은 안 되지만,
+            // 화면을 오갈 때 카메라 인계는 정상 동작한다(실기기 확인).
+            composable(Route.MONITOR) {
+                StereotypyMonitorScreen(
+                    onBack = { navController.popBackStack() },
+                )
+            }
+            // ===== 미니게임 =====
+            // onGameStateChanged 는 두 게임 모두 반드시 연결해 둔다.
+            // 놀이 동작(팔 상하 반복 / 좌우 문지르기)이 상동행동 판정에 그대로 걸리기 때문에,
+            // 게임 중에는 MinigameGate 로 판정을 멈춘다.
+            composable(Route.WEED_GAME) {
+                WeedGameScreen(
+                    onExit = { navController.popBackStack() },
+                    onGameStateChanged = { playing -> MinigameGate.active = playing },
+                    showDebug = true,   // TODO: 배포 시 false (손목 위치 원 표시)
+                )
+            }
+
+            composable(Route.BOARD_GAME) {
+                BoardGameScreen(
+                    onExit = { navController.popBackStack() },
+                    onGameStateChanged = { playing -> MinigameGate.active = playing },
+                    showDebug = true,   // TODO: 배포 시 false (손목 위치 원 표시)
+                )
+            }
+
+            // ===== 홈 =====
+            composable(Route.HOME) {
+                val dangerAlert by AlertBus.dangerAlert.collectAsState()
+                val myInfoViewModel: MyInfoViewModel = viewModel()
+                val homeViewModel: HomeViewModel = viewModel()
+
+                // 다른 화면에서 돌아왔을 때 최신 정보로 갱신한다.
+                // (마이페이지에서 이름을 바꿨거나, 아동을 새로 연결했거나,
+                //  알림센터에서 알림을 지웠을 수 있다)
+                LaunchedEffect(Unit) {
+                    myInfoViewModel.load()
+                    homeViewModel.loadChildren()
+                    homeViewModel.loadAlerts()
+                }
+
+                val students = homeViewModel.students
+
+                HomeScreen(
+                    classInfo = ClassInfo(
+                        teacherName = myInfoViewModel.myInfo.name,
+                        date = todayText()
+                    ),
+                    recentAlert = homeViewModel.recentAlert,
+                    students = students,
+                    classStats = ClassStats(
+                        activeCount = students.count { it.status == StudentStatus.ACTIVE },
+                        totalCount = students.size,
+                        cautionCount = homeViewModel.todayCautionCount,
+                        dangerCount = homeViewModel.todayDangerCount
+                    ),
+                    dangerAlert = dangerAlert?.let { alert ->
+                        Student(
+                            id = alert.childId,
+                            name = alert.childName,
+                            gender = alert.gender,
+                            age = alert.age,
+                            status = StudentStatus.ACTIVE,
+                            stressScore = 100,
+                            stressLevel = StressLevel.DANGER,
+                            heartRate = null
+                        )
+                    },
+                    onDangerAlertConfirm = { AlertBus.clear() },
+                    onNotificationClick = {
+                        navController.navigate(Route.NOTIFICATION)
+                    },
+                    onAlertClick = {
+                        // 배너를 누르면 알림센터로
+                        navController.navigate(Route.NOTIFICATION)
+                    },
+                    onStudentClick = { student ->
+                        // TODO: 학생 상세로 이동
+                    },
+                    onSearchByIdClick = {
+                        navController.navigate(Route.CHILD_LINK)
+                    },
+                    onCreateChildAccountClick = {
+                        // TODO: 교사가 대신 가입시키는 흐름 (별도 작업)
+                    },
+                    onTabSelect = onTabSelect
+                )
+            }
+
+            // ===== 담당 아동 연결 =====
+            composable(Route.CHILD_LINK) {
+                val childLinkViewModel: ChildLinkViewModel = viewModel()
+
+                ChildLinkScreen(
+                    isSearching = childLinkViewModel.isSearching,
+                    hasSearched = childLinkViewModel.hasSearched,
+                    searchResult = childLinkViewModel.searchResult,
+                    isRequesting = childLinkViewModel.isRequesting,
+                    errorMessage = childLinkViewModel.errorMessage,
+                    onBackClick = { navController.popBackStack() },
+                    onSearch = { loginId -> childLinkViewModel.search(loginId) },
+                    onRequestLink = { child ->
+                        childLinkViewModel.requestLink(child.uid) {
+                            // 요청을 보냈으면 홈으로 돌아간다
+                            navController.popBackStack()
+                        }
+                    },
+                    onCreateAccountClick = {
+                        // TODO: 교사가 대신 가입시키는 흐름 (별도 작업)
+                    }
+                )
+            }
+
+            // ===== 리포트 =====
+            composable(Route.REPORT) {
+                ReportListScreen(
+                    onStudentClick = { student ->
+                        navController.navigate("${Route.REPORT_DETAIL}/${student.id}")
+                    },
+                    onTabSelect = onTabSelect
+                )
+            }
+            composable("${Route.REPORT_DETAIL}/{studentId}") { entry ->
+                val studentId = entry.arguments?.getString("studentId") ?: "2"
+                ReportDetailScreen(
+                    report = sampleStudentReport(studentId),
+                    onBackClick = { navController.popBackStack() },
+                    onTabSelect = onTabSelect
+                )
+            }
+
+            // ===== 알림센터 =====
+            composable(Route.NOTIFICATION) {
+                val notificationViewModel: NotificationViewModel = viewModel()
+
+                NotificationScreen(
+                    children = notificationViewModel.children,
+                    notifications = notificationViewModel.notifications,
+                    isLoading = notificationViewModel.isLoading,
+                    errorMessage = notificationViewModel.errorMessage,
+                    onBackClick = { navController.popBackStack() },
+                    onDelete = { item -> notificationViewModel.delete(item) },
+                    onTabSelect = onTabSelect
+                )
+            }
+
+            // ===== 마이페이지 =====
+            composable(Route.MYPAGE) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.MYPAGE)
+                }
+                val viewModel: MyInfoViewModel = viewModel(parentEntry)
+                val loginViewModel: LoginViewModel = viewModel()
+
+                val info = viewModel.myInfo
+                MyPageScreen(
+                    userName = info.name,
+                    userGender = info.gender.take(1),   // "남자" → "남"
+                    userAge = calculateAge(info.birthDate),   // "2019.12.21" → 6
+                    isTeacher = info.role == UserRole.TEACHER,
+                    profileImageUri = info.profileImageUri,
+                    onEditProfileClick = {
+                        navController.navigate(Route.MY_INFO)
+                    },
+                    onChildListClick = { navController.navigate(Route.CHILD_LIST) },
+                    onChangePasswordClick = {
+                        navController.navigate(Route.PASSWORD_CHANGE_CHECK)
+                    },
+                    onLogoutClick = {
+                        loginViewModel.logout {
+                            // 백스택을 통째로 비운다.
+                            // 스플래시는 이미 스택에서 지워졌으므로 popUpTo(0)으로 루트까지 제거.
+                            navController.navigate(Route.SIGN_UP) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
+                    },
+                    onTabSelect = onTabSelect
+                )
+            }
+
+            composable(Route.MY_INFO) {
+                // ViewModel을 NavBackStackEntry에 연결 → 같은 그래프 안에서 공유됨
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.MYPAGE)
+                }
+                val viewModel: MyInfoViewModel = viewModel(parentEntry)
+
+                val info = viewModel.myInfo
+                MyInfoScreen(
+                    userName = info.name,
+                    userGender = info.gender,
+                    userBirthDate = info.birthDate,
+                    sensitiveStimuli = info.sensitiveStimuli,
+                    behaviorTraits = info.behaviorTraits,
+                    isTeacher = info.role == UserRole.TEACHER,
+                    profileImageUri = info.profileImageUri,
+                    onBackClick = { navController.popBackStack() },
+                    onEditClick = {
+                        navController.navigate(Route.MY_INFO_EDIT)
+                    }
+                )
+            }
+
+            composable(Route.MY_INFO_EDIT) {
+                val parentEntry = remember(it) {
+                    navController.getBackStackEntry(Route.MYPAGE)
+                }
+                val viewModel: MyInfoViewModel = viewModel(parentEntry)
+
+                val info = viewModel.myInfo
+                MyInfoEditScreen(
+                    initialName = info.name,
+                    initialGender = info.gender,
+                    initialBirthDate = info.birthDate,
+                    initialSensitiveStimuli = info.sensitiveStimuli,
+                    initialBehaviorTraits = info.behaviorTraits,
+                    initialProfileImageUri = info.profileImageUri,
+                    isTeacher = info.role == UserRole.TEACHER,
+                    onBackClick = { navController.popBackStack() },
+                    onSaveClick = { newInfo ->
+                        viewModel.updateMyInfo(newInfo)
+                        navController.popBackStack()
+                    }
+                )
+            }
+
+            // ===== 담당 아동 목록 =====
+            composable(Route.CHILD_LIST) {
+                val childListViewModel: ChildListViewModel = viewModel()
+
+                // 아동을 새로 연결하고 돌아왔을 때 목록 갱신
+                LaunchedEffect(Unit) { childListViewModel.load() }
+
+                ChildListScreen(
+                    children = childListViewModel.children,
+                    isLoading = childListViewModel.isLoading,
+                    errorMessage = childListViewModel.errorMessage,
+                    onBackClick = { navController.popBackStack() },
+                    onUnlink = { child -> childListViewModel.unlink(child.uid) },
+                    onAddChildClick = { navController.navigate(Route.CHILD_LINK) }
+                )
+            }
+
+            // 1. 비밀번호 찾기 화면
+            composable(Route.PASSWORD_FIND) {
+                val passwordFindViewModel: PasswordFindViewModel = viewModel()
+
+                PasswordFindScreen(
+                    isLoading = passwordFindViewModel.isLoading,
+                    errorMessage = passwordFindViewModel.errorMessage,
+                    onBackClick = { navController.popBackStack() },
+                    onFindSuccess = { id ->
+                        passwordFindViewModel.sendResetMail(id) {
+                            navController.navigate(Route.PASSWORD_FIND_RESULT)
+                        }
+                    },
+                    onSwitchToIdFind = {
+                        navController.navigate(Route.ID_FIND) {
+                            popUpTo(Route.PASSWORD_FIND) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            // 2. 비밀번호 찾기 결과 화면 (재설정 메일 발송 안내)
+            composable(Route.PASSWORD_FIND_RESULT) {
+                PasswordFindResultScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onLoginClick = {
+                        // 로그인 화면으로 (찾기 흐름은 스택에서 정리)
                         navController.navigate(Route.SIGN_UP) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
-                },
-                onTabSelect = onTabSelect
-            )
-        }
-
-        composable(Route.MY_INFO) {
-            // ViewModel을 NavBackStackEntry에 연결 → 같은 그래프 안에서 공유됨
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.MYPAGE)
+                )
             }
-            val viewModel: MyInfoViewModel = viewModel(parentEntry)
 
-            val info = viewModel.myInfo
-            MyInfoScreen(
-                userName = info.name,
-                userGender = info.gender,
-                userBirthDate = info.birthDate,
-                sensitiveStimuli = info.sensitiveStimuli,
-                behaviorTraits = info.behaviorTraits,
-                isTeacher = info.role == UserRole.TEACHER,
-                profileImageUri = info.profileImageUri,
-                onBackClick = { navController.popBackStack() },
-                onEditClick = {
-                    navController.navigate(Route.MY_INFO_EDIT)
-                }
-            )
-        }
-
-        composable(Route.MY_INFO_EDIT) {
-            val parentEntry = remember(it) {
-                navController.getBackStackEntry(Route.MYPAGE)
+            // 3. 비밀번호 변경 전 확인 화면
+            composable(Route.PASSWORD_CHANGE_CHECK) {
+                PasswordChangeCheckScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onNextClick = { _, _ ->
+                        navController.navigate(Route.PASSWORD_CHANGE)
+                    }
+                )
             }
-            val viewModel: MyInfoViewModel = viewModel(parentEntry)
 
-            val info = viewModel.myInfo
-            MyInfoEditScreen(
-                initialName = info.name,
-                initialGender = info.gender,
-                initialBirthDate = info.birthDate,
-                initialSensitiveStimuli = info.sensitiveStimuli,
-                initialBehaviorTraits = info.behaviorTraits,
-                initialProfileImageUri = info.profileImageUri,
-                isTeacher = info.role == UserRole.TEACHER,
-                onBackClick = { navController.popBackStack() },
-                onSaveClick = { newInfo ->
-                    viewModel.updateMyInfo(newInfo)
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // ===== 담당 아동 목록 =====
-        composable(Route.CHILD_LIST) {
-            val childListViewModel: ChildListViewModel = viewModel()
-
-            // 아동을 새로 연결하고 돌아왔을 때 목록 갱신
-            LaunchedEffect(Unit) { childListViewModel.load() }
-
-            ChildListScreen(
-                children = childListViewModel.children,
-                isLoading = childListViewModel.isLoading,
-                errorMessage = childListViewModel.errorMessage,
-                onBackClick = { navController.popBackStack() },
-                onUnlink = { child -> childListViewModel.unlink(child.uid) },
-                onAddChildClick = { navController.navigate(Route.CHILD_LINK) }
-            )
-        }
-
-        // 1. 비밀번호 찾기 화면
-        composable(Route.PASSWORD_FIND) {
-            val passwordFindViewModel: PasswordFindViewModel = viewModel()
-
-            PasswordFindScreen(
-                isLoading = passwordFindViewModel.isLoading,
-                errorMessage = passwordFindViewModel.errorMessage,
-                onBackClick = { navController.popBackStack() },
-                onFindSuccess = { id ->
-                    passwordFindViewModel.sendResetMail(id) {
-                        navController.navigate(Route.PASSWORD_FIND_RESULT)
-                    }
-                },
-                onSwitchToIdFind = {
-                    navController.navigate(Route.ID_FIND) {
-                        popUpTo(Route.PASSWORD_FIND) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        // 2. 비밀번호 찾기 결과 화면 (재설정 메일 발송 안내)
-        composable(Route.PASSWORD_FIND_RESULT) {
-            PasswordFindResultScreen(
-                onBackClick = { navController.popBackStack() },
-                onLoginClick = {
-                    // 로그인 화면으로 (찾기 흐름은 스택에서 정리)
-                    navController.navigate(Route.SIGN_UP) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        // 3. 비밀번호 변경 전 확인 화면
-        composable(Route.PASSWORD_CHANGE_CHECK) {
-            PasswordChangeCheckScreen(
-                onBackClick = { navController.popBackStack() },
-                onNextClick = { _, _ ->
-                    navController.navigate(Route.PASSWORD_CHANGE)
-                }
-            )
-        }
-
-        // 4. 비밀번호 변경 화면
-        composable(Route.PASSWORD_CHANGE) {
-            PasswordChangeScreen(
-                onBackClick = { navController.popBackStack() },
-                onChangeSuccess = {
-                    // 변경 완료 후 처음 화면(비밀번호 찾기)으로 가기
-                    // 중간 화면(결과, 변경 전 확인)도 모두 스택에서 제거
-                    navController.navigate(Route.PASSWORD_FIND) {
-                        popUpTo(Route.PASSWORD_FIND) {
-                            inclusive = true
+            // 4. 비밀번호 변경 화면
+            composable(Route.PASSWORD_CHANGE) {
+                PasswordChangeScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onChangeSuccess = {
+                        // 변경 완료 후 처음 화면(비밀번호 찾기)으로 가기
+                        // 중간 화면(결과, 변경 전 확인)도 모두 스택에서 제거
+                        navController.navigate(Route.PASSWORD_FIND) {
+                            popUpTo(Route.PASSWORD_FIND) {
+                                inclusive = true
+                            }
                         }
                     }
-                }
-            )
+                )
+            }
         }
+
+        // ===== 상동행동 감지 =====
+        // NavHost 바깥(형제)에 두어야 화면을 옮겨도 컴포지션에서 빠지지 않는다.
+        // 예전에는 KIDS_HOME 라우트 안에 있어서 마이페이지로만 가도 감지가 끊겼다.
+        //
+        // 화면에는 아무것도 그리지 않는다. (1dp / IMAGE_ANALYSIS 전용)
+        // 결과는 StereotypySignal.detected 로 나가고 KidsHomeScreen 이 읽는다.
+        StereotypyDetectionHost(
+            enabled = backStackEntry?.destination?.route in Route.KIDS_DETECTION_ROUTES
+        )
     }
 }
