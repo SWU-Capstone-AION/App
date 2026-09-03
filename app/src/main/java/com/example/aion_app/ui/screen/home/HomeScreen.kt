@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.window.Dialog
 
@@ -36,6 +37,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
+import com.example.aion_app.data.messaging.AlertKind
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.theme.GreyDarkActive
 import com.example.aion_app.ui.theme.GreyLight
@@ -62,8 +64,10 @@ fun HomeScreen(
         cautionCount = 7,
         dangerCount = 2
     ),
-    // 위험 판정된 아동. null이 아니면 화면 위에 팝업이 뜬다.
+    // 팝업으로 알릴 아동. null이 아니면 화면 위에 팝업이 뜬다.
     dangerAlert: Student? = null,
+    // 위험 판정인지, 아이가 도움을 요청한 것인지에 따라 팝업 문구와 색이 달라진다
+    alertKind: AlertKind = AlertKind.DANGER,
     onDangerAlertConfirm: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
     onAlertClick: () -> Unit = {},
@@ -170,11 +174,12 @@ fun HomeScreen(
         )
     }
 
-    // ===== 위험 알림 팝업 =====
+    // ===== 알림 팝업 (위험 / 도움 요청) =====
     // 화면 위에 덮어서 표시. 교사가 확인 버튼을 눌러야 닫힌다.
     if (dangerAlert != null) {
-        DangerAlertDialog(
+        AlertPopupDialog(
             student = dangerAlert,
+            kind = alertKind,
             onConfirm = onDangerAlertConfirm
         )
     }
@@ -264,15 +269,32 @@ private fun AddChildButton(onClick: () -> Unit) {
 }
 
 // ============================================
-// 위험 알림 팝업
+// 알림 팝업 (위험 / 도움 요청)
 // ============================================
 // 놓치면 안 되는 알림이라 바깥을 눌러도 닫히지 않게 한다.
 // (뒤로가기도 막아 두어 확인 버튼으로만 닫히도록)
+//
+// 위험은 빨강(Red), 도움 요청은 메인 파랑(Normal)을 쓴다.
+// 도움 요청은 위험 상황이 아니라 아이가 스스로 부른 것이라 톤을 낮춘다.
 @Composable
-private fun DangerAlertDialog(
+private fun AlertPopupDialog(
     student: Student,
+    kind: AlertKind,
     onConfirm: () -> Unit
 ) {
+    val accentColor = when (kind) {
+        AlertKind.DANGER -> Red
+        AlertKind.HELP -> Normal
+    }
+    val title = when (kind) {
+        AlertKind.DANGER -> "위험"
+        AlertKind.HELP -> "도움 요청"
+    }
+    val message = when (kind) {
+        AlertKind.DANGER -> "즉시 아이의 상태를 확인하세요."
+        AlertKind.HELP -> "아이가 도움을 요청했어요."
+    }
+
     Dialog(onDismissRequest = { /* 확인 버튼으로만 닫는다 */ }) {
         Column(
             modifier = Modifier
@@ -283,20 +305,29 @@ private fun DangerAlertDialog(
         ) {
             Spacer(modifier = Modifier.height(28.dp))
 
-            Icon(
-                imageVector = Icons.Filled.Warning,
-                contentDescription = null,
-                tint = Red,
-                modifier = Modifier.size(36.dp)
-            )
+            when (kind) {
+                AlertKind.DANGER -> Icon(
+                    imageVector = Icons.Filled.Warning,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(36.dp)
+                )
+                // 아동용 「도움이 필요해요」 버튼과 같은 아이콘을 써서 연결을 드러낸다
+                AlertKind.HELP -> Image(
+                    painter = painterResource(R.drawable.hand_icon),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "위험",
+                text = title,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Red
+                color = accentColor
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -321,7 +352,7 @@ private fun DangerAlertDialog(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "즉시 아이의 상태를 확인하세요.",
+                text = message,
                 fontSize = 14.sp,
                 color = TextPrimary,
                 textAlign = TextAlign.Center
@@ -334,7 +365,7 @@ private fun DangerAlertDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
-                    .background(Red)
+                    .background(accentColor)
                     .clickable(onClick = onConfirm),
                 contentAlignment = Alignment.Center
             ) {
@@ -908,6 +939,21 @@ fun HomeScreenEmptyPreview() {
 @Composable
 fun HomeScreenDangerAlertPreview() {
     MaterialTheme {
-        HomeScreen(dangerAlert = defaultStudents().first())
+        HomeScreen(
+            dangerAlert = defaultStudents().first(),
+            alertKind = AlertKind.DANGER
+        )
+    }
+}
+
+// 도움 요청 팝업이 뜬 상태
+@Preview(showBackground = true, showSystemUi = true, name = "도움 요청")
+@Composable
+fun HomeScreenHelpAlertPreview() {
+    MaterialTheme {
+        HomeScreen(
+            dangerAlert = defaultStudents().first(),
+            alertKind = AlertKind.HELP
+        )
     }
 }

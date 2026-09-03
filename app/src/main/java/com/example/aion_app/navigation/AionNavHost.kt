@@ -41,6 +41,7 @@ import com.example.aion_app.ui.screen.kids.KidsSignUpAccountScreen
 import com.example.aion_app.ui.screen.kids.KidsProfileSetupScreen
 import com.example.aion_app.ui.screen.kids.KidsOnboardingCompleteScreen
 import com.example.aion_app.ui.screen.kids.KidsHomeScreen
+import com.example.aion_app.ui.screen.kids.HelpRequestViewModel
 
 import com.example.aion_app.monitor.StereotypyMonitorScreen
 import com.example.aion_app.monitor.pose.MinigameGate
@@ -71,6 +72,7 @@ import com.example.aion_app.ui.screen.login.LoginViewModel
 
 import androidx.compose.runtime.collectAsState
 import com.example.aion_app.data.messaging.AlertBus
+import com.example.aion_app.data.messaging.AlertKind
 import com.example.aion_app.ui.screen.home.Student
 import com.example.aion_app.ui.screen.home.StudentStatus
 import com.example.aion_app.ui.screen.home.StressLevel
@@ -387,6 +389,7 @@ fun AionNavHost() {
         // ===== 아동용 홈 =====
         composable(Route.KIDS_HOME) {
             val inviteViewModel: ChildInviteViewModel = viewModel()
+            val helpViewModel: HelpRequestViewModel = viewModel()
 
             // 홈 뒤에서 카메라 + 상동행동 감지를 돌린다.
             // 감지되면 KidsHomeScreen 이 알아서 진정 제안 팝업으로 넘어간다.
@@ -413,7 +416,7 @@ fun AionNavHost() {
                         navController.navigate(Route.KIDS_MYPAGE)
                     },
                     onHelpRequest = {
-                        // TODO: 교사에게 도움 요청 알림 전송
+                        helpViewModel.requestHelp()
                     },
                     onBreathingComplete = {
                         // TODO: 호흡 완료 보상(젤리) 지급
@@ -584,6 +587,7 @@ fun AionNavHost() {
                         heartRate = null
                     )
                 },
+                alertKind = dangerAlert?.kind ?: AlertKind.DANGER,
                 onDangerAlertConfirm = { AlertBus.clear() },
                 onNotificationClick = {
                     navController.navigate(Route.NOTIFICATION)

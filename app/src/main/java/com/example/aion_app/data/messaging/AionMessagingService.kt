@@ -21,6 +21,11 @@ import com.google.firebase.messaging.RemoteMessage
  *
  * 앱이 화면에 보이는 중이면 시스템 알림 대신 앱 안 팝업으로 알린다.
  * 그 외에는 시스템 알림을 띄우고, 누르면 앱이 열리면서 같은 팝업이 뜬다.
+ *
+ * 팝업을 띄우는 알림은 두 가지다.
+ *   DANGER — 상동행동이 위험 단계로 판정됨
+ *   HELP   — 아동이 태블릿에서 도움을 요청함
+ * 주의(CAUTION)·안정(STABLE)은 급하지 않아 알림센터에만 쌓인다.
  */
 class AionMessagingService : FirebaseMessagingService() {
 
@@ -46,35 +51,40 @@ class AionMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         Log.d(TAG, "메시지 수신: ${message.data}")
 
-        val alert = message.data.toDangerAlert()
+        val alert = message.data.toPopupAlert()
 
         if (alert != null) {
             // 화면을 보고 있으면 팝업으로 충분하다. 시스템 알림까지 띄우면 중복이다.
             AlertBus.push(alert)
             if (AlertBus.isAppForeground) return
 
-            showNotification(
-                title = "위험",
-                body = "${alert.childName} 학생의 상태를 즉시 확인하세요.",
-                alert = alert
-            )
+            val (title, body) = when (alert.kind) {
+                AlertKind.DANGER -> "위험" to "${alert.childName} 학생의 상태를 즉시 확인하세요."
+                AlertKind.HELP -> "도움 요청" to "${alert.childName} 학생이 도움을 요청했어요."
+            }
+            showNotification(title = title, body = body, alert = alert)
             return
         }
 
-        // 위험 알림 형식이 아닌 메시지 (콘솔 테스트 발송 등)
+        // 팝업 대상이 아닌 메시지 (주의·안정, 콘솔 테스트 발송 등)
         val title = message.notification?.title ?: message.data["title"] ?: "AION"
         val body = message.notification?.body ?: message.data["body"] ?: return
         showNotification(title, body, alert = null)
     }
 
-    /** data 페이로드를 위험 알림으로 해석한다. 형식이 맞지 않으면 null. */
-    private fun Map<String, String>.toDangerAlert(): DangerAlert? {
-        if (this["level"] != LEVEL_DANGER) return null
+    /** data 페이로드를 팝업 알림으로 해석한다. 대상이 아니면 null. */
+    private fun Map<String, String>.toPopupAlert(): DangerAlert? {
+        val kind = when (this["level"]) {
+            LEVEL_DANGER -> AlertKind.DANGER
+            LEVEL_HELP -> AlertKind.HELP
+            else -> return null
+        }
 
         val childId = this["childId"] ?: return null
         val childName = this["childName"] ?: return null
 
         return DangerAlert(
+            kind = kind,
             childId = childId,
             childName = childName,
             gender = this["gender"].orEmpty(),
@@ -86,10 +96,11 @@ class AionMessagingService : FirebaseMessagingService() {
         createChannelIfNeeded()
 
         // 알림을 누르면 앱이 열린다.
-        // 위험 알림이면 내용을 함께 실어 보내 앱에서 팝업을 띄우게 한다.
+        // 팝업 대상이면 내용을 함께 실어 보내 앱에서 팝업을 띄우게 한다.
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
             if (alert != null) {
+                putExtra(EXTRA_KIND, alert.kind.name)
                 putExtra(EXTRA_CHILD_ID, alert.childId)
                 putExtra(EXTRA_CHILD_NAME, alert.childName)
                 putExtra(EXTRA_GENDER, alert.gender)
@@ -148,9 +159,11 @@ class AionMessagingService : FirebaseMessagingService() {
     companion object {
         private const val TAG = "FCM_TOKEN"
         private const val LEVEL_DANGER = "DANGER"
+        private const val LEVEL_HELP = "HELP"
 
         const val CHANNEL_ID = "aion_alert"   // 매니페스트의 default_notification_channel_id 와 같아야 함
 
+        const val EXTRA_KIND = "kind"
         const val EXTRA_CHILD_ID = "childId"
         const val EXTRA_CHILD_NAME = "childName"
         const val EXTRA_GENDER = "gender"
