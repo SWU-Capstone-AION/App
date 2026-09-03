@@ -52,6 +52,9 @@ android {
     androidResources {
         noCompress += "task"
     }
+    androidResources {
+        noCompress += "tflite"
+    }
 }
 
 dependencies {
@@ -103,4 +106,6 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     debugImplementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
 }
