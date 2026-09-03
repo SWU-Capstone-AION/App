@@ -12,6 +12,6 @@
         <domain includeSubdomains="true">10.0.2.2</domain>
 
         <!-- 백엔드 담당 노트북. IP가 바뀌면 여기도 함께 바꿔야 한다. -->
-        <domain includeSubdomains="true">172.19.41.235</domain>
+        <domain includeSubdomains="true">172.19.59.209</domain>
     </domain-config>
 </network-security-config>

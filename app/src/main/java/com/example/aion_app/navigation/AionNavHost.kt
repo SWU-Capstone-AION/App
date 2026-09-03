@@ -46,6 +46,7 @@ import com.example.aion_app.ui.screen.kids.KidsSignUpAccountScreen
 import com.example.aion_app.ui.screen.kids.KidsProfileSetupScreen
 import com.example.aion_app.ui.screen.kids.KidsOnboardingCompleteScreen
 import com.example.aion_app.ui.screen.kids.KidsHomeScreen
+import com.example.aion_app.ui.screen.kids.HelpRequestViewModel
 
 import com.example.aion_app.monitor.StereotypyMonitorScreen
 import com.example.aion_app.monitor.pose.MinigameGate
@@ -76,6 +77,7 @@ import com.example.aion_app.ui.screen.login.LoginViewModel
 
 import androidx.compose.runtime.collectAsState
 import com.example.aion_app.data.messaging.AlertBus
+import com.example.aion_app.data.messaging.AlertKind
 import com.example.aion_app.ui.screen.home.Student
 import com.example.aion_app.ui.screen.home.StudentStatus
 import com.example.aion_app.ui.screen.home.StressLevel
@@ -398,6 +400,7 @@ fun AionNavHost() {
             // ===== 아동용 홈 =====
             composable(Route.KIDS_HOME) {
                 val inviteViewModel: ChildInviteViewModel = viewModel()
+                val helpViewModel: HelpRequestViewModel = viewModel()
 
                 // 감지 파이프라인은 NavHost 바깥의 StereotypyDetectionHost 가 돌린다.
                 // (이 파일 맨 아래) 여기서는 결과만 읽어 쓴다.
@@ -417,7 +420,7 @@ fun AionNavHost() {
                         navController.navigate(Route.KIDS_MYPAGE)
                     },
                     onHelpRequest = {
-                        // TODO: 교사에게 도움 요청 알림 전송
+                        helpViewModel.requestHelp()
                     },
                     onBreathingComplete = {
                         // TODO: 호흡 완료 보상(젤리) 지급
@@ -536,6 +539,69 @@ fun AionNavHost() {
                 )
             }
 
+        // ===== 홈 =====
+        composable(Route.HOME) {
+            val dangerAlert by AlertBus.dangerAlert.collectAsState()
+            val myInfoViewModel: MyInfoViewModel = viewModel()
+            val homeViewModel: HomeViewModel = viewModel()
+
+            // 다른 화면에서 돌아왔을 때 최신 정보로 갱신한다.
+            // (마이페이지에서 이름을 바꿨거나, 아동을 새로 연결했거나,
+            //  알림센터에서 알림을 지웠을 수 있다)
+            LaunchedEffect(Unit) {
+                myInfoViewModel.load()
+                homeViewModel.loadChildren()
+                homeViewModel.loadAlerts()
+            }
+
+            val students = homeViewModel.students
+
+            HomeScreen(
+                classInfo = ClassInfo(
+                    teacherName = myInfoViewModel.myInfo.name,
+                    date = todayText()
+                ),
+                recentAlert = homeViewModel.recentAlert,
+                students = students,
+                classStats = ClassStats(
+                    activeCount = students.count { it.status == StudentStatus.ACTIVE },
+                    totalCount = students.size,
+                    cautionCount = homeViewModel.todayCautionCount,
+                    dangerCount = homeViewModel.todayDangerCount
+                ),
+                dangerAlert = dangerAlert?.let { alert ->
+                    Student(
+                        id = alert.childId,
+                        name = alert.childName,
+                        gender = alert.gender,
+                        age = alert.age,
+                        status = StudentStatus.ACTIVE,
+                        stressScore = 100,
+                        stressLevel = StressLevel.DANGER,
+                        heartRate = null
+                    )
+                },
+                alertKind = dangerAlert?.kind ?: AlertKind.DANGER,
+                onDangerAlertConfirm = { AlertBus.clear() },
+                onNotificationClick = {
+                    navController.navigate(Route.NOTIFICATION)
+                },
+                onAlertClick = {
+                    // 배너를 누르면 알림센터로
+                    navController.navigate(Route.NOTIFICATION)
+                },
+                onStudentClick = { student ->
+                    // TODO: 학생 상세로 이동
+                },
+                onSearchByIdClick = {
+                    navController.navigate(Route.CHILD_LINK)
+                },
+                onCreateChildAccountClick = {
+                    // TODO: 교사가 대신 가입시키는 흐름 (별도 작업)
+                },
+                onTabSelect = onTabSelect
+            )
+        }
             // ===== 상동행동 모니터링(인식 화면) =====
             // 아동용 홈 좌상단 '모니터링' 버튼으로 들어온다.
             // 카메라 프리뷰 + 스켈레톤 + 판정 대시보드만 보여준다.

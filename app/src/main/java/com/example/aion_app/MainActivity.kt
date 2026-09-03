@@ -20,6 +20,7 @@ import com.example.aion_app.data.messaging.AionMessagingService
 import android.content.Intent
 import com.example.aion_app.data.messaging.AlertBus
 import com.example.aion_app.data.messaging.DangerAlert
+import com.example.aion_app.data.messaging.AlertKind
 
 // ============================================
 // 기기 판별 기준
@@ -110,13 +111,17 @@ class MainActivity : ComponentActivity() {
         AlertBus.isAppForeground = false
     }
 
-    /** 알림에 실려 온 위험 알림 정보를 팝업으로 넘긴다. */
+    /** 알림에 실려 온 알림 정보를 팝업으로 넘긴다. */
     private fun handleAlertIntent(intent: Intent?) {
         val childId = intent?.getStringExtra(AionMessagingService.EXTRA_CHILD_ID) ?: return
         val childName = intent.getStringExtra(AionMessagingService.EXTRA_CHILD_NAME) ?: return
+        val kind = runCatching {
+            AlertKind.valueOf(intent.getStringExtra(AionMessagingService.EXTRA_KIND).orEmpty())
+        }.getOrDefault(AlertKind.DANGER)
 
         AlertBus.push(
             DangerAlert(
+                kind = kind,
                 childId = childId,
                 childName = childName,
                 gender = intent.getStringExtra(AionMessagingService.EXTRA_GENDER).orEmpty(),

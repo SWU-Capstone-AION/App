@@ -8,7 +8,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 /**
- * 알림 목록 조회·삭제.
+ * 알림 목록 조회·삭제, 아동의 도움 요청.
  *
  * 서버는 백엔드 담당 노트북에서 돌기 때문에, 꺼져 있거나 다른 와이파이면
  * 연결이 실패한다. 화면에서 그 상황을 안내할 수 있도록 실패를 그대로 돌려준다.
@@ -17,7 +17,7 @@ class AlertRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
 ) {
 
-    private val api: AlertApi by lazy {
+    private val retrofit: Retrofit by lazy {
         val client = OkHttpClient.Builder()
             // 서버가 꺼져 있을 때 오래 기다리지 않도록 짧게 잡는다
             .connectTimeout(5, TimeUnit.SECONDS)
@@ -29,8 +29,10 @@ class AlertRepository(
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(AlertApi::class.java)
     }
+
+    private val api: AlertApi by lazy { retrofit.create(AlertApi::class.java) }
+    private val helpApi: HelpApi by lazy { retrofit.create(HelpApi::class.java) }
 
     /** 현재 로그인한 교사의 알림 목록. 최신순. */
     suspend fun getAlerts(limit: Int = 50): Result<List<AlertDto>> = runCatching {
@@ -52,6 +54,25 @@ class AlertRepository(
         val response = api.deleteAlert(id)
         if (!response.ok) throw IllegalStateException("삭제하지 못했습니다.")
         Unit
+    }
+
+    /**
+     * 아동이 도움을 요청한다. 담당 교사에게 알림이 간다.
+     *
+     * 실패해도 아이에게 오류를 보여주지 않는다.
+     * (버튼을 눌렀는데 에러 창이 뜨면 오히려 더 불안해질 수 있다)
+     */
+    suspend fun requestHelp(): Result<Unit> = runCatching {
+        val childUid = auth.currentUser?.uid
+            ?: throw IllegalStateException("로그인이 필요합니다.")
+
+        android.util.Log.d("AION_API", "도움 요청: childId=$childUid")
+
+        val response = helpApi.requestHelp(HelpRequest(childId = childUid))
+        if (!response.ok) throw IllegalStateException("도움 요청에 실패했습니다.")
+        Unit
+    }.onFailure { error ->
+        android.util.Log.e("AION_API", "도움 요청 실패", error)
     }
 }
 
