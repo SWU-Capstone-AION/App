@@ -66,7 +66,7 @@ fun IdFindResultScreen(
                     .fillMaxWidth()
                     .height(52.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFECEEF0)
+                    containerColor = GreyLightHover
                 ),
                 shape = RoundedCornerShape(10.dp)
             ) {

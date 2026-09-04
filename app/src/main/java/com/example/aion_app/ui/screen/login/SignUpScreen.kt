@@ -27,7 +27,7 @@ import com.example.aion_app.ui.component.AionTextField
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.GrayText
-import com.example.aion_app.ui.theme.GrayBackground
+import com.example.aion_app.ui.theme.GreyLightHover
 import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
@@ -189,7 +189,7 @@ fun SignUpScreen(
             Text(
                 text = "|",
                 fontSize = 13.sp,
-                color = GrayBackground
+                color = GreyLightHover
             )
             Text(
                 text = "비밀번호 찾기",
@@ -265,7 +265,7 @@ fun SignUpAccountScreen(
                     modifier = Modifier
                         .height(56.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(if (userId.isBlank()) GrayBackground else LightHover)
+                        .background(if (userId.isBlank()) GreyLightHover else LightHover)
                         .clickable(enabled = userId.isNotBlank()) { onCheckDuplicate(userId) }
                         .padding(horizontal = 18.dp),
                     contentAlignment = Alignment.Center
@@ -386,7 +386,7 @@ private fun TypeSelectButton(
             .height(48.dp)
             .clip(RoundedCornerShape(8.dp))
             // 선택 상태 = Blue Light:hover (#E8EFFC). 배경만 바뀌고 글자색은 동일.
-            .background(if (isSelected) LightHover else GrayBackground)
+            .background(if (isSelected) LightHover else GreyLightHover)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {

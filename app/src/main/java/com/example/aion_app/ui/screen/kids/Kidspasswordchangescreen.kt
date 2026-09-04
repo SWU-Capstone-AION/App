@@ -308,7 +308,7 @@ private fun validCheckIcon(show: Boolean): (@Composable () -> Unit)? =
         }
     }
 
-// 하단 버튼. 시안 색이 KidsPrimaryButton 의 두 가지(파랑/GreyLightActive)와 달라
+// 하단 버튼. 시안 색이 KidsPrimaryButton 의 두 가지(파랑/GreyLightHover)와 달라
 // 배경·글자색을 직접 받는다.
 //   다음   Normal(#6495ED) + 흰 글씨
 //   다음에 GreyLightHover(#F6F7F8) + 진한 글씨

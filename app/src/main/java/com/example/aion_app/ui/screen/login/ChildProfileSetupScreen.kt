@@ -29,7 +29,7 @@ import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.component.AionTextField
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.Normal
-import com.example.aion_app.ui.theme.GrayBackground
+import com.example.aion_app.ui.theme.GreyLightHover
 import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.TextPrimary
@@ -237,7 +237,7 @@ private fun SelectablePill(
             .height(52.dp)
             .clip(RoundedCornerShape(26.dp))
             // 선택 상태 = Blue Light:hover (#E8EFFC) — 교사용/아동용 토글과 동일한 토큰
-            .background(if (isSelected) LightHover else GrayBackground)
+            .background(if (isSelected) LightHover else GreyLightHover)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
@@ -387,7 +387,7 @@ private fun DateFieldBox(
         modifier = modifier
             .height(52.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(GrayBackground)
+            .background(GreyLightHover)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
@@ -482,7 +482,7 @@ private fun BirthDatePickerDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(GrayBackground)
+                            .background(GreyLightHover)
                             .clickable { onDismiss() }
                             .padding(vertical = 16.dp),
                         contentAlignment = Alignment.Center

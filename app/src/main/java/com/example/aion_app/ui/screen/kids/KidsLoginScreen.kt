@@ -20,7 +20,7 @@ import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.AionTextDark
-import com.example.aion_app.ui.theme.GreyLightActive
+import com.example.aion_app.ui.theme.GreyLightHover
 import com.example.aion_app.ui.theme.GreyNormalActive
 import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.RedError
@@ -189,7 +189,7 @@ fun KidsSignUpAccountScreen(
                     .width(KidsConfirmWidth)
                     .height(KidsItemHeight)
                     .clip(RoundedCornerShape(KidsCorner))
-                    .background(if (userId.isBlank()) GreyLightActive else LightHover)
+                    .background(if (userId.isBlank()) GreyLightHover else LightHover)
                     .clickable(enabled = userId.isNotBlank()) { onCheckDuplicate(userId) },
                 contentAlignment = Alignment.Center
             ) {

@@ -63,7 +63,7 @@ import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.theme.Light
 import com.example.aion_app.ui.theme.Normal
-import com.example.aion_app.ui.theme.GrayBackground
+import com.example.aion_app.ui.theme.GreyLightHover
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
@@ -479,7 +479,7 @@ private fun EditTagChip(text: String) {
             .fillMaxWidth()
             .height(44.dp)
             .clip(RoundedCornerShape(22.dp))
-            .background(GrayBackground),
+            .background(GreyLightHover),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -638,7 +638,7 @@ private fun SelectableTagChip(
             .fillMaxWidth()
             .height(44.dp)
             .clip(RoundedCornerShape(22.dp))
-            .background(if (isSelected) Light else GrayBackground)
+            .background(if (isSelected) Light else GreyLightHover)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {

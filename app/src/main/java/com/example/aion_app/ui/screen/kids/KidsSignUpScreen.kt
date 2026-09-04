@@ -33,7 +33,7 @@ import com.example.aion_app.ui.screen.login.ChildProfile   // 교사용과 같�
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.Normal
-import com.example.aion_app.ui.theme.GreyLightActive
+import com.example.aion_app.ui.theme.GreyLightHover
 import com.example.aion_app.ui.theme.GreyNormalActive
 
 // ============================================================
@@ -256,7 +256,7 @@ private fun KidsDateFieldBox(
             .width(width)
             .height(KidsItemHeight)
             .clip(RoundedCornerShape(KidsCorner))
-            .background(GreyLightActive)
+            .background(GreyLightHover)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
@@ -450,7 +450,7 @@ internal fun KidsBirthDatePickerDialog(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .background(GreyLightActive)
+                            .background(GreyLightHover)
                             .clickable { onDismiss() }
                             .padding(vertical = 16.dp),
                         contentAlignment = Alignment.Center

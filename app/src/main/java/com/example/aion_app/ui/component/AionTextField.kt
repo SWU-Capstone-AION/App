@@ -5,7 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.example.aion_app.ui.theme.GrayBackground
+import com.example.aion_app.ui.theme.GreyLightHover
 import com.example.aion_app.ui.theme.RedError
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,9 +25,9 @@ fun AionTextField(
         singleLine = true,
         isError = isError,
         colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = GrayBackground,
-            unfocusedContainerColor = GrayBackground,
-            errorContainerColor = GrayBackground,
+            focusedContainerColor = GreyLightHover,
+            unfocusedContainerColor = GreyLightHover,
+            errorContainerColor = GreyLightHover,
             focusedBorderColor = if (isError) RedError else Color.Transparent,
             unfocusedBorderColor = Color.Transparent,
             errorBorderColor = RedError

@@ -40,7 +40,7 @@ import com.example.aion_app.R
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.Dark
-import com.example.aion_app.ui.theme.GreyLightActive
+import com.example.aion_app.ui.theme.GreyLightHover
 import com.example.aion_app.ui.theme.GreyNormalActive
 import com.example.aion_app.ui.theme.LightActive
 import com.example.aion_app.ui.theme.LightHover
@@ -57,7 +57,7 @@ import com.example.aion_app.ui.theme.White
 // 시안 기준: 프레임 930 x 582 / 본문 폭 329
 //
 // 이 파일이 쓰는 색 (Color.kt 토큰)
-//   입력칸·미선택 배경    GreyLightActive   #ECEEF0
+//   입력칸·미선택 배경    GreyLightHover   #F6F7F8
 //   플레이스홀더·안내문구  GreyNormalActive  #9BA0A4
 //   선택 상태             LightHover        #E8EFFC
 //   테두리·구체 글로우     LightActive       #CFDEF9
@@ -223,7 +223,7 @@ fun KidsTextField(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(KidsCorner))
-                .background(GreyLightActive)
+                .background(GreyLightHover)
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -302,7 +302,7 @@ fun KidsPrimaryButton(
     width: Dp = KidsContentWidth
 ) {
     val background = when {
-        !isPrimary -> GreyLightActive
+        !isPrimary -> GreyLightHover
         enabled -> Normal
         else -> Normal.copy(alpha = 0.6f)
     }
@@ -359,7 +359,7 @@ private fun KidsToggleButton(
             .width(KidsToggleWidth)
             .height(KidsItemHeight)
             .clip(RoundedCornerShape(KidsCorner))
-            .background(if (isSelected) LightHover else GreyLightActive)
+            .background(if (isSelected) LightHover else GreyLightHover)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
@@ -388,7 +388,7 @@ fun KidsSelectablePill(
             .width(width)
             .height(KidsItemHeight)
             .clip(RoundedCornerShape(KidsPillCorner))
-            .background(if (isSelected) LightHover else GreyLightActive)
+            .background(if (isSelected) LightHover else GreyLightHover)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
