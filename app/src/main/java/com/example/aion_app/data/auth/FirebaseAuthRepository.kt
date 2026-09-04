@@ -127,12 +127,15 @@ class FirebaseAuthRepository(
             }
         }
 
-        // 이 기기로 알림을 받을 수 있도록 FCM 토큰을 저장.
-        // 실패해도 로그인 자체는 막지 않는다.
-        try {
-            saveFcmToken(uid)
-        } catch (e: Exception) {
-            Log.w(FCM_TAG, "FCM 토큰 저장 실패", e)
+        // 알림은 교사만 받는다. 아동 문서에 토큰을 저장하면
+        // 같은 태블릿을 여러 아동이 쓸 때 토큰이 옮겨다니고,
+        // 서버가 엉뚱한 기기로 보낼 위험이 있다.
+        if (role == UserRole.TEACHER) {
+            try {
+                saveFcmToken(uid)
+            } catch (e: Exception) {
+                Log.w(FCM_TAG, "FCM 토큰 저장 실패", e)
+            }
         }
 
         role
