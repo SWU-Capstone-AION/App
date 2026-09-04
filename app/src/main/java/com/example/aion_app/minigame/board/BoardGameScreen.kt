@@ -36,6 +36,7 @@ fun BoardGameScreen(
 
     PoseGameHost(
         title = "칠판을 깨끗하게 지워보자!",
+        introMessage = "손바닥으로 칠판을 쓱쓱 문질러 줘!\n천천히 해도 괜찮아.",
         clearedMessage = "칠판이 반짝반짝해! 잘했어",
         onExit = onExit,
         onForceClear = { engine.forceClear() },
@@ -79,11 +80,11 @@ private fun DrawScope.drawCell(cell: ChalkCell) {
     val insetY = cell.height * 0.22f
     val (start, end) = when (cell.id % 3) {
         0 -> Offset(left + inset, top + insetY) to
-            Offset(left + cell.width - inset, top + cell.height - insetY)
+                Offset(left + cell.width - inset, top + cell.height - insetY)
         1 -> Offset(left + inset, top + cell.height - insetY) to
-            Offset(left + cell.width - inset, top + insetY)
+                Offset(left + cell.width - inset, top + insetY)
         else -> Offset(left + inset, cell.centerY) to
-            Offset(left + cell.width - inset, cell.centerY)
+                Offset(left + cell.width - inset, cell.centerY)
     }
 
     drawLine(
