@@ -100,7 +100,16 @@ val KidsPillCorner   = 25.dp     // 선택지(알약) 모서리 = 높이/2
 @Composable
 fun KidsDesignScale(
     modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit
+    // 팝업처럼 화면 전체를 덮어야 하는 요소.
+    //
+    // content 는 시안 프레임(930x582) 안에만 그려진다. 기기 비율이 시안과 다르면
+    // 프레임 밖에 레터박스 띠가 남는데, 팝업 딤을 content 안에 두면
+    // 그 띠가 어두워지지 않아 "딤이 잘린" 것처럼 보인다.
+    // overlay 는 프레임 바깥까지 덮는 바깥 Box 에 그려지므로 화면 끝까지 닿는다.
+    //
+    // 배율(LocalDensity)은 content 와 똑같이 적용되므로 카드 크기는 시안 기준 그대로다.
+    overlay: (@Composable BoxScope.() -> Unit)? = null,
+    content: @Composable BoxScope.() -> Unit = {}
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val base = LocalDensity.current
@@ -127,6 +136,9 @@ fun KidsDesignScale(
                     ),
                     content = content
                 )
+
+                // 프레임 밖(레터박스)까지 덮어야 하는 것들. 딤 처리가 여기 들어간다.
+                overlay?.invoke(this)
             }
         }
     }
