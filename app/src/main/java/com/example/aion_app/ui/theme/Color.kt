@@ -65,15 +65,24 @@ val GreyLight        = Color(0xFFF9FAFA)  // Light
 // 값이 같아 단순 치환이 가능했던 것들은 이미 팔레트로 옮겼다.
 //   BluePrimary → Normal / BlueLight → Light / GrayDark → GreyDarkActive / GreyWhite → White
 //
+// 배경 회색은 전부 GreyLightHover(#F6F7F8) 로 통일했다. (디자인팀 요청)
+//   기존에 #F5F5F5(GrayBackground) / #ECEEF0(GreyLightActive) / #F6F7F8 세 가지가
+//   섞여 있어서 화면을 옮길 때마다 톤이 미묘하게 달라 보였다.
+//   와이어프레임 같다는 피드백이 있어 가장 밝은 값으로 맞췄다.
+//
 // 남은 것 (괄호 안은 현재 참조 수) — 옮기면 색이 미세하게 바뀌므로 화면 확인이 필요하다
-//   GrayBackground (29) → GreyLightHover    #F5F5F5 → #F6F7F8
-//   GrayText       (69) → GreyNormalActive  #9E9E9E → #9BA0A4
+//   GrayText (69) → GreyNormalActive  #9E9E9E → #9BA0A4
 //
 // TextPrimary(62) / AionTextDark(25) 는 둘 다 본문 텍스트인데 값이 다르다.
 // 어느 쪽으로 통일할지 팀에서 정해야 한다. (시안 값은 파랑 계열 다크인 #2D3C4A)
 
 // ---------- 회색 계열 별칭 ----------
-val GrayBackground = Color(0xFFF5F5F5)
+// 배경 회색은 GreyLightHover 로 통일되어 참조가 0이 되었다.
+// 바로 지우지 않는 이유: 진행 중인 다른 브랜치가 아직 이 이름을 쓰고 있을 수 있다.
+// 값을 새 색으로 맞춰 두었으므로 머지되어도 화면은 정상으로 나온다.
+// 다음 정리 때 삭제할 것.
+@Deprecated("GreyLightHover 를 쓸 것", ReplaceWith("GreyLightHover"))
+val GrayBackground = Color(0xFFF6F7F8)
 val GrayText       = Color(0xFF9E9E9E)
 val White          = Color(0xFFFFFFFF)   // 팔레트의 White 이기도 하다
 

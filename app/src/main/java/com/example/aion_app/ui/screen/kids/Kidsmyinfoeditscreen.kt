@@ -39,7 +39,6 @@ import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.screen.mypage.MyInfo
 import com.example.aion_app.ui.theme.AionTextValue
 import com.example.aion_app.ui.theme.AionTheme
-import com.example.aion_app.ui.theme.GreyLightActive
 import com.example.aion_app.ui.theme.GreyLightHover
 import com.example.aion_app.ui.theme.GreyNormalActive
 import com.example.aion_app.ui.theme.Normal
@@ -176,7 +175,7 @@ fun KidsMyInfoEditScreen(
                         .align(Alignment.BottomEnd)
                         .size(20.dp)
                         .clip(CircleShape)
-                        .background(GreyLightActive),
+                        .background(GreyLightHover),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -376,7 +375,7 @@ private fun KidsImageSourceBottomSheet(
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             KidsSheetRow("앨범에서 선택", Icons.Default.Image, onPickFromGallery)
-            HorizontalDivider(color = GreyLightActive, thickness = 0.5.dp)
+            HorizontalDivider(color = GreyLightHover, thickness = 0.5.dp)
             KidsSheetRow("사진촬영", Icons.Default.PhotoCamera, onTakePhoto)
         }
     }

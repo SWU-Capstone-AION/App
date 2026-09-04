@@ -44,7 +44,7 @@ fun PasswordFindScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(GrayBackground)
+                    .background(GreyLightHover)
                     .padding(4.dp)
             ) {
                 TabButton(

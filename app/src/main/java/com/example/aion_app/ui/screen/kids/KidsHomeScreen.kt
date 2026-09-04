@@ -32,7 +32,7 @@ import com.example.aion_app.data.auth.TeacherInvite
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.DarkHover
-import com.example.aion_app.ui.theme.GreyLightActive
+import com.example.aion_app.ui.theme.GreyLightHover
 import com.example.aion_app.ui.theme.Light
 import com.example.aion_app.ui.theme.LightActive
 import com.example.aion_app.ui.theme.Normal
@@ -333,7 +333,7 @@ private fun BoxScope.KidsTeacherInviteDialog(
                     modifier = Modifier
                         .weight(1f)
                         .height(KidsItemHeight)
-                        .background(GreyLightActive)
+                        .background(GreyLightHover)
                         .clickable(enabled = !isResponding) { onRespond(false) },
                     contentAlignment = Alignment.Center
                 ) {
