@@ -190,7 +190,33 @@ fun KidsHomeScreen(
         return
     }
 
-    KidsDesignScale(modifier = Modifier.background(Light)) {
+    KidsDesignScale(
+        modifier = Modifier.background(Light),
+        // 팝업은 overlay 로 넘긴다.
+        // content 안에 두면 딤이 시안 프레임(930x582) 안까지만 깔려서
+        // 기기 비율이 다를 때 화면 가장자리가 안 덮인다.
+        overlay = {
+            if (mode.isPrompt) {
+                KidsCalmPromptDialog(
+                    style = if (mode == KidsHomeMode.PROMPT_DETECTED) {
+                        KidsPromptDetectedStyle
+                    } else {
+                        KidsPromptHelpStyle
+                    },
+                    onConfirm = { mode = KidsHomeMode.BREATHING }
+                )
+            }
+
+            // 학급 초대는 진정 흐름을 방해하지 않도록 평소 화면일 때만 띄운다
+            if (invite != null && mode == KidsHomeMode.CALM) {
+                KidsTeacherInviteDialog(
+                    invite = invite,
+                    isResponding = isRespondingToInvite,
+                    onRespond = onInviteRespond
+                )
+            }
+        }
+    ) {
         KidsHomeTopBar(
             points = points,
             onProfileClick = onProfileClick
@@ -265,25 +291,6 @@ fun KidsHomeScreen(
                 .padding(bottom = 38.dp)
         )
 
-        if (mode.isPrompt) {
-            KidsCalmPromptDialog(
-                style = if (mode == KidsHomeMode.PROMPT_DETECTED) {
-                    KidsPromptDetectedStyle
-                } else {
-                    KidsPromptHelpStyle
-                },
-                onConfirm = { mode = KidsHomeMode.BREATHING }
-            )
-        }
-
-        // 학급 초대는 진정 흐름을 방해하지 않도록 평소 화면일 때만 띄운다
-        if (invite != null && mode == KidsHomeMode.CALM) {
-            KidsTeacherInviteDialog(
-                invite = invite,
-                isResponding = isRespondingToInvite,
-                onRespond = onInviteRespond
-            )
-        }
     }
 }
 

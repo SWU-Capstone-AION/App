@@ -347,7 +347,9 @@ private fun KidsPasswordDialog(
     message: String,
     onConfirm: () -> Unit
 ) {
-    KidsDesignScale {
+    // 딤이 화면 끝까지 닿도록 overlay 슬롯을 쓴다.
+    // content 안에 두면 시안 프레임(930x582) 안까지만 깔린다.
+    KidsDesignScale(overlay = {
         Box(
             modifier = Modifier
                 .matchParentSize()
@@ -395,7 +397,7 @@ private fun KidsPasswordDialog(
                 }
             }
         }
-    }
+    })
 }
 
 // ============================================================
