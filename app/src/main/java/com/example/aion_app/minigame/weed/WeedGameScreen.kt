@@ -33,6 +33,7 @@ fun WeedGameScreen(
 
     PoseGameHost(
         title = "잡초를 전부 뽑아보자!",
+        introMessage = "잡초를 손으로 잡고 위로 쑥 뽑아 줘!\n천천히 해도 괜찮아.",
         clearedMessage = "다 뽑았어! 잘했어",
         onExit = onExit,
         onForceClear = { engine.forceClear() },

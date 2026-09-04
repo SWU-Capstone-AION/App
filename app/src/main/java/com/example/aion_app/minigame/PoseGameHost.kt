@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -44,6 +45,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -54,6 +56,7 @@ import com.example.aion_app.monitor.pose.PoseLandmarkerHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -80,6 +83,7 @@ private val FillColor = Color(0xFFB0B0B0)
  * 기존 monitor.pose.PoseLandmarkerHelper 를 그대로 재사용한다.
  * 헬퍼가 이미 전면 카메라 미러링을 처리하므로 좌표를 다시 뒤집지 않는다.
  *
+ * @param introMessage 시작 전 안내창에 띄울 문구.
  * @param update 매 프레임 호출. **MediaPipe 결과 콜백(백그라운드 스레드)에서 돌아간다.**
  * @param draw 게임 그래픽. Canvas 안에서 호출된다.
  * @param onExit X 버튼을 눌렀을 때 (홈으로 복귀)
@@ -91,6 +95,9 @@ private val FillColor = Color(0xFFB0B0B0)
 @Composable
 fun <S : MinigameStatus> PoseGameHost(
     title: String,
+    // 시작 전 안내창 문구. 두 줄 기준으로 쓴다.
+    //   1줄 = 무엇을 하는지, 2줄 = 부담 덜어주는 말
+    introMessage: String,
     clearedMessage: String,
     onExit: () -> Unit,
     onForceClear: () -> Unit,
@@ -105,7 +112,7 @@ fun <S : MinigameStatus> PoseGameHost(
     var hasPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                PackageManager.PERMISSION_GRANTED
+                    PackageManager.PERMISSION_GRANTED
         )
     }
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -132,6 +139,16 @@ fun <S : MinigameStatus> PoseGameHost(
     var snapshot by remember { mutableStateOf<S?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    // 안내창을 닫기 전에는 게임 판정을 멈춘다.
+    //
+    // 카메라 바인딩과 MediaPipe 모델 로딩은 안내창 뒤에서 그대로 진행시킨다.
+    // 아이가 문구를 읽는 동안 준비가 끝나므로 '시작할게요'를 누르면 바로 반응한다.
+    //
+    // ⚠ started 는 MediaPipe 결과 콜백(백그라운드 스레드)에서 읽는다.
+    //   Compose State 를 그대로 읽으면 스레드 안전하지 않아 AtomicBoolean 을 따로 둔다.
+    var introVisible by remember { mutableStateOf(true) }
+    val started = remember { AtomicBoolean(false) }
+
     // 오버레이 크기는 추론 콜백(백그라운드 스레드)에서 읽으므로 원자적으로 보관한다.
     val overlaySize = remember { AtomicReference(IntSize.Zero) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
@@ -142,7 +159,9 @@ fun <S : MinigameStatus> PoseGameHost(
             context = context,
             onResult = { bundle ->
                 val size = overlaySize.get()
-                if (size.width > 0 && size.height > 0) {
+                // 안내창이 떠 있는 동안에는 엔진을 건드리지 않는다.
+                // 그냥 두면 아이가 문구를 읽는 사이에 잡초가 뽑혀 있다.
+                if (started.get() && size.width > 0 && size.height > 0) {
                     val pose = PoseAdapter.toGameInput(
                         bundle = bundle,
                         viewWidth = size.width.toFloat(),
@@ -248,6 +267,8 @@ fun <S : MinigameStatus> PoseGameHost(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             when {
+                // 안내창이 떠 있는 동안에는 하단 안내 문구를 겹쳐 띄우지 않는다.
+                introVisible -> Unit
                 state == null -> Unit
                 !state.poseVisible -> Pill("화면에 몸이 보이도록 앉아 줘")
                 state.nudge == Nudge.KEEP_GOING -> Pill("아직 남았어! 조금만 더 해볼까?")
@@ -273,6 +294,76 @@ fun <S : MinigameStatus> PoseGameHost(
 
         if (state?.cleared == true) {
             ClearedOverlay(message = clearedMessage, onExit = onExit)
+        }
+
+        // 시작 안내. 매번 띄운다. (아이가 매번 새로 접한다고 보는 편이 안전하다)
+        if (introVisible) {
+            IntroOverlay(
+                title = title,
+                message = introMessage,
+                onStart = {
+                    started.set(true)
+                    introVisible = false
+                },
+            )
+        }
+    }
+}
+
+/**
+ * 게임 시작 전 안내창.
+ *
+ * 버튼 말고 아무 데나 눌러도 시작된다. 아이가 버튼을 정확히 못 눌러
+ * 화면 앞에서 멈춰 있는 상황을 막기 위해서다.
+ * X 버튼은 이 오버레이에 가려지므로, 그만두려면 시작한 뒤에 누르면 된다.
+ */
+@Composable
+private fun BoxScope.IntroOverlay(
+    title: String,
+    message: String,
+    onStart: () -> Unit,
+) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color(0xCC000000))
+            .clickable { onStart() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+        ) {
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+            )
+
+            Text(
+                text = message,
+                color = Color.White,
+                fontSize = 20.sp,
+                lineHeight = 32.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.widthIn(max = 460.dp).padding(horizontal = 32.dp),
+            )
+
+            Box(
+                Modifier
+                    .padding(top = 4.dp)
+                    .background(Color.White, RoundedCornerShape(28.dp))
+                    .clickable { onStart() }
+                    .padding(horizontal = 40.dp, vertical = 16.dp)
+            ) {
+                Text(
+                    text = "시작할게요",
+                    color = PillText,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         }
     }
 }
