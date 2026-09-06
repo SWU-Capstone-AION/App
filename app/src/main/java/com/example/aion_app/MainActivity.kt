@@ -22,6 +22,10 @@ import com.example.aion_app.data.messaging.AlertBus
 import com.example.aion_app.data.messaging.DangerAlert
 import com.example.aion_app.data.messaging.AlertKind
 
+import androidx.lifecycle.lifecycleScope
+import com.example.aion_app.data.alert.AlertRepository
+import kotlinx.coroutines.launch
+
 // ============================================
 // 기기 판별 기준
 // ============================================
@@ -48,6 +52,11 @@ class MainActivity : ComponentActivity() {
 
         // 알림을 눌러서 앱이 열린 경우
         handleAlertIntent(intent)
+
+        // 서버를 미리 깨워둔다 (Render 무료 플랜 콜드 스타트 대비)
+        lifecycleScope.launch {
+            AlertRepository().warmUp()
+        }
 
         // 시스템바(상태바/내비게이션바) 여백은 AionNavHost 에서 처리한다.
         // 스플래시만 풀블리드로 둬야 해서 현재 라우트를 아는 쪽에 두는 게 맞다.
