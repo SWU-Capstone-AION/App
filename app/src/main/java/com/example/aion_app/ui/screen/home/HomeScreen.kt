@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
 import com.example.aion_app.data.messaging.AlertKind
 import com.example.aion_app.ui.component.AionBottomNavBar
+import com.example.aion_app.ui.home.ChildAvatar
 import com.example.aion_app.ui.theme.GreyDarkActive
 import com.example.aion_app.ui.theme.GreyLight
 import com.example.aion_app.ui.theme.GrayText
@@ -656,11 +657,9 @@ private fun ProfileWithIndicator(isActive: Boolean) {
         modifier = Modifier.size(ProfileBoxSize)
     ) {
         // 프로필 자리
-        Box(
-            modifier = Modifier
-                .size(ProfileBoxSize)
-                .clip(RoundedCornerShape(ProfileCornerRadius))
-                .background(Color(0xFFE0E0E0))
+        ChildAvatar(
+            size = ProfileBoxSize,
+            cornerRadius = ProfileCornerRadius
         )
 
         // 우하단 활동 인디케이터 (활동/비활동 모두 표시, 색만 다름)
