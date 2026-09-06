@@ -19,9 +19,10 @@ class AlertRepository(
 
     private val retrofit: Retrofit by lazy {
         val client = OkHttpClient.Builder()
-            // 서버가 꺼져 있을 때 오래 기다리지 않도록 짧게 잡는다
-            .connectTimeout(5, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
+            // Render 무료 플랜은 15분 유휴 후 잠들고, 깨는 데 50초 넘게 걸린다.
+            // 첫 요청이 그 시간을 기다릴 수 있도록 넉넉히 잡는다.
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
             .build()
 
         Retrofit.Builder()
@@ -33,6 +34,7 @@ class AlertRepository(
 
     private val api: AlertApi by lazy { retrofit.create(AlertApi::class.java) }
     private val helpApi: HelpApi by lazy { retrofit.create(HelpApi::class.java) }
+    private val healthApi: HealthApi by lazy { retrofit.create(HealthApi::class.java) }
 
     /** 현재 로그인한 교사의 알림 목록. 최신순. */
     suspend fun getAlerts(limit: Int = 50): Result<List<AlertDto>> = runCatching {
@@ -54,6 +56,18 @@ class AlertRepository(
         val response = api.deleteAlert(id)
         if (!response.ok) throw IllegalStateException("삭제하지 못했습니다.")
         Unit
+    }
+
+    /**
+     * 서버를 미리 깨워둔다.
+     *
+     * Render 무료 플랜은 15분 유휴 후 잠들고 깨는 데 50초 넘게 걸린다.
+     * 앱을 켤 때 한 번 던져두면 사용자가 실제로 기능을 쓸 때는 이미 깨어 있다.
+     * 응답을 기다릴 필요도, 실패를 알릴 필요도 없다.
+     */
+    suspend fun warmUp() {
+        runCatching { healthApi.check() }
+            .onFailure { android.util.Log.d("AION_API", "warm-up 실패(무시): ${it.message}") }
     }
 
     /**
