@@ -64,7 +64,7 @@ fun MyPageScreen(
             val painter: Painter = if (profileImageUri != null) {
                 rememberAsyncImagePainter(model = profileImageUri)
             } else {
-                painterResource(id = R.drawable.mypage_profile_default)
+                painterResource(id = R.drawable.teacher_profile)
             }
 
             Image(
