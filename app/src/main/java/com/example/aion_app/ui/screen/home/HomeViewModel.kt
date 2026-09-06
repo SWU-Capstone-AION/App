@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aion_app.data.alert.AlertRepository
+import com.example.aion_app.data.alert.ChildStateDto
 import com.example.aion_app.data.alert.isToday
 import com.example.aion_app.data.alert.parseIsoDate
 import com.example.aion_app.data.alert.toRelativeTime
@@ -43,38 +44,52 @@ class HomeViewModel(
         loadAlerts()
     }
 
-    /** 연결된 아동 목록을 불러온다. 아동을 새로 연결한 뒤에도 호출해서 갱신한다. */
+    /**
+     * 담당 아동 목록과 현재 상태를 불러온다.
+     *
+     * 서버가 상태까지 담아 돌려주므로 평소에는 그것만 쓰면 된다.
+     * 서버가 꺼져 있을 때는 Firestore에서 목록만 읽어와, 상태는 비어 있어도
+     * 아이들이 화면에서 사라지지 않게 한다.
+     */
     fun loadChildren() {
         viewModelScope.launch {
-            isLoading = true
-
-            authRepository.getMyChildren()
-                .onSuccess { children ->
-                    students = children.map { child ->
-                        Student(
-                            id = child.uid,
-                            name = child.name,
-                            gender = child.gender,
-                            age = child.age,
-                            // 실시간 상태는 아직 서버에서 받아오지 않는다.
-                            // 감지 결과 연동이 붙으면 여기서 채운다.
-                            status = StudentStatus.INACTIVE,
-                            stressScore = 0,
-                            stressLevel = StressLevel.NO_DATA,
-                            heartRate = null,
-                        )
-                    }
+            alertRepository.getChildStates()
+                .onSuccess { states ->
+                    students = states.map { it.toStudent() }
+                    isLoading = false
                 }
-                .onFailure { students = emptyList() }
-
-            isLoading = false
+                .onFailure {
+                    loadChildrenFromFirestore()
+                }
         }
+    }
+
+    private suspend fun loadChildrenFromFirestore() {
+        authRepository.getMyChildren()
+            .onSuccess { children ->
+                students = children.map { child ->
+                    Student(
+                        id = child.uid,
+                        name = child.name,
+                        gender = child.gender,
+                        age = child.age,
+                        // 서버에 못 붙었으니 상태는 알 수 없다
+                        status = StudentStatus.INACTIVE,
+                        stressScore = 0,
+                        stressLevel = StressLevel.NO_DATA,
+                        heartRate = null,
+                    )
+                }
+            }
+            .onFailure { students = emptyList() }
+
+        isLoading = false
     }
 
     /**
      * 알림을 불러와 배너와 오늘 건수를 채운다.
      *
-     * 서버(노트북)가 꺼져 있으면 실패하는데, 홈 전체를 막을 일은 아니므로
+     * 서버가 꺼져 있으면 실패하는데, 홈 전체를 막을 일은 아니므로
      * 배너만 비우고 넘어간다.
      */
     fun loadAlerts() {
@@ -101,3 +116,22 @@ class HomeViewModel(
         }
     }
 }
+
+/** 서버 응답 → 홈 화면 카드 모델 */
+private fun ChildStateDto.toStudent(): Student = Student(
+    id = childId,
+    name = name,
+    gender = gender,
+    age = age,
+    status = if (active) StudentStatus.ACTIVE else StudentStatus.INACTIVE,
+    stressScore = score,
+    stressLevel = when (level) {
+        "DANGER" -> StressLevel.DANGER
+        "CAUTION" -> StressLevel.CAUTION
+        "STABLE" -> StressLevel.STABLE
+        // level 이 null 이면 아직 측정 기록이 없는 아동
+        else -> StressLevel.NO_DATA
+    },
+    // 심박수는 아직 서버가 보내지 않는다 (갤럭시 워치 연동 예정)
+    heartRate = null,
+)
