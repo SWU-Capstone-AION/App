@@ -35,6 +35,7 @@ class AlertRepository(
     private val api: AlertApi by lazy { retrofit.create(AlertApi::class.java) }
     private val helpApi: HelpApi by lazy { retrofit.create(HelpApi::class.java) }
     private val healthApi: HealthApi by lazy { retrofit.create(HealthApi::class.java) }
+    private val childStateApi: ChildStateApi by lazy { retrofit.create(ChildStateApi::class.java) }
 
     /** 현재 로그인한 교사의 알림 목록. 최신순. */
     suspend fun getAlerts(limit: Int = 50): Result<List<AlertDto>> = runCatching {
@@ -68,6 +69,19 @@ class AlertRepository(
     suspend fun warmUp() {
         runCatching { healthApi.check() }
             .onFailure { android.util.Log.d("AION_API", "warm-up 실패(무시): ${it.message}") }
+    }
+
+    /** 담당 아동들의 현재 상태. 홈 화면에서 주기적으로 부른다. */
+    suspend fun getChildStates(): Result<List<ChildStateDto>> = runCatching {
+        val teacherUid = auth.currentUser?.uid
+            ?: throw IllegalStateException("로그인이 필요합니다.")
+
+        val response = childStateApi.getChildStates(teacherId = teacherUid)
+        if (!response.ok) throw IllegalStateException("아동 상태를 불러오지 못했습니다.")
+
+        response.children
+    }.onFailure { error ->
+        android.util.Log.e("AION_API", "아동 상태 조회 실패", error)
     }
 
     /**

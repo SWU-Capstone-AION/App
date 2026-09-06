@@ -223,6 +223,7 @@ fun AionNavHost() {
                     }
                 )
             }
+
             // ===== 아이디 찾기 =====
             composable(Route.ID_FIND) {
                 val idFindViewModel: IdFindViewModel = viewModel()
@@ -273,6 +274,7 @@ fun AionNavHost() {
                     }
                 )
             }
+
             composable(Route.CHILD_PROFILE_SETUP) {
                 val parentEntry = remember(it) {
                     navController.getBackStackEntry(Route.SIGN_UP)
@@ -289,6 +291,7 @@ fun AionNavHost() {
                     }
                 )
             }
+
             composable(Route.ONBOARDING_COMPLETE) {
                 val parentEntry = remember(it) {
                     navController.getBackStackEntry(Route.SIGN_UP)
@@ -539,69 +542,6 @@ fun AionNavHost() {
                 )
             }
 
-        // ===== 홈 =====
-        composable(Route.HOME) {
-            val dangerAlert by AlertBus.dangerAlert.collectAsState()
-            val myInfoViewModel: MyInfoViewModel = viewModel()
-            val homeViewModel: HomeViewModel = viewModel()
-
-            // 다른 화면에서 돌아왔을 때 최신 정보로 갱신한다.
-            // (마이페이지에서 이름을 바꿨거나, 아동을 새로 연결했거나,
-            //  알림센터에서 알림을 지웠을 수 있다)
-            LaunchedEffect(Unit) {
-                myInfoViewModel.load()
-                homeViewModel.loadChildren()
-                homeViewModel.loadAlerts()
-            }
-
-            val students = homeViewModel.students
-
-            HomeScreen(
-                classInfo = ClassInfo(
-                    teacherName = myInfoViewModel.myInfo.name,
-                    date = todayText()
-                ),
-                recentAlert = homeViewModel.recentAlert,
-                students = students,
-                classStats = ClassStats(
-                    activeCount = students.count { it.status == StudentStatus.ACTIVE },
-                    totalCount = students.size,
-                    cautionCount = homeViewModel.todayCautionCount,
-                    dangerCount = homeViewModel.todayDangerCount
-                ),
-                dangerAlert = dangerAlert?.let { alert ->
-                    Student(
-                        id = alert.childId,
-                        name = alert.childName,
-                        gender = alert.gender,
-                        age = alert.age,
-                        status = StudentStatus.ACTIVE,
-                        stressScore = 100,
-                        stressLevel = StressLevel.DANGER,
-                        heartRate = null
-                    )
-                },
-                alertKind = dangerAlert?.kind ?: AlertKind.DANGER,
-                onDangerAlertConfirm = { AlertBus.clear() },
-                onNotificationClick = {
-                    navController.navigate(Route.NOTIFICATION)
-                },
-                onAlertClick = {
-                    // 배너를 누르면 알림센터로
-                    navController.navigate(Route.NOTIFICATION)
-                },
-                onStudentClick = { student ->
-                    // TODO: 학생 상세로 이동
-                },
-                onSearchByIdClick = {
-                    navController.navigate(Route.CHILD_LINK)
-                },
-                onCreateChildAccountClick = {
-                    // TODO: 교사가 대신 가입시키는 흐름 (별도 작업)
-                },
-                onTabSelect = onTabSelect
-            )
-        }
             // ===== 상동행동 모니터링(인식 화면) =====
             // 아동용 홈 좌상단 '모니터링' 버튼으로 들어온다.
             // 카메라 프리뷰 + 스켈레톤 + 판정 대시보드만 보여준다.
@@ -614,6 +554,7 @@ fun AionNavHost() {
                     onBack = { navController.popBackStack() },
                 )
             }
+
             // ===== 미니게임 =====
             // onGameStateChanged 는 두 게임 모두 반드시 연결해 둔다.
             // 놀이 동작(팔 상하 반복 / 좌우 문지르기)이 상동행동 판정에 그대로 걸리기 때문에,
@@ -640,13 +581,17 @@ fun AionNavHost() {
                 val myInfoViewModel: MyInfoViewModel = viewModel()
                 val homeViewModel: HomeViewModel = viewModel()
 
-                // 다른 화면에서 돌아왔을 때 최신 정보로 갱신한다.
-                // (마이페이지에서 이름을 바꿨거나, 아동을 새로 연결했거나,
-                //  알림센터에서 알림을 지웠을 수 있다)
+                // 화면에 머무는 동안 아동 상태와 알림을 함께 갱신한다.
+                // 같은 타이머에 묶어 두면 요청 주기가 늘어나지 않는다.
+                // 화면을 벗어나면 LaunchedEffect 가 취소되면서 폴링도 멈춘다.
                 LaunchedEffect(Unit) {
                     myInfoViewModel.load()
-                    homeViewModel.loadChildren()
-                    homeViewModel.loadAlerts()
+
+                    while (true) {
+                        homeViewModel.loadChildren()
+                        homeViewModel.loadAlerts()
+                        kotlinx.coroutines.delay(5_000)
+                    }
                 }
 
                 val students = homeViewModel.students
@@ -676,6 +621,7 @@ fun AionNavHost() {
                             heartRate = null
                         )
                     },
+                    alertKind = dangerAlert?.kind ?: AlertKind.DANGER,
                     onDangerAlertConfirm = { AlertBus.clear() },
                     onNotificationClick = {
                         navController.navigate(Route.NOTIFICATION)
@@ -730,6 +676,7 @@ fun AionNavHost() {
                     onTabSelect = onTabSelect
                 )
             }
+
             composable("${Route.REPORT_DETAIL}/{studentId}") { entry ->
                 val studentId = entry.arguments?.getString("studentId") ?: "2"
                 ReportDetailScreen(
