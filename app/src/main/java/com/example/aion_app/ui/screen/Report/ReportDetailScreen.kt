@@ -39,6 +39,7 @@ import androidx.compose.ui.window.Dialog
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionPrimaryButton
 import com.example.aion_app.ui.component.AionTopBar
+import com.example.aion_app.ui.home.ChildAvatar
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.Light
@@ -354,11 +355,11 @@ private fun StudentHeaderCard(student: ReportStudent) {
         Box(
             modifier = Modifier.size(48.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFF0F1F3))
+            // 홈 화면과 같은 컴포넌트를 써서 아이별 사진을 보여준다
+            ChildAvatar(
+                size = 48.dp,
+                cornerRadius = 8.dp,
+                childName = student.name
             )
             // 홈 화면 아이들 리스트의 상태 점과 같은 크기(8/4).
             // 안쪽 원을 padding 으로 만들면 바깥 크기를 바꿀 때마다 padding 도
