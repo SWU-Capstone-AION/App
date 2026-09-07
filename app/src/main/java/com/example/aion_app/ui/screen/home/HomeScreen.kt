@@ -549,7 +549,11 @@ private fun StudentCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // 프로필 사진 (초록 점 인디케이터 포함)
-                ProfileWithIndicator(isActive = isActive)
+                // 아이마다 다른 사진을 보여주기 위해 이름을 함께 넘긴다
+                ProfileWithIndicator(
+                    isActive = isActive,
+                    childName = student.name
+                )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
@@ -652,14 +656,18 @@ private val IndicatorCornerOffset =
     IndicatorOuterSize / 2 - ProfileCornerRadius * 0.2929f
 
 @Composable
-private fun ProfileWithIndicator(isActive: Boolean) {
+private fun ProfileWithIndicator(
+    isActive: Boolean,
+    childName: String? = null
+) {
     Box(
         modifier = Modifier.size(ProfileBoxSize)
     ) {
         // 프로필 자리
         ChildAvatar(
             size = ProfileBoxSize,
-            cornerRadius = ProfileCornerRadius
+            cornerRadius = ProfileCornerRadius,
+            childName = childName
         )
 
         // 우하단 활동 인디케이터 (활동/비활동 모두 표시, 색만 다름)

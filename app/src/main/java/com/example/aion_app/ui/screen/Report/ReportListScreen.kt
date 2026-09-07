@@ -14,12 +14,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.ui.component.AionBottomNavBar
+import com.example.aion_app.ui.home.ChildAvatar
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.LightActive
@@ -96,12 +96,11 @@ private fun StudentReportCard(
             .padding(horizontal = 16.dp, vertical = 20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 프로필 자리 (회색 라운드 박스)
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFFF0F1F3))
+        // 프로필 사진 (홈 화면과 같은 컴포넌트를 쓴다)
+        ChildAvatar(
+            size = 48.dp,
+            cornerRadius = 10.dp,
+            childName = student.name
         )
 
         Spacer(modifier = Modifier.width(14.dp))

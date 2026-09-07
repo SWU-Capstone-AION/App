@@ -678,7 +678,7 @@ private fun EditRowProfileImage(
             val painter: Painter = if (imageUri != null) {
                 rememberAsyncImagePainter(model = imageUri)
             } else {
-                painterResource(id = R.drawable.mypage_profile_default)
+                painterResource(id = R.drawable.teacher_profile)
             }
 
             Image(
