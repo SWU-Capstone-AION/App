@@ -39,6 +39,7 @@ import com.example.aion_app.monitor.pose.StereotypyDetector
 import com.example.aion_app.monitor.ui.AlarmBanner
 import com.example.aion_app.monitor.ui.Dashboard
 import com.example.aion_app.monitor.ui.PoseOverlay
+import com.example.aion_app.monitor.net.DetectionSender
 
 // ============================================================
 // 상동행동 모니터링(인식) 화면
@@ -122,6 +123,7 @@ fun StereotypyMonitorScreen(
                             rightWrist = w(PoseIndex.RIGHT_WRIST),
                         )
                         detState = st
+                        DetectionSender.send(st)
                         if (st.alarmCount > lastAlarmCount[0]) {
                             lastAlarmCount[0] = st.alarmCount
                             alarmSound.beep()

@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.aion_app.monitor.camera.PoseCameraView
+import com.example.aion_app.monitor.net.DetectionSender
 import com.example.aion_app.monitor.pose.MinigameGate
 import com.example.aion_app.monitor.pose.PoseIndex
 import com.example.aion_app.monitor.pose.StereotypyDetector
@@ -38,6 +39,7 @@ import com.example.aion_app.monitor.pose.StereotypyDetector
 //      PoseCameraView 는 IMAGE_ANALYSIS 유즈케이스만 바인딩하므로(setEnabledUseCases)
 //      PreviewView 는 화면에 아무것도 그리지 않는다. 크기는 형식상 필요할 뿐이다.
 //   3. StereotypyDetector 결과의 anyAlarm 을 StereotypySignal 에 쓴다.
+//   4. 판정 점수를 서버로 보낸다(DetectionSender). 위험 판정과 교사폰 알림은 서버가 한다.
 //
 // ⚠ 카메라는 한 번에 한 곳만 쓸 수 있다.
 //   미니게임 / 모니터링 화면은 직접 카메라를 잡으므로 enabled 조건에서 빠져 있다.
@@ -85,6 +87,9 @@ fun StereotypyDetectionHost(
         onDispose {
             detector.reset()
             StereotypySignal.detected = false
+            // 감지가 꺼졌다는 걸 서버에도 알린다. 안 보내면 교사앱 게이지가
+            // 마지막 점수에서 멈춘 채로 남는다.
+            DetectionSender.send(0.0, force = true)
         }
     }
 
@@ -116,8 +121,9 @@ fun StereotypyDetectionHost(
                 )
                 StereotypySignal.detected = state.anyAlarm
 
-                // TODO: 교사폰 위험 알림(FCM) 전송 지점.
-                //       state.alarmCount 가 늘어난 순간에만 한 번 보내야 중복 알림이 안 간다.
+                // 점수를 서버로 보낸다. 내부에서 3초에 한 번만 실제 전송한다.
+                // 위험 판정과 교사폰 FCM 알림은 서버가 담당한다.
+                DetectionSender.send(state)
             },
             onError = { /* 모델 로드 실패 등. 아동 화면에는 노출하지 않는다 */ },
         )
