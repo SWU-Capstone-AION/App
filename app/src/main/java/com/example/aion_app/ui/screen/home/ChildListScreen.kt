@@ -18,7 +18,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -27,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.aion_app.data.auth.LinkedChild
 import com.example.aion_app.ui.component.AionTopBar
+import com.example.aion_app.ui.home.ChildAvatar
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.GreyLightHover
@@ -170,12 +170,11 @@ private fun ChildListItem(
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 프로필 자리
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFFE0E0E0))
+        // 프로필 사진 (홈 화면과 같은 컴포넌트를 쓴다)
+        ChildAvatar(
+            size = 48.dp,
+            cornerRadius = 8.dp,
+            childName = child.name
         )
 
         Spacer(modifier = Modifier.width(12.dp))
