@@ -412,7 +412,7 @@ fun AionNavHost() {
                 // 미니게임에서 받은 상자도 홈에서 그대로 보인다.
                 val rewardViewModel: RewardViewModel = viewModel()
                 val marbleCount by rewardViewModel.totalMarbles.collectAsState()
-                val marbleCounts by rewardViewModel.marbleCounts.collectAsState()
+                val marbleHistory by rewardViewModel.marbleHistory.collectAsState()
                 val pendingBoxes by rewardViewModel.pendingBoxes.collectAsState()
                 val boxPhase by rewardViewModel.boxPhase.collectAsState()
                 val openedMarble by rewardViewModel.openedMarble.collectAsState()
@@ -428,7 +428,7 @@ fun AionNavHost() {
                 KidsHomeScreen(
                     stereotypyDetected = StereotypySignal.detected,
                     marbleCount = marbleCount,
-                    marbleCounts = marbleCounts,
+                    marbleHistory = marbleHistory,
                     pendingBoxes = pendingBoxes,
                     boxPhase = boxPhase,
                     openedMarble = openedMarble,

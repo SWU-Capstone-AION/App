@@ -22,7 +22,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -37,9 +40,11 @@ import androidx.compose.ui.unit.sp
 import com.example.aion_app.ui.screen.kids.KidsItemHeight
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.AionTheme
+import com.example.aion_app.ui.theme.GreyLightHover
 import com.example.aion_app.ui.theme.GreyNormalActive
 import com.example.aion_app.ui.theme.Light
 import com.example.aion_app.ui.theme.LightActive
+import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.White
 
@@ -61,26 +66,38 @@ private val PouchMarbleSize = 56.dp
 private val ShelfMaxHeight = 300.dp        // 이보다 길어지면 스크롤
 
 /**
- * @param counts 색깔별 개수
- * @param total  모은 구슬 총 개수 (counts 합과 같다)
+ * 구슬 정렬 방식.
+ *
+ *   ACQUIRED 얻은 순서대로 (먼저 얻은 것이 앞)
+ *   COLOR    같은 색끼리 모아서 (Marble 에 적은 순서)
+ */
+private enum class MarbleSort(val label: String) {
+    ACQUIRED("획득순"),
+    COLOR("색깔순")
+}
+
+/**
+ * @param history 얻은 순서대로 늘어놓은 구슬 목록
  */
 @Composable
 fun BoxScope.KidsMarblePouchDialog(
-    counts: Map<Marble, Int>,
-    total: Int,
+    history: List<Marble>,
     onClose: () -> Unit
 ) {
-    // 색깔별 개수를 "구슬 한 알씩" 목록으로 펼친다.
-    // 예: 연두 2개, 분홍 1개 → [연두, 연두, 분홍]
-    val marbles = Marble.entries.flatMap { marble ->
-        List(counts[marble] ?: 0) { marble }
+    // 정렬은 팝업을 여는 동안만 쓰는 값이라 저장하지 않는다.
+    // 다시 열면 기본값(획득순)으로 돌아온다.
+    var sort by remember { mutableStateOf(MarbleSort.ACQUIRED) }
+
+    val marbles = when (sort) {
+        MarbleSort.ACQUIRED -> history
+        MarbleSort.COLOR -> history.sortedBy { it.ordinal }
     }
 
     Box(
         modifier = Modifier
             .matchParentSize()
             .background(Color(0x33303A66))
-            // 뒤쪽 버튼이 눌리지 않도록 클릭을 흡수만 하고 아무것도 안 한다
+            // 바깥을 누르면 닫힌다
             .clickable(enabled = true) { onClose() },
         contentAlignment = Alignment.Center
     ) {
@@ -109,15 +126,30 @@ fun BoxScope.KidsMarblePouchDialog(
             Spacer(Modifier.height(6.dp))
 
             Text(
-                text = if (total == 0) {
+                text = if (history.isEmpty()) {
                     "활동을 마치면 구슬을 모을 수 있어요"
                 } else {
-                    "구슬 ${total}개를 모았어요!"
+                    "구슬 ${history.size}개를 모았어요!"
                 },
                 fontSize = 14.sp,
                 color = GreyNormalActive,
                 textAlign = TextAlign.Center
             )
+
+            // 정렬 버튼. 구슬이 하나도 없으면 고를 게 없으니 숨긴다.
+            if (history.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MarbleSort.entries.forEach { option ->
+                        SortChip(
+                            text = option.label,
+                            selected = sort == option,
+                            onClick = { sort = option }
+                        )
+                    }
+                }
+            }
 
             Spacer(Modifier.height(20.dp))
 
@@ -158,6 +190,37 @@ fun BoxScope.KidsMarblePouchDialog(
                 )
             }
         }
+    }
+}
+
+// ------------------------------------------------------------
+// 정렬 버튼
+// ------------------------------------------------------------
+// 회원가입 선택지(KidsSelectablePill)와 같은 알약 모양이지만
+// 훨씬 작아서 따로 그린다. 색 규칙은 같게 맞췄다.
+@Composable
+private fun SortChip(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(if (selected) LightHover else GreyLightHover)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onClick() }
+            .padding(horizontal = 16.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+            color = if (selected) AionTextDark else GreyNormalActive
+        )
     }
 }
 
@@ -207,14 +270,10 @@ private fun KidsMarblePouchPreview() {
     AionTheme {
         Box(Modifier.fillMaxSize().background(Light)) {
             KidsMarblePouchDialog(
-                counts = mapOf(
-                    Marble.GREEN to 3,
-                    Marble.BLUE to 2,
-                    Marble.CREAM to 1,
-                    Marble.PINK to 2,
-                    Marble.PURPLE to 1
+                history = listOf(
+                    Marble.PINK, Marble.GREEN, Marble.PINK, Marble.PURPLE,
+                    Marble.BLUE, Marble.GREEN, Marble.CREAM, Marble.GREEN
                 ),
-                total = 9,
                 onClose = {}
             )
         }
@@ -226,7 +285,7 @@ private fun KidsMarblePouchPreview() {
 private fun KidsMarblePouchEmptyPreview() {
     AionTheme {
         Box(Modifier.fillMaxSize().background(Light)) {
-            KidsMarblePouchDialog(counts = emptyMap(), total = 0, onClose = {})
+            KidsMarblePouchDialog(history = emptyList(), onClose = {})
         }
     }
 }

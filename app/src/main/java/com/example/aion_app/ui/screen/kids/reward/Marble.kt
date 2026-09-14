@@ -28,6 +28,9 @@ enum class Marble(
     companion object {
         /** 상자를 열 때 5색 중 하나를 랜덤으로 뽑는다 */
         fun random(): Marble = entries.random()
+
+        /** 저장된 글자("GREEN")를 다시 구슬로. 모르는 이름이면 null */
+        fun fromName(name: String): Marble? = entries.find { it.name == name }
     }
 }
 

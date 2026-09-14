@@ -16,11 +16,11 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -80,6 +80,7 @@ private const val BoxFadeMs = 250       // 상자가 사라지는 시간
 
 private val BoxImageSize = 150.dp
 private val MarbleSize = 88.dp
+private val MarbleBottomGap = 30.dp   // 구슬을 바닥에서 얼마나 띄울지
 
 /**
  * 상자 → 구슬 팝업.
@@ -131,16 +132,82 @@ fun BoxScope.KidsRewardDialog(
                 .background(White),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            val opened = phase == BoxPhase.OPENED && marble != null
+
+            // ⚠ 두 상태의 세로 길이를 똑같이 맞춰 둔다.
+            //   카드 높이가 달라지면 팝업이 화면 가운데 정렬이라
+            //   상자가 열리는 순간 카드가 위아래로 움찔한다.
+            //   그래서 제목 한 줄 · 그림 영역(고정) · 하단 영역(고정) 구조를 공유한다.
             Spacer(Modifier.height(24.dp))
 
-            if (phase == BoxPhase.OPENED && marble != null) {
-                OpenedBoxContent(marble = marble, onConfirm = onConfirm)
-            } else {
-                ClosedBoxContent(
-                    isShaking = phase == BoxPhase.SHAKING,
-                    onTap = onBoxTap,
-                    onShakeFinished = onShakeFinished
-                )
+            Text(
+                text = if (opened && marble != null) {
+                    "${marble.label}을 얻었어요!"
+                } else {
+                    "선물이 도착했어요!"
+                },
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = AionTextDark,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            // 그림 영역. 높이 고정.
+            //
+            // 상자는 바닥 기준으로 놓는다. 닫힌 상자(150x115)와 열린 상자(150x141)는
+            // 이미지 비율이 달라서 가운데 정렬하면 몸통 위치가 어긋난다.
+            // 바닥을 맞추면 뚜껑만 위로 열리는 것처럼 보인다.
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(BoxImageSize),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                if (opened && marble != null) {
+                    OpenedBoxContent(marble = marble)
+                } else {
+                    ClosedBoxContent(
+                        isShaking = phase == BoxPhase.SHAKING,
+                        onTap = onBoxTap,
+                        onShakeFinished = onShakeFinished
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // 하단 영역. 높이 고정 (버튼 높이와 같다).
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(KidsItemHeight)
+                    .then(if (opened) Modifier.background(Normal) else Modifier)
+                    .then(
+                        if (opened) Modifier.clickable { onConfirm() } else Modifier
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (opened) {
+                    Text(
+                        text = "주머니에 담기",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = White
+                    )
+                } else {
+                    Text(
+                        text = if (phase == BoxPhase.SHAKING) {
+                            "열리는 중이에요!"
+                        } else {
+                            "상자를 눌러 보세요"
+                        },
+                        fontSize = 14.sp,
+                        color = GreyNormalActive,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
     }
@@ -150,7 +217,7 @@ fun BoxScope.KidsRewardDialog(
 // 닫힌 상자 — 누르면 흔들린다
 // ------------------------------------------------------------
 @Composable
-private fun ColumnScope.ClosedBoxContent(
+private fun ClosedBoxContent(
     isShaking: Boolean,
     onTap: () -> Unit,
     onShakeFinished: () -> Unit
@@ -181,16 +248,6 @@ private fun ColumnScope.ClosedBoxContent(
         onShakeFinished()
     }
 
-    Text(
-        text = "선물이 도착했어요!",
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
-        color = AionTextDark,
-        textAlign = TextAlign.Center
-    )
-
-    Spacer(Modifier.height(12.dp))
-
     Image(
         painter = painterResource(R.drawable.box_close),
         contentDescription = "선물 상자",
@@ -213,27 +270,13 @@ private fun ColumnScope.ClosedBoxContent(
                 indication = null
             ) { onTap() }
     )
-
-    Spacer(Modifier.height(8.dp))
-
-    Text(
-        text = if (isShaking) "열리는 중이에요!" else "상자를 눌러 보세요",
-        fontSize = 14.sp,
-        color = GreyNormalActive,
-        textAlign = TextAlign.Center
-    )
-
-    Spacer(Modifier.height(28.dp))
 }
 
 // ------------------------------------------------------------
 // 열린 상자 + 구슬
 // ------------------------------------------------------------
 @Composable
-private fun ColumnScope.OpenedBoxContent(
-    marble: Marble,
-    onConfirm: () -> Unit
-) {
+private fun OpenedBoxContent(marble: Marble) {
     // 순서: 열린 상자를 잠깐 보여준다 → 상자가 사라진다 → 그 자리에 구슬이 톡 나온다.
     // 둘을 겹쳐 놓고 상자는 흐려지고 구슬은 커지게 한다.
     val boxAlpha = remember { Animatable(1f) }
@@ -251,61 +294,32 @@ private fun ColumnScope.OpenedBoxContent(
         )
     }
 
-    // 높이를 상자 크기로 고정한다.
-    // 안 그러면 상자가 사라질 때 카드 높이가 줄었다가 다시 늘어나면서 화면이 튄다.
-    Box(
-        modifier = Modifier.height(BoxImageSize),
-        contentAlignment = Alignment.Center
-    ) {
-        Image(
-            painter = painterResource(R.drawable.box_open),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .size(BoxImageSize)
-                .graphicsLayer { alpha = boxAlpha.value }
-        )
-        Image(
-            painter = painterResource(marble.imageRes),
-            contentDescription = marble.label,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .size(MarbleSize)
-                .graphicsLayer {
-                    scaleX = marbleScale.value
-                    scaleY = marbleScale.value
-                    alpha = marbleScale.value.coerceIn(0f, 1f)
-                }
-        )
-    }
-
-    Spacer(Modifier.height(10.dp))
-
-    Text(
-        text = "${marble.label}을 얻었어요!",
-        fontSize = 16.sp,
-        fontWeight = FontWeight.Bold,
-        color = AionTextDark,
-        textAlign = TextAlign.Center
+    Image(
+        painter = painterResource(R.drawable.box_open),
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .size(BoxImageSize)
+            .graphicsLayer { alpha = boxAlpha.value }
     )
 
-    Spacer(Modifier.height(24.dp))
-
-    Box(
+    // 구슬은 상자 바닥이 아니라 그림 영역 가운데쯤에 뜨게 한다.
+    // 상자가 사라진 자리에서 떠오르는 느낌.
+    Image(
+        painter = painterResource(marble.imageRes),
+        contentDescription = marble.label,
+        contentScale = ContentScale.Fit,
         modifier = Modifier
-            .fillMaxWidth()
-            .height(KidsItemHeight)
-            .background(Normal)
-            .clickable { onConfirm() },
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "주머니에 담기",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = White
-        )
-    }
+            // padding 을 size 보다 먼저 걸어야 구슬이 눌리지 않고 위로 올라간다.
+            // 순서를 바꾸면 88dp 안에서 그림이 납작해진다.
+            .padding(bottom = MarbleBottomGap)
+            .size(MarbleSize)
+            .graphicsLayer {
+                scaleX = marbleScale.value
+                scaleY = marbleScale.value
+                alpha = marbleScale.value.coerceIn(0f, 1f)
+            }
+    )
 }
 
 // ============================================================

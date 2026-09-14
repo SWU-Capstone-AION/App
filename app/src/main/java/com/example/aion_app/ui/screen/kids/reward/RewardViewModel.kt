@@ -44,9 +44,9 @@ class RewardViewModel(app: Application) : AndroidViewModel(app) {
     val pendingBoxes: StateFlow<Int> = store.unopenedBoxes
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-    /** 색깔별 구슬 개수 — 구슬 주머니 화면 */
-    val marbleCounts: StateFlow<Map<Marble, Int>> = store.marbleCounts
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+    /** 얻은 순서대로 늘어놓은 구슬 목록 — 구슬 주머니 팝업이 정렬해서 쓴다 */
+    val marbleHistory: StateFlow<List<Marble>> = store.marbleHistory
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** 모은 구슬 총 개수 — 홈 상단 배지 */
     val totalMarbles: StateFlow<Int> = store.totalMarbles

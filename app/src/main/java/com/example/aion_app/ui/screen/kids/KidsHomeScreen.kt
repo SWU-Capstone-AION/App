@@ -150,7 +150,7 @@ fun KidsHomeScreen(
     // 값과 콜백만 받는다. 저장·뽑기는 RewardViewModel 이, 연결은 AionNavHost 가 한다.
     // (감지를 stereotypyDetected 하나로 받는 것과 같은 방식 — 프리뷰가 그대로 돌아간다)
     marbleCount: Int = 0,                        // 상단 배지 숫자 (모은 구슬 총 개수)
-    marbleCounts: Map<Marble, Int> = emptyMap(), // 색깔별 개수 (주머니 팝업)
+    marbleHistory: List<Marble> = emptyList(),   // 얻은 순서대로의 구슬 목록 (주머니 팝업)
     pendingBoxes: Int = 0,                       // 받아뒀지만 안 연 상자. 0보다 크면 상자 팝업이 뜬다
     boxPhase: BoxPhase = BoxPhase.CLOSED,
     openedMarble: Marble? = null,                // 방금 뽑은 구슬
@@ -243,8 +243,7 @@ fun KidsHomeScreen(
                 )
             } else if (mode == KidsHomeMode.CALM && pouchOpen) {
                 KidsMarblePouchDialog(
-                    counts = marbleCounts,
-                    total = marbleCount,
+                    history = marbleHistory,
                     onClose = { pouchOpen = false }
                 )
             }

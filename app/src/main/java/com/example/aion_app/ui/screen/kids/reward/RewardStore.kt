@@ -24,9 +24,14 @@ import java.util.Locale
 //   Firestore 에 넣으면 보안 규칙의 update 조건을 또 열어야 해서 위험만 늘어난다.
 //   나중에 교사 리포트에 "이번 주 구슬 5개" 를 넣고 싶어지면 그때 Django 로 올리면 된다.
 //
+// 저장 형태
+//   얻은 순서대로 색 이름을 이어 붙인 글자 하나로 둔다. 예: "GREEN,PINK,GREEN"
+//   색깔별 개수는 이 목록에서 세면 되고, 순서가 남아 있어서 '획득순' 정렬도 된다.
+//   (색깔별 개수만 저장하던 예전 방식으로는 언제 얻었는지를 알 수 없었다)
+//
 // ⚠ 아이 계정별로 나뉘지 않는다. 한 태블릿을 여러 아이가 돌려 쓰면 구슬이 섞인다.
 //   지금은 아동 1명 = 태블릿 1대 전제라 그대로 두었다.
-//   나중에 나눠야 하면 키 앞에 uid 를 붙이면 된다. (marble_{uid}_GREEN)
+//   나중에 나눠야 하면 키 앞에 uid 를 붙이면 된다. (marble_history_{uid})
 private val Context.rewardDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "kids_reward"
 )
@@ -54,30 +59,51 @@ class RewardStore(context: Context) {
         const val MAX_UNOPENED_BOXES = 3
 
         private val KEY_UNOPENED = intPreferencesKey("unopened_boxes")
+        private val KEY_HISTORY = stringPreferencesKey("marble_history")
         private val KEY_BREATH_DATE = stringPreferencesKey("breath_date")
         private val KEY_BREATH_COUNT = intPreferencesKey("breath_count")
 
-        /** 색마다 개수를 따로 저장한다 (예: marble_GREEN = 3) */
-        private fun marbleKey(marble: Marble) = intPreferencesKey("marble_${marble.name}")
+        /** 예전 저장 방식(색깔별 개수)의 키. 지금은 읽기만 한다 */
+        private fun legacyCountKey(marble: Marble) = intPreferencesKey("marble_${marble.name}")
 
         /** 오늘 날짜를 "2026-09-14" 모양 글자로 */
         private fun today(): String =
             SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
+
+        /**
+         * 저장된 값을 구슬 목록으로 읽는다 (얻은 순서대로).
+         *
+         * 새 형식이 없으면 예전 형식(색깔별 개수)에서 만들어 준다.
+         * 그래야 이미 테스트로 모아둔 구슬이 사라지지 않는다.
+         * 다만 예전 형식에는 순서가 없어서 색 순서대로 놓인다.
+         */
+        private fun Preferences.readHistory(): List<Marble> {
+            val raw = this[KEY_HISTORY]
+            if (raw != null) {
+                return raw.split(",")
+                    .filter { it.isNotBlank() }
+                    .mapNotNull { Marble.fromName(it) }
+            }
+            return Marble.entries.flatMap { marble ->
+                List(this[legacyCountKey(marble)] ?: 0) { marble }
+            }
+        }
     }
 
-    /** 아직 안 연 상자 개수. 0 이면 홈에 상자를 안 보여준다 */
+    /**
+     * 받아뒀지만 아직 안 연 상자 개수.
+     * 0 보다 크면 홈에 상자 팝업이 뜬다. 하나 열면 하나 줄어든다.
+     */
     val unopenedBoxes: Flow<Int> =
         appContext.rewardDataStore.data.map { it[KEY_UNOPENED] ?: 0 }
 
-    /** 색깔별 구슬 개수 — 구슬 주머니 화면에서 쓴다 */
-    val marbleCounts: Flow<Map<Marble, Int>> =
-        appContext.rewardDataStore.data.map { prefs ->
-            Marble.entries.associateWith { prefs[marbleKey(it)] ?: 0 }
-        }
+    /** 얻은 순서대로 늘어놓은 구슬 목록. 주머니 화면이 이걸 정렬해서 보여준다 */
+    val marbleHistory: Flow<List<Marble>> =
+        appContext.rewardDataStore.data.map { it.readHistory() }
 
     /** 모은 구슬 총 개수 — 상단 배지에 쓴다 */
     val totalMarbles: Flow<Int> =
-        marbleCounts.map { counts -> counts.values.sum() }
+        marbleHistory.map { it.size }
 
     /**
      * 활동을 마쳤을 때 상자를 1개 준다.
@@ -119,7 +145,7 @@ class RewardStore(context: Context) {
 
     /**
      * 상자를 연다. 상자가 없으면 null.
-     * 열면 구슬 1개를 랜덤으로 뽑아 주머니에 넣는다.
+     * 열면 구슬 1개를 랜덤으로 뽑아 목록 맨 뒤에 붙인다.
      */
     suspend fun openBox(): Marble? {
         if (unopenedBoxes.first() <= 0) return null
@@ -128,8 +154,11 @@ class RewardStore(context: Context) {
 
         appContext.rewardDataStore.edit { prefs ->
             prefs[KEY_UNOPENED] = ((prefs[KEY_UNOPENED] ?: 0) - 1).coerceAtLeast(0)
-            val key = marbleKey(marble)
-            prefs[key] = (prefs[key] ?: 0) + 1
+
+            // 예전 형식이 남아 있으면 여기서 새 형식으로 옮겨진다
+            val updated = prefs.readHistory() + marble
+            prefs[KEY_HISTORY] = updated.joinToString(",") { it.name }
+            Marble.entries.forEach { prefs.remove(legacyCountKey(it)) }
         }
 
         return marble
