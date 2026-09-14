@@ -70,10 +70,13 @@ private val ShelfMaxHeight = 300.dp        // 이보다 길어지면 스크롤
  *
  *   ACQUIRED 얻은 순서대로 (먼저 얻은 것이 앞)
  *   COLOR    같은 색끼리 모아서 (Marble 에 적은 순서)
+ *
+ * ⚠ 버튼 글자는 아이가 읽는 말이다. '획득순' 같은 한자어는 쓰지 않는다.
+ *   팝업의 "구슬을 얻었어요!" 와 같은 단어를 써서 이어지게 했다.
  */
 private enum class MarbleSort(val label: String) {
-    ACQUIRED("획득순"),
-    COLOR("색깔순")
+    ACQUIRED("얻은 순서로"),
+    COLOR("색깔 별로")
 }
 
 /**
