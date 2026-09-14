@@ -100,6 +100,9 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-messaging")
 
+    // 구슬 보상 저장 (아동 태블릿 기기 내 저장)
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
     // 서버 통신 (Django 알림 API)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")

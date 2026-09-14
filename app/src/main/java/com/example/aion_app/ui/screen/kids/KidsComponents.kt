@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -502,11 +503,14 @@ fun KidsOrb(
 // ------------------------------------------------------------
 // points 가 null 이면 구슬주머니를 숨긴다 (호흡 화면).
 // onDark 는 배경이 어두운 호흡 화면용 — 마이페이지 아이콘을 흰색 버전으로 바꾼다.
+// onPointsClick 을 넘기면 배지를 눌러 구슬 주머니 팝업을 열 수 있다.
+//   (안 넘기면 표시만 되고 눌리지 않는다 — 호흡 화면 등)
 @Composable
 fun BoxScope.KidsHomeTopBar(
     points: Int?,
     onProfileClick: () -> Unit,
-    onDark: Boolean = false
+    onDark: Boolean = false,
+    onPointsClick: (() -> Unit)? = null
 ) {
     // 로고와 마이페이지를 한 Row 에 묶어야 로고 높이가 얼마든 세로 가운데가 맞는다.
     // (각각 top padding 을 주면 로고 에셋이 바뀔 때마다 다시 맞춰야 한다)
@@ -538,6 +542,9 @@ fun BoxScope.KidsHomeTopBar(
     }
 
     if (points != null) {
+        // 클릭 효과를 끄기 위해 필요. 매 리컴포지션마다 새로 만들지 않도록 remember 한다.
+        val badgeInteraction = remember { MutableInteractionSource() }
+
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -570,6 +577,18 @@ fun BoxScope.KidsHomeTopBar(
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
                     .background(White)
+                    // 클릭은 clip 뒤에 둬야 알약 모양 밖이 눌리지 않는다.
+                    // 아동용이라 안드로이드 기본 회색 물결 효과는 끈다.
+                    .then(
+                        if (onPointsClick != null) {
+                            Modifier.clickable(
+                                interactionSource = badgeInteraction,
+                                indication = null
+                            ) { onPointsClick() }
+                        } else {
+                            Modifier
+                        }
+                    )
                     .padding(horizontal = 18.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)

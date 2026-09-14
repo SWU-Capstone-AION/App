@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import com.example.aion_app.minigame.PoseGameHost
+import java.util.concurrent.atomic.AtomicBoolean
 
 private val WeedGreen = Color(0xFF7FC97F)
 private val WeedGrabbed = Color(0xFFB8E986)
@@ -21,15 +22,22 @@ private val WeedGrabbed = Color(0xFFB8E986)
  * @param onExit X 버튼을 눌렀을 때 (홈으로 복귀)
  * @param onGameStateChanged 게임 진입/종료 알림. 상동행동 판정을 일시정지시키는 데 쓴다.
  *                           뽑는 동작이 팔 상하 반복이라 감지기에 그대로 걸리기 때문.
+ * @param onCleared 잡초를 다 뽑았을 때 한 번만. 구슬 상자 지급에 쓴다.
  * @param showDebug 손목 위치를 원으로 표시. 배포 시 false.
  */
 @Composable
 fun WeedGameScreen(
     onExit: () -> Unit,
     onGameStateChanged: (Boolean) -> Unit = {},
+    onCleared: () -> Unit = {},
     showDebug: Boolean = true,
 ) {
     val engine = remember { WeedGameEngine() }
+
+    // 완료 보상은 한 번만. update 가 매 프레임 돌기 때문에 플래그가 없으면
+    // 다 뽑은 뒤 화면에 머무는 동안 상자가 계속 쌓인다.
+    // update 는 카메라 결과 스레드에서 돌아서 AtomicBoolean 을 쓴다.
+    val rewarded = remember { AtomicBoolean(false) }
 
     PoseGameHost(
         title = "잡초를 전부 뽑아보자!",
@@ -38,7 +46,11 @@ fun WeedGameScreen(
         onExit = onExit,
         onForceClear = { engine.forceClear() },
         onGameStateChanged = onGameStateChanged,
-        update = { pose, nowMs -> engine.update(pose, nowMs) },
+        update = { pose, nowMs ->
+            val snapshot = engine.update(pose, nowMs)
+            if (snapshot.cleared && rewarded.compareAndSet(false, true)) onCleared()
+            snapshot
+        },
         draw = { scope, snapshot -> scope.drawWeeds(snapshot) },
         showDebug = showDebug,
     )
