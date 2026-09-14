@@ -25,9 +25,9 @@ import java.util.Locale
 //   나중에 교사 리포트에 "이번 주 구슬 5개" 를 넣고 싶어지면 그때 Django 로 올리면 된다.
 //
 // 저장 형태
-//   얻은 순서대로 색 이름을 이어 붙인 글자 하나로 둔다. 예: "GREEN,PINK,GREEN"
-//   색깔별 개수는 이 목록에서 세면 되고, 순서가 남아 있어서 '획득순' 정렬도 된다.
-//   (색깔별 개수만 저장하던 예전 방식으로는 언제 얻었는지를 알 수 없었다)
+//   얻은 순서대로 "색이름:날짜" 를 이어 붙인 글자 하나로 둔다.
+//   예: "GREEN:2026-09-14,PINK:2026-09-15"
+//   주머니에서 구슬을 누르면 이 날짜가 보인다.
 //
 // ⚠ 아이 계정별로 나뉘지 않는다. 한 태블릿을 여러 아이가 돌려 쓰면 구슬이 섞인다.
 //   지금은 아동 1명 = 태블릿 1대 전제라 그대로 두었다.
@@ -77,17 +77,26 @@ class RewardStore(context: Context) {
          * 그래야 이미 테스트로 모아둔 구슬이 사라지지 않는다.
          * 다만 예전 형식에는 순서가 없어서 색 순서대로 놓인다.
          */
-        private fun Preferences.readHistory(): List<Marble> {
+        private fun Preferences.readHistory(): List<MarbleRecord> {
             val raw = this[KEY_HISTORY]
             if (raw != null) {
                 return raw.split(",")
                     .filter { it.isNotBlank() }
-                    .mapNotNull { Marble.fromName(it) }
+                    .mapNotNull { entry ->
+                        // "GREEN:2026-09-14" 또는 날짜 없이 "GREEN" (더 예전 형식)
+                        val name = entry.substringBefore(":")
+                        val date = entry.substringAfter(":", "").ifBlank { null }
+                        Marble.fromName(name)?.let { MarbleRecord(it, date) }
+                    }
             }
             return Marble.entries.flatMap { marble ->
-                List(this[legacyCountKey(marble)] ?: 0) { marble }
+                List(this[legacyCountKey(marble)] ?: 0) { MarbleRecord(marble, null) }
             }
         }
+
+        /** 저장용 글자로 바꾼다 */
+        private fun List<MarbleRecord>.toRaw(): String =
+            joinToString(",") { "${it.marble.name}:${it.date ?: ""}" }
     }
 
     /**
@@ -97,8 +106,8 @@ class RewardStore(context: Context) {
     val unopenedBoxes: Flow<Int> =
         appContext.rewardDataStore.data.map { it[KEY_UNOPENED] ?: 0 }
 
-    /** 얻은 순서대로 늘어놓은 구슬 목록. 주머니 화면이 이걸 정렬해서 보여준다 */
-    val marbleHistory: Flow<List<Marble>> =
+    /** 얻은 순서대로 늘어놓은 구슬 목록 (색 + 얻은 날짜) */
+    val marbleHistory: Flow<List<MarbleRecord>> =
         appContext.rewardDataStore.data.map { it.readHistory() }
 
     /** 모은 구슬 총 개수 — 상단 배지에 쓴다 */
@@ -156,8 +165,8 @@ class RewardStore(context: Context) {
             prefs[KEY_UNOPENED] = ((prefs[KEY_UNOPENED] ?: 0) - 1).coerceAtLeast(0)
 
             // 예전 형식이 남아 있으면 여기서 새 형식으로 옮겨진다
-            val updated = prefs.readHistory() + marble
-            prefs[KEY_HISTORY] = updated.joinToString(",") { it.name }
+            val updated = prefs.readHistory() + MarbleRecord(marble, today())
+            prefs[KEY_HISTORY] = updated.toRaw()
             Marble.entries.forEach { prefs.remove(legacyCountKey(it)) }
         }
 

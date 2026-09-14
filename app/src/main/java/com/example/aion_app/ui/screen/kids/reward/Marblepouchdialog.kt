@@ -1,5 +1,8 @@
 package com.example.aion_app.ui.screen.kids.reward
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -13,23 +16,28 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -37,15 +45,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.aion_app.ui.screen.kids.KidsItemHeight
+import com.example.aion_app.R
+import com.example.aion_app.ui.screen.kids.KidsDialogScrim
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.AionTheme
-import com.example.aion_app.ui.theme.GreyLightHover
-import com.example.aion_app.ui.theme.GreyNormalActive
 import com.example.aion_app.ui.theme.Light
 import com.example.aion_app.ui.theme.LightActive
-import com.example.aion_app.ui.theme.LightHover
-import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.White
 
 // ============================================================
@@ -53,53 +58,49 @@ import com.example.aion_app.ui.theme.White
 // ============================================================
 // 홈 오른쪽 위 사탕 배지를 누르면 열린다. 별도 화면이 아니라 팝업이다.
 //
-// ⚠ 초기 기획안이다. 디자인 확정 전이라 값들을 한곳에 모아 뒀다.
-//   모은 구슬을 진열장 선반에 올려둔 것처럼 쭉 늘어놓는 형태.
-//   색깔별로 묶지 않고 얻은 개수만큼 하나씩 놓는다 — 많이 모을수록
-//   선반이 채워지는 게 보여야 계속 모으고 싶어진다.
+// 시안 기준 구성
+//   - 제목 "구슬주머니", 오른쪽 위에 닫기 아이콘
+//   - 한 쪽에 5칸 x 2줄 = 10개. 아직 못 채운 자리는 점선 원으로 보여준다
+//     ("여기를 채우는 거구나" 가 보여야 계속 모으고 싶어진다)
+//   - 아래쪽에 페이지 번호와 좌우 이동 버튼 (교사 앱 리포트 화면과 같은 모양)
+//   - 구슬을 누르면 뒤집혀서 얻은 날짜가 보인다
 //
-// 선반이 넘치면 카드 안에서 위아래로 스크롤된다.
+// 정렬(획득순/색깔순) 버튼은 디자인 피드백으로 뺐다.
+// 구슬은 언제나 얻은 순서대로 놓인다.
 
-private const val MarblesPerShelf = 6      // 선반 한 칸에 올라가는 구슬 수
-private val PouchCardWidth = 460.dp
-private val PouchMarbleSize = 56.dp
-private val ShelfMaxHeight = 300.dp        // 이보다 길어지면 스크롤
+private const val MarblesPerRow = 5
+private const val RowsPerPage = 2
+private const val MarblesPerPage = MarblesPerRow * RowsPerPage
 
-/**
- * 구슬 정렬 방식.
- *
- *   ACQUIRED 얻은 순서대로 (먼저 얻은 것이 앞)
- *   COLOR    같은 색끼리 모아서 (Marble 에 적은 순서)
- *
- * ⚠ 버튼 글자는 아이가 읽는 말이다. '획득순' 같은 한자어는 쓰지 않는다.
- *   팝업의 "구슬을 얻었어요!" 와 같은 단어를 써서 이어지게 했다.
- */
-private enum class MarbleSort(val label: String) {
-    ACQUIRED("얻은 순서로"),
-    COLOR("색깔 별로")
-}
+private val PouchCardWidth = 620.dp
+private val PouchMarbleSize = 76.dp
+private val MarbleGapHorizontal = 28.dp   // 시안 피드백대로 기존(8dp)보다 20dp 넓혔다
+private val MarbleGapVertical = 24.dp
+
+private const val FlipDurationMs = 500    // 구슬이 돌아가는 시간
 
 /**
- * @param history 얻은 순서대로 늘어놓은 구슬 목록
+ * @param history 얻은 순서대로 늘어놓은 구슬 목록 (색 + 얻은 날짜)
  */
 @Composable
 fun BoxScope.KidsMarblePouchDialog(
-    history: List<Marble>,
+    history: List<MarbleRecord>,
     onClose: () -> Unit
 ) {
-    // 정렬은 팝업을 여는 동안만 쓰는 값이라 저장하지 않는다.
-    // 다시 열면 기본값(획득순)으로 돌아온다.
-    var sort by remember { mutableStateOf(MarbleSort.ACQUIRED) }
+    var page by remember { mutableIntStateOf(0) }
 
-    val marbles = when (sort) {
-        MarbleSort.ACQUIRED -> history
-        MarbleSort.COLOR -> history.sortedBy { it.ordinal }
-    }
+    // 지금 뒤집어 놓은 구슬의 번호(전체 목록 기준). 아무것도 안 뒤집었으면 null.
+    // 한 번에 하나만 뒤집힌다 — 여러 개가 날짜를 달고 있으면 아이가 헷갈린다.
+    var flipped by remember { mutableStateOf<Int?>(null) }
+
+    // 구슬이 없어도 빈 칸이 보이도록 최소 한 쪽은 만든다
+    val pageCount = maxOf(1, (history.size + MarblesPerPage - 1) / MarblesPerPage)
+    val safePage = page.coerceIn(0, pageCount - 1)
 
     Box(
         modifier = Modifier
             .matchParentSize()
-            .background(Color(0x33303A66))
+            .background(KidsDialogScrim)
             // 바깥을 누르면 닫힌다
             .clickable(enabled = true) { onClose() },
         contentAlignment = Alignment.Center
@@ -114,152 +115,220 @@ fun BoxScope.KidsMarblePouchDialog(
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
-                ) { },
+                ) { flipped = null },   // 빈 곳을 누르면 뒤집힌 구슬이 돌아온다
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(24.dp))
-
-            Text(
-                text = "구슬 주머니",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = AionTextDark
-            )
-
-            Spacer(Modifier.height(6.dp))
-
-            Text(
-                text = if (history.isEmpty()) {
-                    "활동을 마치면 구슬을 모을 수 있어요"
-                } else {
-                    "구슬 ${history.size}개를 모았어요!"
-                },
-                fontSize = 14.sp,
-                color = GreyNormalActive,
-                textAlign = TextAlign.Center
-            )
-
-            // 정렬 버튼. 구슬이 하나도 없으면 고를 게 없으니 숨긴다.
-            if (history.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MarbleSort.entries.forEach { option ->
-                        SortChip(
-                            text = option.label,
-                            selected = sort == option,
-                            onClick = { sort = option }
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = ShelfMaxHeight)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                if (marbles.isEmpty()) {
-                    // 아직 하나도 없을 때도 빈 선반을 보여준다.
-                    // "여기에 채우는 거구나" 가 보여야 모으고 싶어진다.
-                    repeat(2) { Shelf(marbles = emptyList()) }
-                } else {
-                    marbles.chunked(MarblesPerShelf).forEach { row ->
-                        Shelf(marbles = row)
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
-
+            // ----- 제목 + 닫기 -----
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(KidsItemHeight)
-                    .background(Normal)
-                    .clickable { onClose() },
-                contentAlignment = Alignment.Center
+                    .padding(top = 20.dp, start = 20.dp, end = 20.dp)
             ) {
                 Text(
-                    text = "닫기",
-                    fontSize = 16.sp,
+                    text = "구슬주머니",
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = White
+                    color = AionTextDark,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.Center)
+                )
+                Image(
+                    painter = painterResource(R.drawable.cancel_icon_round),
+                    contentDescription = "닫기",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(30.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onClose() }
                 )
             }
+
+            Spacer(Modifier.height(24.dp))
+
+            // ----- 구슬 칸 -----
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(MarbleGapVertical)
+            ) {
+                repeat(RowsPerPage) { row ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(MarbleGapHorizontal)
+                    ) {
+                        repeat(MarblesPerRow) { column ->
+                            // 전체 목록에서 이 칸에 해당하는 번호
+                            val index =
+                                safePage * MarblesPerPage + row * MarblesPerRow + column
+
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                val record = history.getOrNull(index)
+                                if (record == null) {
+                                    EmptySlot()
+                                } else {
+                                    MarbleSlot(
+                                        record = record,
+                                        flipped = flipped == index,
+                                        onClick = {
+                                            flipped = if (flipped == index) null else index
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // ----- 페이지 이동 -----
+            // 교사 앱 리포트 화면(DateNavigator)과 같은 아이콘·색을 쓴다.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 32.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        page = safePage - 1
+                        flipped = null
+                    },
+                    enabled = safePage > 0
+                ) {
+                    Icon(
+                        Icons.Filled.KeyboardArrowLeft,
+                        contentDescription = "이전",
+                        tint = if (safePage > 0) AionTextDark else AionTextDark.copy(alpha = 0.3f)
+                    )
+                }
+
+                Text(
+                    text = "${safePage + 1}/$pageCount",
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = AionTextDark
+                )
+
+                IconButton(
+                    onClick = {
+                        page = safePage + 1
+                        flipped = null
+                    },
+                    enabled = safePage < pageCount - 1
+                ) {
+                    Icon(
+                        Icons.Filled.KeyboardArrowRight,
+                        contentDescription = "다음",
+                        tint = if (safePage < pageCount - 1) {
+                            AionTextDark
+                        } else {
+                            AionTextDark.copy(alpha = 0.3f)
+                        }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
 
 // ------------------------------------------------------------
-// 정렬 버튼
+// 구슬 한 알
 // ------------------------------------------------------------
-// 회원가입 선택지(KidsSelectablePill)와 같은 알약 모양이지만
-// 훨씬 작아서 따로 그린다. 색 규칙은 같게 맞췄다.
+// 누르면 세로축을 중심으로 돌아가면서 뒷면이 나오고, 거기에 얻은 날짜가 있다.
+// 다시 누르면 앞면으로 돌아온다.
+//
+// 예전 방식으로 저장돼 날짜를 모르는 구슬은 뒷면에 "?" 가 뜬다.
+// 뒤집히지도 않게 하면 아이는 고장 난 줄 안다.
 @Composable
-private fun SortChip(
-    text: String,
-    selected: Boolean,
+private fun MarbleSlot(
+    record: MarbleRecord,
+    flipped: Boolean,
     onClick: () -> Unit
 ) {
+    val rotation by animateFloatAsState(
+        targetValue = if (flipped) 180f else 0f,
+        animationSpec = tween(FlipDurationMs),
+        label = "marble_flip"
+    )
+
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(if (selected) LightHover else GreyLightHover)
+            .size(PouchMarbleSize)
+            .graphicsLayer {
+                rotationY = rotation
+                // 이 값이 없으면 돌아갈 때 원근이 과해서 그림이 우그러진다
+                cameraDistance = 12f * density
+            }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
-            ) { onClick() }
-            .padding(horizontal = 16.dp, vertical = 7.dp),
+            ) { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = text,
-            fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = if (selected) AionTextDark else GreyNormalActive
-        )
+        // 90도를 넘어가는 순간 앞뒤가 바뀐다
+        if (rotation <= 90f) {
+            Image(
+                painter = painterResource(record.marble.imageRes),
+                contentDescription = record.marble.label,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(PouchMarbleSize)
+            )
+        } else {
+            // 뒷면은 이미 180도 돌아간 면이라, 그대로 두면 그림과 글씨가 거울처럼 뒤집힌다.
+            // 한 번 더 돌려서 바로 세운다.
+            Box(
+                modifier = Modifier.graphicsLayer { rotationY = 180f },
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = painterResource(record.marble.backImageRes),
+                    contentDescription = record.marble.label,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(PouchMarbleSize)
+                )
+                Text(
+                    text = record.shortDate ?: "?",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AionTextDark
+                )
+            }
+        }
     }
 }
 
 // ------------------------------------------------------------
-// 선반 한 칸
+// 아직 못 채운 자리
 // ------------------------------------------------------------
-// 구슬을 왼쪽부터 채우고, 그 아래에 선반 판을 그린다.
 @Composable
-private fun Shelf(marbles: List<Marble>) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(PouchMarbleSize),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            marbles.forEach { marble ->
-                Image(
-                    painter = painterResource(marble.imageRes),
-                    contentDescription = marble.label,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(PouchMarbleSize)
+private fun EmptySlot() {
+    Canvas(modifier = Modifier.size(PouchMarbleSize)) {
+        val stroke = 1.5.dp.toPx()
+        drawCircle(
+            color = LightActive,
+            radius = size.minDimension / 2 - stroke,
+            style = Stroke(
+                width = stroke,
+                // 점선 원. 4dp 선 + 4dp 빈칸
+                pathEffect = PathEffect.dashPathEffect(
+                    floatArrayOf(4.dp.toPx(), 4.dp.toPx())
                 )
-            }
-        }
-
-        Spacer(Modifier.height(4.dp))
-
-        // 선반 판
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp)
-                .clip(RoundedCornerShape(3.dp))
-                .background(LightActive)
+            )
         )
     }
 }
@@ -274,8 +343,10 @@ private fun KidsMarblePouchPreview() {
         Box(Modifier.fillMaxSize().background(Light)) {
             KidsMarblePouchDialog(
                 history = listOf(
-                    Marble.PINK, Marble.GREEN, Marble.PINK, Marble.PURPLE,
-                    Marble.BLUE, Marble.GREEN, Marble.CREAM, Marble.GREEN
+                    MarbleRecord(Marble.PURPLE, "2026-09-10"),
+                    MarbleRecord(Marble.GREEN, "2026-09-11"),
+                    MarbleRecord(Marble.BLUE, "2026-09-13"),
+                    MarbleRecord(Marble.BLUE, "2026-09-14")
                 ),
                 onClose = {}
             )

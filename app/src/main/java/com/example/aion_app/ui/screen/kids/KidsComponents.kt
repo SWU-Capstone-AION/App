@@ -76,6 +76,13 @@ val KidsItemHeight   = 50.dp     // 모든 입력칸·버튼 공통 높이
 val KidsToggleWidth  = 150.dp    // 교사용 / 아동용 토글
 val KidsToggleGap    = KidsContentWidth - (KidsToggleWidth * 2)   // = 29dp
 val KidsConfirmWidth = 60.dp     // 회원가입 '확인' 버튼
+
+// 팝업 뒤를 덮는 색.
+// 디자인 피드백(9/15)으로 더 어둡게 바꿨다 — 전에 쓰던 20% 로는
+// 홈 배경의 버튼·구체가 비쳐 보여서 팝업 내용과 겹쳐 읽혔다.
+// 아동용 팝업은 전부 이 값을 쓴다. 바꿀 일이 있으면 여기만 고치면 된다.
+val KidsDialogScrim = Color(0x99303A66)
+
 val KidsCorner       = 10.dp     // 입력칸·버튼 모서리
 val KidsPillCorner   = 25.dp     // 선택지(알약) 모서리 = 높이/2
 

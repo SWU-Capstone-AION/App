@@ -33,6 +33,7 @@ import com.example.aion_app.ui.screen.kids.reward.BoxPhase
 import com.example.aion_app.ui.screen.kids.reward.KidsMarblePouchDialog
 import com.example.aion_app.ui.screen.kids.reward.KidsRewardDialog
 import com.example.aion_app.ui.screen.kids.reward.Marble
+import com.example.aion_app.ui.screen.kids.reward.MarbleRecord
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.DarkHover
@@ -150,13 +151,14 @@ fun KidsHomeScreen(
     // 값과 콜백만 받는다. 저장·뽑기는 RewardViewModel 이, 연결은 AionNavHost 가 한다.
     // (감지를 stereotypyDetected 하나로 받는 것과 같은 방식 — 프리뷰가 그대로 돌아간다)
     marbleCount: Int = 0,                        // 상단 배지 숫자 (모은 구슬 총 개수)
-    marbleHistory: List<Marble> = emptyList(),   // 얻은 순서대로의 구슬 목록 (주머니 팝업)
+    marbleHistory: List<MarbleRecord> = emptyList(), // 얻은 구슬 목록 (색 + 날짜)
     pendingBoxes: Int = 0,                       // 받아뒀지만 안 연 상자. 0보다 크면 상자 팝업이 뜬다
     boxPhase: BoxPhase = BoxPhase.CLOSED,
     openedMarble: Marble? = null,                // 방금 뽑은 구슬
     onBoxTap: () -> Unit = {},
     onBoxShakeFinished: () -> Unit = {},         // 흔들림이 끝났을 때 → 구슬 뽑기
-    onRewardConfirm: () -> Unit = {},            // '주머니에 담기'
+    onMarbleShown: () -> Unit = {},              // 구슬을 다 보여줬을 때 → 마지막 장면
+    onRewardConfirm: () -> Unit = {},            // 마지막 장면의 '확인'
 
     // 선생님이 보낸 학급 초대. null 이 아니면 팝업이 뜬다.
     invite: TeacherInvite? = null,
@@ -239,6 +241,7 @@ fun KidsHomeScreen(
                     marble = openedMarble,
                     onBoxTap = onBoxTap,
                     onShakeFinished = onBoxShakeFinished,
+                    onMarbleShown = onMarbleShown,
                     onConfirm = onRewardConfirm
                 )
             } else if (mode == KidsHomeMode.CALM && pouchOpen) {
@@ -361,7 +364,7 @@ private fun BoxScope.KidsTeacherInviteDialog(
     Box(
         modifier = Modifier
             .matchParentSize()
-            .background(Color(0x33303A66))
+            .background(KidsDialogScrim)
             // 뒤쪽 버튼이 눌리지 않도록 클릭을 흡수만 하고 아무것도 안 한다
             .clickable(enabled = true) { },
         contentAlignment = Alignment.Center
@@ -497,7 +500,7 @@ private fun BoxScope.KidsCalmPromptDialog(
     Box(
         modifier = Modifier
             .matchParentSize()
-            .background(Color(0x33303A66))
+            .background(KidsDialogScrim)
             // 뒤쪽 버튼이 눌리지 않도록 클릭을 흡수만 하고 아무것도 안 한다
             .clickable(enabled = true) { },
         contentAlignment = Alignment.Center
