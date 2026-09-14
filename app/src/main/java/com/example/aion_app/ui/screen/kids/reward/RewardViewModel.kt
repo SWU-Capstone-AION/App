@@ -11,13 +11,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * 상자 팝업이 지금 어떤 상태인지.
+ * 상자 팝업이 지금 어떤 상태인지. 시안의 네 장면과 그대로 이어진다.
  *
- *   CLOSED  닫힌 상자가 떠 있다 (살짝 둥실거림, 누를 수 있음)
- *   SHAKING 탭해서 흔들리는 중 (약 1.2초)
- *   OPENED  열린 상자 + 구슬이 나와 있다
+ *   CLOSED  "우와, 끝까지 해냈어!"   닫힌 상자 (누를 수 있음)
+ *   SHAKING "두근두근..."            흔들리는 중 (약 1.2초)
+ *   OPENED  "짜잔!"                  상자가 사라지고 구슬이 나온다
+ *   STORED  "구슬 주머니에 쏙 넣었어!" 확인 버튼만 있는 마지막 장면
  */
-enum class BoxPhase { CLOSED, SHAKING, OPENED }
+enum class BoxPhase { CLOSED, SHAKING, OPENED, STORED }
 
 // ============================================================
 // 구슬 보상
@@ -45,7 +46,7 @@ class RewardViewModel(app: Application) : AndroidViewModel(app) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     /** 얻은 순서대로 늘어놓은 구슬 목록 — 구슬 주머니 팝업이 정렬해서 쓴다 */
-    val marbleHistory: StateFlow<List<Marble>> = store.marbleHistory
+    val marbleHistory: StateFlow<List<MarbleRecord>> = store.marbleHistory
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     /** 모은 구슬 총 개수 — 홈 상단 배지 */
@@ -89,6 +90,15 @@ class RewardViewModel(app: Application) : AndroidViewModel(app) {
             _openedMarble.value = marble
             _boxPhase.value = BoxPhase.OPENED
         }
+    }
+
+    /**
+     * 구슬을 충분히 보여준 뒤 마지막 장면("구슬 주머니에 쏙 넣었어!")으로 넘어간다.
+     * 화면이 알아서 불러준다 — 아이가 버튼을 누를 필요가 없다.
+     */
+    fun onMarbleShown() {
+        if (_boxPhase.value != BoxPhase.OPENED) return
+        _boxPhase.value = BoxPhase.STORED
     }
 
     /**

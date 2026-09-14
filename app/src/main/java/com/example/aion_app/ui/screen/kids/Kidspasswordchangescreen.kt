@@ -353,7 +353,7 @@ private fun KidsPasswordDialog(
         Box(
             modifier = Modifier
                 .matchParentSize()
-                .background(Color(0x33303A66))
+                .background(KidsDialogScrim)
                 // 뒤쪽 입력칸이 눌리지 않도록 클릭을 흡수만 한다
                 .clickable(enabled = true) { },
             contentAlignment = Alignment.Center

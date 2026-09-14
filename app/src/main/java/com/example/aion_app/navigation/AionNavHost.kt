@@ -434,6 +434,7 @@ fun AionNavHost() {
                     openedMarble = openedMarble,
                     onBoxTap = { rewardViewModel.onBoxTapped() },
                     onBoxShakeFinished = { rewardViewModel.onShakeFinished() },
+                    onMarbleShown = { rewardViewModel.onMarbleShown() },
                     onRewardConfirm = { rewardViewModel.onRewardClosed() },
                     invite = inviteViewModel.invite,
                     isRespondingToInvite = inviteViewModel.isResponding,
