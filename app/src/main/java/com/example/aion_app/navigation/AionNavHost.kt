@@ -47,6 +47,8 @@ import com.example.aion_app.ui.screen.kids.KidsProfileSetupScreen
 import com.example.aion_app.ui.screen.kids.KidsOnboardingCompleteScreen
 import com.example.aion_app.ui.screen.kids.KidsHomeScreen
 import com.example.aion_app.ui.screen.kids.HelpRequestViewModel
+import com.example.aion_app.ui.screen.kids.reward.RewardSource
+import com.example.aion_app.ui.screen.kids.reward.RewardViewModel
 
 import com.example.aion_app.monitor.StereotypyMonitorScreen
 import com.example.aion_app.monitor.pose.MinigameGate
@@ -405,6 +407,16 @@ fun AionNavHost() {
                 val inviteViewModel: ChildInviteViewModel = viewModel()
                 val helpViewModel: HelpRequestViewModel = viewModel()
 
+                // 구슬 보상.
+                // 화면마다 인스턴스가 따로 생기지만 저장은 기기 파일 한 곳이라
+                // 미니게임에서 받은 상자도 홈에서 그대로 보인다.
+                val rewardViewModel: RewardViewModel = viewModel()
+                val marbleCount by rewardViewModel.totalMarbles.collectAsState()
+                val marbleCounts by rewardViewModel.marbleCounts.collectAsState()
+                val pendingBoxes by rewardViewModel.pendingBoxes.collectAsState()
+                val boxPhase by rewardViewModel.boxPhase.collectAsState()
+                val openedMarble by rewardViewModel.openedMarble.collectAsState()
+
                 // 감지 파이프라인은 NavHost 바깥의 StereotypyDetectionHost 가 돌린다.
                 // (이 파일 맨 아래) 여기서는 결과만 읽어 쓴다.
                 //
@@ -415,7 +427,14 @@ fun AionNavHost() {
                 // 홈으로 돌아온 시점에 팝업이 뜬다.
                 KidsHomeScreen(
                     stereotypyDetected = StereotypySignal.detected,
-                    points = 20,   // TODO: 실제 포인트 연결
+                    marbleCount = marbleCount,
+                    marbleCounts = marbleCounts,
+                    pendingBoxes = pendingBoxes,
+                    boxPhase = boxPhase,
+                    openedMarble = openedMarble,
+                    onBoxTap = { rewardViewModel.onBoxTapped() },
+                    onBoxShakeFinished = { rewardViewModel.onShakeFinished() },
+                    onRewardConfirm = { rewardViewModel.onRewardClosed() },
                     invite = inviteViewModel.invite,
                     isRespondingToInvite = inviteViewModel.isResponding,
                     onInviteRespond = { accept -> inviteViewModel.respond(accept) },
@@ -426,7 +445,9 @@ fun AionNavHost() {
                         helpViewModel.requestHelp()
                     },
                     onBreathingComplete = {
-                        // TODO: 호흡 완료 보상(젤리) 지급
+                        // 호흡 4회를 끝까지 마쳤을 때만 들어온다 (시간 초과 복귀는 제외).
+                        // 하루 상한은 RewardStore.BREATH_DAILY_LIMIT 가 처리한다.
+                        rewardViewModel.grant(RewardSource.BREATHING)
                     },
                     onWeedGameClick = {
                         navController.navigate(Route.WEED_GAME)
@@ -560,17 +581,24 @@ fun AionNavHost() {
             // 놀이 동작(팔 상하 반복 / 좌우 문지르기)이 상동행동 판정에 그대로 걸리기 때문에,
             // 게임 중에는 MinigameGate 로 판정을 멈춘다.
             composable(Route.WEED_GAME) {
+                val rewardViewModel: RewardViewModel = viewModel()
+
                 WeedGameScreen(
                     onExit = { navController.popBackStack() },
                     onGameStateChanged = { playing -> MinigameGate.active = playing },
+                    // 다 뽑으면 상자 1개. 홈으로 돌아가면 상자가 떠 있다.
+                    onCleared = { rewardViewModel.grant(RewardSource.WEED) },
                     showDebug = true,   // TODO: 배포 시 false (손목 위치 원 표시)
                 )
             }
 
             composable(Route.BOARD_GAME) {
+                val rewardViewModel: RewardViewModel = viewModel()
+
                 BoardGameScreen(
                     onExit = { navController.popBackStack() },
                     onGameStateChanged = { playing -> MinigameGate.active = playing },
+                    onCleared = { rewardViewModel.grant(RewardSource.BLACKBOARD) },
                     showDebug = true,   // TODO: 배포 시 false (손목 위치 원 표시)
                 )
             }

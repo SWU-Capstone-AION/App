@@ -1,4 +1,4 @@
-package com.example.aion_app.ui.kids.reward
+package com.example.aion_app.ui.screen.kids.reward
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -11,75 +11,79 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * 박스가 지금 어떤 상태인지.
- * CLOSED(닫힘) → SHAKING(흔들림) → OPENED(열림)
+ * 상자 팝업이 지금 어떤 상태인지.
+ *
+ *   CLOSED  닫힌 상자가 떠 있다 (살짝 둥실거림, 누를 수 있음)
+ *   SHAKING 탭해서 흔들리는 중 (약 1.2초)
+ *   OPENED  열린 상자 + 구슬이 나와 있다
  */
-enum class BoxPhase {
-    CLOSED,
-    SHAKING,
-    OPENED
-}
+enum class BoxPhase { CLOSED, SHAKING, OPENED }
 
-/**
- * 구슬 보상 전체를 관리한다.
- * Context가 필요해서 AndroidViewModel을 쓴다. (앱의 다른 화면들과 같은 방식)
- */
+// ============================================================
+// 구슬 보상
+// ============================================================
+// 저장은 RewardStore(기기 파일), 애니메이션은 화면이 맡는다.
+// 이 클래스는 그 사이에서 "언제 구슬을 뽑을지" 만 정한다.
+//
+// 애니메이션 시간·각도는 여기서 모른다. 화면이 흔들림을 끝내고
+// onShakeFinished() 를 불러주면 그때 구슬을 뽑는다.
+// 덕분에 나중에 애니메이션을 바꿔도 이 파일은 건드릴 필요가 없다.
+//
+// Context 가 필요해서 AndroidViewModel 을 쓴다 (모니터링 쪽과 같은 방식).
 class RewardViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val store = RewardStore(app.applicationContext)
+    private val store = RewardStore(app)
 
-    /** 아직 안 연 박스 개수 — 0보다 크면 메인 홈에 박스를 보여준다 */
-    val unopenedBoxes: StateFlow<Int> = store.unopenedBoxes
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    /**
+     * 받아뒀지만 아직 안 연 상자 개수.
+     * 0 보다 크면 홈에 상자 팝업이 뜬다. 하나 열면 하나 줄어든다.
+     *
+     * 개수를 세는 이유: 미니게임을 끝내면 그 화면에서 상자를 받는데,
+     * 팝업은 홈으로 돌아온 뒤에 떠야 한다. 그 사이를 이 값이 들고 있는다.
+     */
+    val pendingBoxes: StateFlow<Int> = store.unopenedBoxes
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-    /** 색깔별 구슬 개수 — 구슬 주머니 화면에서 사용 */
+    /** 색깔별 구슬 개수 — 구슬 주머니 화면 */
     val marbleCounts: StateFlow<Map<Marble, Int>> = store.marbleCounts
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    /** 모은 구슬 총 개수 */
+    /** 모은 구슬 총 개수 — 홈 상단 배지 */
     val totalMarbles: StateFlow<Int> = store.totalMarbles
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
-    /** 박스 애니메이션 상태 */
     private val _boxPhase = MutableStateFlow(BoxPhase.CLOSED)
     val boxPhase: StateFlow<BoxPhase> = _boxPhase.asStateFlow()
 
-    /** 방금 뽑은 구슬 (열기 전에는 null) */
+    /** 방금 뽑은 구슬. 상자를 열기 전에는 null */
     private val _openedMarble = MutableStateFlow<Marble?>(null)
     val openedMarble: StateFlow<Marble?> = _openedMarble.asStateFlow()
 
     /**
-     * 활동을 마쳤을 때 부른다.
-     * 호흡 가이드·잡초 뽑기·칠판 닦기 끝나는 자리에서 이 줄 하나만 부르면 된다.
+     * 활동을 마쳤을 때 부른다. 상자가 1개 생긴다.
+     *
+     * 미니게임은 카메라 결과를 처리하는 백그라운드 스레드에서 부르게 되는데,
+     * viewModelScope 가 알아서 메인으로 넘겨주므로 그대로 불러도 된다.
      */
     fun grant(source: RewardSource) {
-        viewModelScope.launch {
-            store.grant(source)
-        }
+        viewModelScope.launch { store.grant(source) }
     }
 
-    /**
-     * 아이가 박스를 탭했을 때. 흔들림 시작.
-     * 닫힌 상태일 때만 반응한다. (흔드는 중에 또 눌러도 무시)
-     */
+    /** 아이가 상자를 탭했을 때. 흔들림 시작 */
     fun onBoxTapped() {
-        if (_boxPhase.value != BoxPhase.CLOSED) return
-        if (unopenedBoxes.value <= 0) return
+        if (_boxPhase.value != BoxPhase.CLOSED) return   // 흔드는 중에 또 눌러도 무시
+        if (pendingBoxes.value <= 0) return
         _boxPhase.value = BoxPhase.SHAKING
     }
 
-    /**
-     * 흔들림 애니메이션이 끝나면 화면에서 이 함수를 부른다.
-     * 구슬을 뽑아 주머니에 넣고 박스를 열린 상태로 바꾼다.
-     */
+    /** 흔들림 애니메이션이 끝나면 화면이 불러준다. 여기서 구슬을 뽑는다 */
     fun onShakeFinished() {
         if (_boxPhase.value != BoxPhase.SHAKING) return
 
         viewModelScope.launch {
             val marble = store.openBox()
             if (marble == null) {
-                // 박스가 없는 예외 상황 — 그냥 닫힌 상태로 되돌린다
-                _boxPhase.value = BoxPhase.CLOSED
+                _boxPhase.value = BoxPhase.CLOSED   // 상자가 없는 예외 상황
                 return@launch
             }
             _openedMarble.value = marble
@@ -88,15 +92,18 @@ class RewardViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * 구슬을 확인하고 화면을 닫을 때.
-     * 박스가 더 남아 있으면 다시 닫힌 박스로 돌아간다.
+     * 구슬을 확인하고 팝업을 닫을 때.
+     *
+     * 구슬은 흔들림이 끝난 시점에 이미 저장됐다.
+     * 이 버튼을 안 누르고 앱을 꺼도 구슬은 남는다.
+     * 받아둔 상자가 더 있으면 닫힌 상자가 바로 이어서 뜬다.
      */
     fun onRewardClosed() {
         _openedMarble.value = null
         _boxPhase.value = BoxPhase.CLOSED
     }
 
-    /** 테스트용 — 모은 구슬과 박스를 전부 지운다 */
+    /** 테스트용 — 모은 구슬과 상자를 전부 지운다 */
     fun clearAll() {
         viewModelScope.launch {
             store.clearAll()

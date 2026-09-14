@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import com.example.aion_app.minigame.PoseGameHost
+import java.util.concurrent.atomic.AtomicBoolean
 
 private val BoardGreen = Color(0xFF2E4A3A)
 private val Chalk = Color(0xFFF2F2F2)
@@ -24,15 +25,20 @@ private val Chalk = Color(0xFFF2F2F2)
  * @param onExit X 버튼을 눌렀을 때 (홈으로 복귀)
  * @param onGameStateChanged 게임 진입/종료 알림. 상동행동 판정을 일시정지시키는 데 쓴다.
  *                           문지르는 동작이 팔 좌우 반복이라 감지기에 그대로 걸리기 때문.
+ * @param onCleared 칠판을 다 지웠을 때 한 번만. 구슬 상자 지급에 쓴다.
  * @param showDebug 손목 위치를 원으로 표시. 배포 시 false.
  */
 @Composable
 fun BoardGameScreen(
     onExit: () -> Unit,
     onGameStateChanged: (Boolean) -> Unit = {},
+    onCleared: () -> Unit = {},
     showDebug: Boolean = true,
 ) {
     val engine = remember { BoardGameEngine() }
+
+    // 완료 보상은 한 번만. (WeedGameScreen 과 같은 이유)
+    val rewarded = remember { AtomicBoolean(false) }
 
     PoseGameHost(
         title = "칠판을 깨끗하게 지워보자!",
@@ -41,7 +47,11 @@ fun BoardGameScreen(
         onExit = onExit,
         onForceClear = { engine.forceClear() },
         onGameStateChanged = onGameStateChanged,
-        update = { pose, nowMs -> engine.update(pose, nowMs) },
+        update = { pose, nowMs ->
+            val snapshot = engine.update(pose, nowMs)
+            if (snapshot.cleared && rewarded.compareAndSet(false, true)) onCleared()
+            snapshot
+        },
         draw = { scope, snapshot -> scope.drawBoard(snapshot) },
         showDebug = showDebug,
     )

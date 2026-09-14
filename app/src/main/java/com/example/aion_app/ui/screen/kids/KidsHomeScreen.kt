@@ -29,6 +29,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.data.auth.TeacherInvite
+import com.example.aion_app.ui.screen.kids.reward.BoxPhase
+import com.example.aion_app.ui.screen.kids.reward.KidsMarblePouchDialog
+import com.example.aion_app.ui.screen.kids.reward.KidsRewardDialog
+import com.example.aion_app.ui.screen.kids.reward.Marble
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.DarkHover
@@ -78,40 +82,40 @@ private class KidsPromptStyle(
     val buttonColor: Color,
 )
 
+// ⚠ 빨강 버튼은 Red 를 그대로 쓰지 않는다.
+//   아이콘 원(42dp)과 달리 버튼은 카드 폭을 꽉 채우는 큰 면적이라
+//   같은 색이라도 훨씬 세게 보인다. 진정시키려고 띄우는 화면에서
+//   그 정도 채도는 오히려 자극이 된다.
+//   Red 를 흰 카드 위에 약 78% 로 얹은 값으로 톤을 낮췄다.
+//   더 옅게 하려면 이 값을 올리면 되는데,
+//   흰 글씨 대비가 떨어지므로 프리뷰로 확인하면서 조정할 것.
+private val KidsPromptSoftRed = Color(0xFFC97C6B)
+
 // 감지: 아이는 자기가 흔들고 있다는 걸 모를 수 있다.
 // 상태를 단정하지 않고("두근두근해?" 같은 말) 같이 하자고만 권한다.
 // 오탐이어도 어색하지 않아야 한다.
 //
-// 앱 기본 파란 계열로 두어 평소 화면과 이어지는 느낌을 준다.
+// 색은 빨간 계열. 아이가 부른 게 아니라 화면이 먼저 말을 건 상황이라
+// 평소 화면과 확실히 달라 보이는 편이 낫다.
 private val KidsPromptDetectedStyle = KidsPromptStyle(
     message = "잠깐 쉬어갈까?\n나랑 같이 숨을 크게 쉬어보자.",
     icon = Icons.Filled.Favorite,
-    iconBackground = LightActive,   // Blue 계열의 옅은 배경
-    iconTint = Normal,
-    buttonColor = Normal,
+    iconBackground = Color(0xFFF7DAD5),   // Red 계열의 옅은 배경
+    iconTint = Red,                        // 작은 면적이라 원색 그대로 써도 세지 않다
+    buttonColor = KidsPromptSoftRed,
 )
 
 // 도움 요청: 아이가 버튼을 눌러 선생님을 부른 뒤다.
 // 선생님이 오고 있다는 사실을 먼저 알려주고, 기다리는 동안 할 일을 준다.
 //
-// 감지와 구분되도록 빨간 계열로 둔다.
-// 아이가 직접 부른 상황이라 평소 화면과 확실히 달라 보이는 편이 낫다.
-//
-// ⚠ 버튼은 Red 를 그대로 쓰지 않는다.
-//   아이콘 원(42dp)과 달리 버튼은 카드 폭을 꽉 채우는 큰 면적이라
-//   같은 색이라도 훨씬 세게 보인다. 진정시키려고 띄우는 화면에서
-//   그 정도 채도는 오히려 자극이 된다.
-//   Red 를 흰 카드 위에 약 78% 로 얹은 값으로 톤을 낮췄다.
-//   더 옅게 하려면 KidsPromptHelpButton 값을 올리면 되는데,
-//   흰 글씨 대비가 떨어지므로 프리뷰로 확인하면서 조정할 것.
-private val KidsPromptHelpButton = Color(0xFFC97C6B)
-
+// 색은 앱 기본 파란 계열. 아이가 직접 부른 상황이라
+// 평소 화면과 이어지는 느낌을 준다.
 private val KidsPromptHelpStyle = KidsPromptStyle(
     message = "선생님이 곧 오실 거야.\n그동안 같이 숨을 쉬어보자.",
     icon = Icons.Filled.WavingHand,
-    iconBackground = Color(0xFFF7DAD5),   // Red 계열의 옅은 배경
-    iconTint = Red,                        // 작은 면적이라 원색 그대로 써도 세지 않다
-    buttonColor = KidsPromptHelpButton,
+    iconBackground = LightActive,   // Blue 계열의 옅은 배경
+    iconTint = Normal,
+    buttonColor = Normal,
 )
 
 // 진정 팝업을 띄운 뒤 다음 팝업까지 최소 간격.
@@ -141,7 +145,19 @@ fun KidsHomeScreen(
     // StereotypyDetectionHost 가 넘겨주는 StereotypyDetector.State.anyAlarm.
     // 기본값 false 라 프리뷰/에뮬레이터에서는 카메라 없이도 화면 확인이 된다.
     stereotypyDetected: Boolean = false,
-    points: Int = 0,
+
+    // ===== 구슬 보상 =====
+    // 값과 콜백만 받는다. 저장·뽑기는 RewardViewModel 이, 연결은 AionNavHost 가 한다.
+    // (감지를 stereotypyDetected 하나로 받는 것과 같은 방식 — 프리뷰가 그대로 돌아간다)
+    marbleCount: Int = 0,                        // 상단 배지 숫자 (모은 구슬 총 개수)
+    marbleCounts: Map<Marble, Int> = emptyMap(), // 색깔별 개수 (주머니 팝업)
+    pendingBoxes: Int = 0,                       // 받아뒀지만 안 연 상자. 0보다 크면 상자 팝업이 뜬다
+    boxPhase: BoxPhase = BoxPhase.CLOSED,
+    openedMarble: Marble? = null,                // 방금 뽑은 구슬
+    onBoxTap: () -> Unit = {},
+    onBoxShakeFinished: () -> Unit = {},         // 흔들림이 끝났을 때 → 구슬 뽑기
+    onRewardConfirm: () -> Unit = {},            // '주머니에 담기'
+
     // 선생님이 보낸 학급 초대. null 이 아니면 팝업이 뜬다.
     invite: TeacherInvite? = null,
     isRespondingToInvite: Boolean = false,
@@ -159,6 +175,15 @@ fun KidsHomeScreen(
     onMonitorClick: () -> Unit = {}
 ) {
     var mode by remember { mutableStateOf(KidsHomeMode.CALM) }
+
+    // 구슬 주머니 팝업. 화면 안에서만 열고 닫는 값이라 여기서 들고 있는다.
+    var pouchOpen by remember { mutableStateOf(false) }
+
+    // 진정 팝업·호흡으로 넘어가면 주머니는 닫는다.
+    // 안 닫으면 호흡을 마치고 돌아왔을 때 주머니가 뜬금없이 다시 떠 있다.
+    LaunchedEffect(mode) {
+        if (mode != KidsHomeMode.CALM) pouchOpen = false
+    }
 
     // 마지막으로 팝업을 띄운 시각. 쿨다운 판단에만 쓴다.
     var lastPromptAt by remember { mutableLongStateOf(0L) }
@@ -196,6 +221,34 @@ fun KidsHomeScreen(
         // content 안에 두면 딤이 시안 프레임(930x582) 안까지만 깔려서
         // 기기 비율이 다를 때 화면 가장자리가 안 덮인다.
         overlay = {
+            // ===== 구슬 보상 =====
+            // 진정 팝업·학급 초대보다 먼저 그린다.
+            // 겹치는 상황에서는 그쪽이 위에 와야 한다 (보상보다 급한 일이다).
+            //
+            // 상자가 먼저다. 상자를 여는 중에 주머니가 같이 뜨면 안 된다.
+            //
+            // ⚠ pendingBoxes 만 보면 안 된다.
+            //   상자를 여는 순간 pendingBoxes 가 1 줄어서 0이 되기 때문에,
+            //   그 조건만 쓰면 구슬이 나오기도 전에 팝업이 사라진다.
+            //   그래서 "아직 닫히지 않은 상태(boxPhase != CLOSED)" 도 함께 본다.
+            val rewardVisible = pendingBoxes > 0 || boxPhase != BoxPhase.CLOSED
+
+            if (mode == KidsHomeMode.CALM && invite == null && rewardVisible) {
+                KidsRewardDialog(
+                    phase = boxPhase,
+                    marble = openedMarble,
+                    onBoxTap = onBoxTap,
+                    onShakeFinished = onBoxShakeFinished,
+                    onConfirm = onRewardConfirm
+                )
+            } else if (mode == KidsHomeMode.CALM && pouchOpen) {
+                KidsMarblePouchDialog(
+                    counts = marbleCounts,
+                    total = marbleCount,
+                    onClose = { pouchOpen = false }
+                )
+            }
+
             if (mode.isPrompt) {
                 KidsCalmPromptDialog(
                     style = if (mode == KidsHomeMode.PROMPT_DETECTED) {
@@ -218,8 +271,9 @@ fun KidsHomeScreen(
         }
     ) {
         KidsHomeTopBar(
-            points = points,
-            onProfileClick = onProfileClick
+            points = marbleCount,
+            onProfileClick = onProfileClick,
+            onPointsClick = { pouchOpen = true }
         )
 
         Column(
@@ -512,13 +566,13 @@ private fun BoxScope.KidsCalmPromptDialog(
 @Preview(showBackground = true, widthDp = 930, heightDp = 582, name = "홈 (평소)")
 @Composable
 private fun KidsHomeScreenPreview() {
-    AionTheme { KidsHomeScreen(points = 20) }
+    AionTheme { KidsHomeScreen(marbleCount = 6) }
 }
 
 @Preview(showBackground = true, widthDp = 930, heightDp = 582, name = "홈 (감지됨 → 팝업)")
 @Composable
 private fun KidsHomePromptPreview() {
-    AionTheme { KidsHomeScreen(stereotypyDetected = true, points = 20) }
+    AionTheme { KidsHomeScreen(stereotypyDetected = true, marbleCount = 6) }
 }
 
 @Preview(showBackground = true, widthDp = 930, heightDp = 582, name = "홈 (학급 초대)")
@@ -526,8 +580,27 @@ private fun KidsHomePromptPreview() {
 private fun KidsHomeInvitePreview() {
     AionTheme {
         KidsHomeScreen(
-            points = 20,
+            marbleCount = 6,
             invite = TeacherInvite(teacherUid = "uid", teacherName = "박서연")
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 930, heightDp = 582, name = "홈 (상자 도착)")
+@Composable
+private fun KidsHomeRewardBoxPreview() {
+    AionTheme { KidsHomeScreen(marbleCount = 6, pendingBoxes = 1) }
+}
+
+@Preview(showBackground = true, widthDp = 930, heightDp = 582, name = "홈 (구슬 획득)")
+@Composable
+private fun KidsHomeRewardOpenedPreview() {
+    AionTheme {
+        KidsHomeScreen(
+            marbleCount = 7,
+            pendingBoxes = 1,
+            boxPhase = BoxPhase.OPENED,
+            openedMarble = Marble.PINK
         )
     }
 }
@@ -535,7 +608,7 @@ private fun KidsHomeInvitePreview() {
 @Preview(showBackground = true, device = "spec:width=1204dp,height=753dp,dpi=340", name = "홈 (실기기)")
 @Composable
 private fun KidsHomeScreenTabletPreview() {
-    AionTheme { KidsHomeScreen(points = 20) }
+    AionTheme { KidsHomeScreen(marbleCount = 6) }
 }
 
 // ============================================================
@@ -545,10 +618,10 @@ private fun KidsHomeScreenTabletPreview() {
 // 두 개를 나란히 놓고 아이콘 대비 · 버튼 색 · 문구 줄바꿈을 비교할 때 쓴다.
 //
 // 확인 포인트
-//   1. 감지: 파란 하트가 LightActive 배경 위에서 충분히 보이는가
+//   1. 감지: 빨간 버튼이 진정 화면에서 과하지 않은가
+//      (세면 KidsPromptSoftRed 값을 더 옅게)
+//   2. 도움: 파란 손 아이콘이 LightActive 배경 위에서 충분히 보이는가
 //      (흐리면 iconTint 를 Normal → Dark 로 내린다)
-//   2. 도움: 빨간 버튼이 진정 화면에서 과하지 않은가
-//      (세면 KidsPromptHelpButton 값을 더 옅게)
 //   3. 두 문구 모두 폭 329dp 안에서 두 줄로 떨어지는가
 
 @Preview(showBackground = true, widthDp = 930, heightDp = 582, name = "팝업 (감지)")
