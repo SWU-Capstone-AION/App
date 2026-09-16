@@ -38,9 +38,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.R
+import com.example.aion_app.ui.screen.kids.KidsContentWidth
 import com.example.aion_app.ui.screen.kids.KidsDialogScrim
 import com.example.aion_app.ui.screen.kids.KidsItemHeight
 import com.example.aion_app.ui.theme.AionTextDark
@@ -80,7 +82,13 @@ private const val OpenedHoldMs = 350L   // 열린 상자를 보여주는 시간
 private const val BoxFadeMs = 250       // 상자가 사라지는 시간
 private const val MarbleHoldMs = 1400L  // 구슬을 보여준 뒤 마지막 장면으로
 
-private val RewardCardWidth = 620.dp    // 시안 기준. 진정 팝업(329)보다 훨씬 넓다
+// 카드 폭. 시안 기준은 620 이었는데 실기기에서 커 보여서 줄였다.
+// 진정 팝업·학급 초대와 같은 폭(KidsContentWidth)을 쓴다 —
+// 아동용 팝업이 전부 같은 크기라 아이가 볼 때 일관된다.
+//
+// ⚠ 이보다 좁히지 말 것. 18sp 두 줄 문구가 한 줄에 약 270dp 를 쓰기 때문에
+//   더 줄이면 "보물상자를 톡 / 눌러볼까?" 처럼 원하지 않는 자리에서 줄이 바뀐다.
+private val RewardCardWidth = KidsContentWidth
 private val BoxImageSize = 150.dp
 private val MarbleSize = 110.dp
 private val MarbleBottomGap = 20.dp     // 구슬을 바닥에서 얼마나 띄울지
@@ -108,7 +116,8 @@ fun BoxScope.KidsRewardDialog(
     onBoxTap: () -> Unit,
     onShakeFinished: () -> Unit,
     onMarbleShown: () -> Unit,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    cardWidth: Dp = RewardCardWidth
 ) {
     // 카드가 톡 나타나는 효과. 갑자기 뜨는 것보다 시선이 따라가기 쉽다.
     val appear = remember { Animatable(0.85f) }
@@ -132,7 +141,7 @@ fun BoxScope.KidsRewardDialog(
     ) {
         Column(
             modifier = Modifier
-                .width(RewardCardWidth)
+                .width(cardWidth)
                 .graphicsLayer {
                     scaleX = appear.value
                     scaleY = appear.value
