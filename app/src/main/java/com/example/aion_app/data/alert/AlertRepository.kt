@@ -1,41 +1,23 @@
 package com.example.aion_app.data.alert
 
 import com.example.aion_app.BuildConfig
+import com.example.aion_app.data.network.ApiClient
 import com.google.firebase.auth.FirebaseAuth
-import okhttp3.OkHttpClient
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
-import java.util.concurrent.TimeUnit
 
 /**
  * 알림 목록 조회·삭제, 아동의 도움 요청.
  *
- * 서버는 백엔드 담당 노트북에서 돌기 때문에, 꺼져 있거나 다른 와이파이면
- * 연결이 실패한다. 화면에서 그 상황을 안내할 수 있도록 실패를 그대로 돌려준다.
+ * 서버 연결 설정(주소·타임아웃)은 ApiClient에 있다.
+ * 화면에서 실패 상황을 안내할 수 있도록 실패를 그대로 돌려준다.
  */
 class AlertRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
 ) {
 
-    private val retrofit: Retrofit by lazy {
-        val client = OkHttpClient.Builder()
-            // Render 무료 플랜은 15분 유휴 후 잠들고, 깨는 데 50초 넘게 걸린다.
-            // 첫 요청이 그 시간을 기다릴 수 있도록 넉넉히 잡는다.
-            .connectTimeout(60, TimeUnit.SECONDS)
-            .readTimeout(60, TimeUnit.SECONDS)
-            .build()
-
-        Retrofit.Builder()
-            .baseUrl(BuildConfig.SERVER_URL.ensureTrailingSlash())
-            .client(client)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-    }
-
-    private val api: AlertApi by lazy { retrofit.create(AlertApi::class.java) }
-    private val helpApi: HelpApi by lazy { retrofit.create(HelpApi::class.java) }
-    private val healthApi: HealthApi by lazy { retrofit.create(HealthApi::class.java) }
-    private val childStateApi: ChildStateApi by lazy { retrofit.create(ChildStateApi::class.java) }
+    private val api: AlertApi by lazy { ApiClient.create<AlertApi>() }
+    private val helpApi: HelpApi by lazy { ApiClient.create<HelpApi>() }
+    private val healthApi: HealthApi by lazy { ApiClient.create<HealthApi>() }
+    private val childStateApi: ChildStateApi by lazy { ApiClient.create<ChildStateApi>() }
 
     /** 현재 로그인한 교사의 알림 목록. 최신순. */
     suspend fun getAlerts(limit: Int = 50): Result<List<AlertDto>> = runCatching {
@@ -103,7 +85,3 @@ class AlertRepository(
         android.util.Log.e("AION_API", "도움 요청 실패", error)
     }
 }
-
-/** Retrofit의 baseUrl은 반드시 슬래시로 끝나야 한다. */
-private fun String.ensureTrailingSlash(): String =
-    if (endsWith("/")) this else "$this/"
