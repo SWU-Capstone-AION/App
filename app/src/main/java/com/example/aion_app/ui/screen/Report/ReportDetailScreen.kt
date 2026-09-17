@@ -444,27 +444,28 @@ private fun StudentHeaderCard(student: ReportStudent) {
             // 홈 화면 아이들 리스트의 상태 점과 같은 크기(8/4).
             // 원의 '중심'이 프로필 네모(48dp / 모서리 반경 8dp)의 둥근 모서리 곡선 위에 오도록 민다.
             // 보정 = 점지름/2 - r * (1 - 1/√2) = 4 - 8*0.2929 ≒ 1.66dp
-            if (student.isActive) {
+            //
+            // 활동 중 = 초록, 비활동 = GrayText (홈 화면 ProfileWithIndicator 와 같은 색)
+            val dotColor = if (student.isActive) Green else GrayText
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 1.66.dp, y = 1.66.dp)
+                    .size(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 Box(
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .offset(x = 1.66.dp, y = 1.66.dp)
-                        .size(8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(Green.copy(alpha = 0.5f))   // 뒤쪽 원 #629F7D 50%
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(4.dp)
-                            .clip(CircleShape)
-                            .background(Green)
-                    )
-                }
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(dotColor.copy(alpha = 0.5f))   // 뒤쪽 원 50%
+                )
+                Box(
+                    modifier = Modifier
+                        .size(4.dp)
+                        .clip(CircleShape)
+                        .background(dotColor)
+                )
             }
         }
 
@@ -502,18 +503,20 @@ private fun StudentHeaderCard(student: ReportStudent) {
             }
         }
 
-        if (student.isActive) {
-            ActiveBadge()
-        }
+        // 활동중 / 비활동 배지
+        StatusBadge(isActive = student.isActive)
     }
 }
 
 // 홈 화면 StatusBadge 와 같은 에셋을 쓴다.
+// 배경·점·글자가 모두 들어간 디자인팀 이미지라, 높이만 정하면 가로는 비율대로 따라온다.
 @Composable
-private fun ActiveBadge() {
+private fun StatusBadge(isActive: Boolean) {
     Image(
-        painter = painterResource(R.drawable.activity_chip),
-        contentDescription = "활동중",
+        painter = painterResource(
+            if (isActive) R.drawable.activity_chip else R.drawable.nonactivity_chip
+        ),
+        contentDescription = if (isActive) "활동중" else "비활동",
         modifier = Modifier.height(20.dp)
     )
 }
