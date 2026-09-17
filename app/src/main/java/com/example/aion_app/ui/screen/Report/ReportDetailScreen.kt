@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +37,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionPrimaryButton
 import com.example.aion_app.ui.component.AionTopBar
@@ -57,29 +59,71 @@ import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 import kotlinx.coroutines.launch
 
+// 기록 없는 칸(avg = null) 색 — 0점(Light)과 구분되는 회색
+private val EmptyCellColor = Color(0xFFF1F3F6)
+
 @Composable
 fun ReportDetailScreen(
     report: StudentReport = sampleStudentReport(),
     onBackClick: () -> Unit = {},
-    onTabSelect: (String) -> Unit = {}
+    onTabSelect: (String) -> Unit = {},
+    viewModel: ReportDetailViewModel = viewModel()
+) {
+    LaunchedEffect(report.student.id) {
+        viewModel.start(report.student.id)
+    }
+
+    ReportDetailContent(
+        student = report.student,
+        period = viewModel.period,
+        dateLabel = viewModel.dateLabel,
+        nextEnabled = viewModel.nextEnabled,
+        fileDateLabel = viewModel.fileDateLabel,
+        daily = viewModel.daily,
+        weekly = viewModel.weekly,
+        monthly = viewModel.monthly,
+        onPeriodSelect = viewModel::selectPeriod,
+        onPrev = viewModel::prev,
+        onNext = viewModel::next,
+        onCalendarDayClick = viewModel::openDayFromCalendar,
+        onRetry = viewModel::retry,
+        onBackClick = onBackClick,
+        onTabSelect = onTabSelect
+    )
+}
+
+// 화면 그리기만 담당 (미리보기에서도 이걸 씀)
+@Composable
+private fun ReportDetailContent(
+    student: ReportStudent,
+    period: ReportPeriod,
+    dateLabel: String,
+    nextEnabled: Boolean,
+    fileDateLabel: String,
+    daily: ReportLoadState<DailyReport>,
+    weekly: ReportLoadState<WeeklyReport>,
+    monthly: ReportLoadState<MonthlyReport>,
+    onPeriodSelect: (ReportPeriod) -> Unit,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    onCalendarDayClick: (Int) -> Unit,
+    onRetry: () -> Unit,
+    onBackClick: () -> Unit,
+    onTabSelect: (String) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val captureController = rememberCaptureController()
 
-    var period by remember { mutableStateOf(ReportPeriod.DAILY) }
     var showSavedDialog by remember { mutableStateOf(false) }
     var saveSuccess by remember { mutableStateOf(true) }
 
-    // 날짜 이동용 offset (0 = 최신/오늘, 음수 = 과거). 미래(양수)는 막음.
-    var dayOffset by remember { mutableStateOf(0) }
-    var weekOffset by remember { mutableStateOf(0) }
-    var monthOffset by remember { mutableStateOf(0) }
-
-    // offset 이 바뀔 때만 재생성 (같은 offset 이면 항상 같은 데이터)
-    val daily = remember(dayOffset) { dailyReportFor(dayOffset) }
-    val weekly = remember(weekOffset) { weeklyReportFor(weekOffset) }
-    val monthly = remember(monthOffset) { monthlyReportFor(monthOffset) }
+    // 지금 탭의 값이 다 불러와졌는지 (불러오는 중엔 이미지 저장 막음)
+    val loaded = when (period) {
+        ReportPeriod.DAILY -> daily is ReportLoadState.Success
+        ReportPeriod.WEEKLY -> weekly is ReportLoadState.Success
+        ReportPeriod.MONTHLY -> monthly is ReportLoadState.Success
+    }
 
     Scaffold(
         topBar = {
@@ -103,48 +147,32 @@ fun ReportDetailScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // 기간 탭 (일간/주간/월간)
-            PeriodTabs(selected = period, onSelect = { period = it })
+            PeriodTabs(selected = period, onSelect = onPeriodSelect)
 
             Spacer(modifier = Modifier.height(16.dp))
 
             // ↓↓↓ 이미지로 저장할 영역 (날짜 + 프로필 + 그래프 + 인사이트) ↓↓↓
             Column(modifier = Modifier.capturable(captureController)) {
-                // 날짜 네비게이터 (기간별 라벨 + 이전/다음 이동)
-                when (period) {
-                    ReportPeriod.DAILY -> DateNavigator(
-                        label = daily.dateLabel,
-                        onPrev = { dayOffset-- },
-                        onNext = { if (dayOffset < 0) dayOffset++ },
-                        nextEnabled = dayOffset < 0
-                    )
-                    ReportPeriod.WEEKLY -> DateNavigator(
-                        label = weekly.dateLabel,
-                        onPrev = { weekOffset-- },
-                        onNext = { if (weekOffset < 0) weekOffset++ },
-                        nextEnabled = weekOffset < 0
-                    )
-                    ReportPeriod.MONTHLY -> DateNavigator(
-                        label = monthly.monthLabel,
-                        onPrev = { monthOffset-- },
-                        onNext = { if (monthOffset < 0) monthOffset++ },
-                        nextEnabled = monthOffset < 0
-                    )
-                }
+                DateNavigator(
+                    label = dateLabel,
+                    onPrev = onPrev,
+                    onNext = onNext,
+                    nextEnabled = nextEnabled
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // 학생 프로필 카드 (공통)
-                StudentHeaderCard(student = report.student)
+                StudentHeaderCard(student = student)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 기간별 본문
+                // 기간별 본문 (불러오는 중 / 실패 / 성공)
                 when (period) {
-                    ReportPeriod.DAILY -> DailyContent(daily)
-                    ReportPeriod.WEEKLY -> WeeklyContent(weekly)
-                    ReportPeriod.MONTHLY -> MonthlyContent(monthly) { day ->
-                        dayOffset = dayOffsetForCalendar(monthOffset, day).coerceAtMost(0)
-                        period = ReportPeriod.DAILY
+                    ReportPeriod.DAILY -> LoadStateBody(daily, onRetry) { DailyContent(it) }
+                    ReportPeriod.WEEKLY -> LoadStateBody(weekly, onRetry) { WeeklyContent(it) }
+                    ReportPeriod.MONTHLY -> LoadStateBody(monthly, onRetry) {
+                        MonthlyContent(it, onDayClick = onCalendarDayClick)
                     }
                 }
             }
@@ -156,21 +184,16 @@ fun ReportDetailScreen(
             AionPrimaryButton(
                 text = "이미지 다운로드",
                 onClick = {
-                    val bitmap = captureController.toBitmap()
+                    val bitmap = if (loaded) captureController.toBitmap() else null
                     if (bitmap == null) {
                         saveSuccess = false
                         showSavedDialog = true
                     } else {
                         scope.launch {
-                            val datePart = when (period) {
-                                ReportPeriod.DAILY -> daily.detailDateLabel
-                                ReportPeriod.WEEKLY -> weekly.detailDateLabel.replace(" ", "")
-                                ReportPeriod.MONTHLY -> monthly.detailDateLabel
-                            }
                             saveSuccess = saveBitmapToGallery(
                                 context = context,
                                 bitmap = bitmap,
-                                displayName = "AION_리포트_${report.student.name}_$datePart"
+                                displayName = "AION_리포트_${student.name}_$fileDateLabel"
                             )
                             showSavedDialog = true
                         }
@@ -187,6 +210,62 @@ fun ReportDetailScreen(
             success = saveSuccess,
             onConfirm = { showSavedDialog = false }
         )
+    }
+}
+
+// ============================================================
+// 불러오기 상태별 본문
+// ============================================================
+
+@Composable
+private fun <T> LoadStateBody(
+    state: ReportLoadState<T>,
+    onRetry: () -> Unit,
+    content: @Composable (T) -> Unit
+) {
+    when (state) {
+        is ReportLoadState.Loading -> ReportLoading()
+        is ReportLoadState.Error -> ReportError(message = state.message, onRetry = onRetry)
+        is ReportLoadState.Success -> content(state.data)
+    }
+}
+
+@Composable
+private fun ReportLoading() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        CircularProgressIndicator(color = Normal)
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(text = "리포트를 불러오는 중이에요", fontSize = 14.sp, color = GrayText)
+        Spacer(modifier = Modifier.height(4.dp))
+        // Render 서버가 잠들어 있으면 깨는 데 1분 가까이 걸린다
+        Text(text = "처음 열 때는 1분 정도 걸릴 수 있어요", fontSize = 12.sp, color = GrayText)
+    }
+}
+
+@Composable
+private fun ReportError(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = message,
+            fontSize = 14.sp,
+            color = GrayText,
+            textAlign = TextAlign.Center,
+            lineHeight = 20.sp
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        OutlinedButton(onClick = onRetry) {
+            Text(text = "다시 시도", color = Normal)
+        }
     }
 }
 
@@ -221,7 +300,6 @@ private fun WeeklyContent(weekly: WeeklyReport) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         SummaryCard("주의 감지", "${weekly.cautionCount}", "건", Modifier.weight(1f))
         SummaryCard("위험 감지", "${weekly.dangerCount}", "건", Modifier.weight(1f))
-        SummaryCard("출석", "${weekly.attendance}", "/${weekly.attendanceTotal}", Modifier.weight(1f))
     }
 
     Spacer(modifier = Modifier.height(24.dp))
@@ -242,7 +320,6 @@ private fun MonthlyContent(monthly: MonthlyReport, onDayClick: (Int) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         SummaryCard("주의 감지", "${monthly.cautionCount}", "건", Modifier.weight(1f))
         SummaryCard("위험 감지", "${monthly.dangerCount}", "건", Modifier.weight(1f))
-        SummaryCard("출석", "${monthly.attendance}", "/${monthly.attendanceTotal}", Modifier.weight(1f))
     }
 
     Spacer(modifier = Modifier.height(24.dp))
@@ -251,11 +328,14 @@ private fun MonthlyContent(monthly: MonthlyReport, onDayClick: (Int) -> Unit) {
     Spacer(modifier = Modifier.height(12.dp))
     MonthCalendar(days = monthly.calendarDays, onDayClick = onDayClick)
 
-    Spacer(modifier = Modifier.height(24.dp))
+    // 서버가 월간 시간대 값을 줄 때만 그래프 표시
+    if (monthly.hourlyRisks.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(24.dp))
 
-    SectionTitle(main = "상세 리포트", sub = monthly.detailDateLabel)
-    Spacer(modifier = Modifier.height(12.dp))
-    RiskBarChartCard(title = "시간대별 평균 위험 점수", risks = monthly.hourlyRisks)
+        SectionTitle(main = "상세 리포트", sub = monthly.detailDateLabel)
+        Spacer(modifier = Modifier.height(12.dp))
+        RiskBarChartCard(title = "시간대별 평균 위험 점수", risks = monthly.hourlyRisks)
+    }
 
     Spacer(modifier = Modifier.height(24.dp))
 
@@ -362,9 +442,6 @@ private fun StudentHeaderCard(student: ReportStudent) {
                 childName = student.name
             )
             // 홈 화면 아이들 리스트의 상태 점과 같은 크기(8/4).
-            // 안쪽 원을 padding 으로 만들면 바깥 크기를 바꿀 때마다 padding 도
-            // 다시 계산해야 해서, 두 원의 크기를 각각 지정하는 방식으로 바꿨다.
-            //
             // 원의 '중심'이 프로필 네모(48dp / 모서리 반경 8dp)의 둥근 모서리 곡선 위에 오도록 민다.
             // 보정 = 점지름/2 - r * (1 - 1/√2) = 4 - 8*0.2929 ≒ 1.66dp
             if (student.isActive) {
@@ -408,12 +485,21 @@ private fun StudentHeaderCard(student: ReportStudent) {
                     color = GrayText
                 )
             }
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "${student.grade}학년 ${student.classNum}반 · 담임 ${student.teacher}",
-                fontSize = 12.sp,
-                color = GrayText
-            )
+
+            // 학급 정보는 계정에 없어서, 있는 값만 붙인다 (지금은 담임 이름만)
+            val classText = if (student.grade != null && student.classNum != null)
+                "${student.grade}학년 ${student.classNum}반" else null
+            val teacherText = student.teacher.takeIf { it.isNotBlank() }?.let { "담임 $it" }
+            val subLine = listOfNotNull(classText, teacherText).joinToString(" · ")
+
+            if (subLine.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subLine,
+                    fontSize = 12.sp,
+                    color = GrayText
+                )
+            }
         }
 
         if (student.isActive) {
@@ -433,7 +519,7 @@ private fun ActiveBadge() {
 }
 
 // ============================================================
-// 요약 카드 / 섹션 타이틀 / 차트 카드 / 인사이트
+// 요약 카드 / 섹션 타이틀 / 인사이트
 // ============================================================
 
 @Composable
@@ -499,29 +585,15 @@ private fun SectionTitle(main: String, sub: String? = null) {
 }
 
 @Composable
-private fun ChartCard(title: String, content: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
-            .padding(16.dp)
-    ) {
-        Text(
-            text = title,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = GrayText
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        content()
-    }
-}
-
-@Composable
 private fun InsightSection(insights: List<AiInsight>) {
     SectionTitle(main = "분석", sub = "AI 인사이트")
     Spacer(modifier = Modifier.height(12.dp))
+
+    if (insights.isEmpty()) {
+        EmptyInsightCard()
+        return
+    }
+
     insights.forEachIndexed { index, insight ->
         InsightCard(insight)
         if (index != insights.lastIndex) {
@@ -570,6 +642,25 @@ private fun InsightCard(insight: AiInsight) {
     }
 }
 
+// 기록이 없어서 분석 문장을 만들 수 없을 때
+@Composable
+private fun EmptyInsightCard() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, LightActive, RoundedCornerShape(16.dp))
+            .padding(vertical = 24.dp, horizontal = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "아직 분석할 기록이 없어요.",
+            fontSize = 13.sp,
+            color = GrayText
+        )
+    }
+}
+
 // ============================================================
 // 차트: 막대그래프 / 히트맵 / 달력
 // ============================================================
@@ -596,8 +687,12 @@ private fun RiskBarChartCard(title: String, risks: List<HourlyRisk>) {
             )
             val sel = selectedHour
             if (sel != null) {
-                val score = risks.firstOrNull { it.hour == sel }?.score ?: 0
-                SelectedValuePill(text = "${sel}\uc2dc \u00b7 ${score}\uc810", color = scoreColor(score))
+                val score = risks.firstOrNull { it.hour == sel }?.score
+                if (score == null) {
+                    SelectedValuePill(text = "${sel}시 · 기록 없음", color = GrayText)
+                } else {
+                    SelectedValuePill(text = "${sel}시 · ${score}점", color = levelColor(scoreLevel(score)))
+                }
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -615,7 +710,7 @@ private fun RiskBarChart(
     selectedHour: Int?,
     onBarClick: (Int) -> Unit
 ) {
-// 시안 실측: 100 기준선 ~ 0 기준선 사이 131dp
+    // 시안 실측: 100 기준선 ~ 0 기준선 사이 131dp
     val chartHeight = 131.dp
     val startPad = 26.dp
     val axisLabel = 14.dp
@@ -680,7 +775,7 @@ private fun RiskBarChart(
                         .height(14.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "\uc704\ud5d8", fontSize = 9.sp, color = Red)
+                    Text(text = "위험", fontSize = 9.sp, color = Red)
                 }
                 Box(
                     modifier = Modifier
@@ -689,7 +784,7 @@ private fun RiskBarChart(
                         .height(14.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "\uc8fc\uc758", fontSize = 9.sp, color = Orange)
+                    Text(text = "주의", fontSize = 9.sp, color = Orange)
                 }
 
                 // 막대 (탭 영역 = 세로 전체, 넓게)
@@ -709,13 +804,17 @@ private fun RiskBarChart(
                                 .clickable { onBarClick(risk.hour) },
                             contentAlignment = Alignment.BottomCenter
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .width(18.dp)
-                                    .fillMaxHeight((risk.score / 100f).coerceIn(0f, 1f))
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(barColor(risk.score, isSelected))
-                            )
+                            // 기록 없는 시간(null)은 막대를 그리지 않는다 (0점과 구분)
+                            val score = risk.score
+                            if (score != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(18.dp)
+                                        .fillMaxHeight((score / 100f).coerceIn(0f, 1f))
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(barColor(score, isSelected))
+                                )
+                            }
                         }
                     }
                 }
@@ -773,10 +872,10 @@ private fun barColor(score: Int, isSelected: Boolean): Color {
     }
 }
 
-// \uc8fc\uac04 \ud788\ud2b8\ub9f5 \uce74\ub4dc — \uc140 \ud0ed \uc2dc \uc694\uc77c\u00b7\uc2dc\uac04\u00b7\ub808\ubca8 \ud45c\uc2dc
+// 주간 히트맵 카드 — 셀 탭 시 요일·시간·레벨 표시
 @Composable
 private fun WeeklyHeatmapCard(title: String, cells: List<HeatCell>) {
-    val dayLabels = listOf("\uc6d4", "\ud654", "\uc218", "\ubaa9", "\uae08")
+    val dayLabels = listOf("월", "화", "수", "목", "금")
     var selected by remember(cells) { mutableStateOf<Pair<Int, Int>?>(null) }
 
     Column(
@@ -796,12 +895,14 @@ private fun WeeklyHeatmapCard(title: String, cells: List<HeatCell>) {
             )
             val sel = selected
             if (sel != null) {
-                val cell = cells.firstOrNull { it.dayIndex == sel.first && it.hour == sel.second }
-                val level = intensityLevel(cell?.intensity ?: 0f)
-                SelectedValuePill(
-                    text = "${dayLabels[sel.first]} ${sel.second}\uc2dc \u00b7 ${levelText(level)}",
-                    color = levelColor(level)
-                )
+                val score = cells.firstOrNull { it.dayIndex == sel.first && it.hour == sel.second }?.score
+                val where = "${dayLabels[sel.first]} ${sel.second}시"
+                if (score == null) {
+                    SelectedValuePill(text = "$where · 기록 없음", color = GrayText)
+                } else {
+                    val level = scoreLevel(score)
+                    SelectedValuePill(text = "$where · ${levelText(level)}", color = levelColor(level))
+                }
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
@@ -819,7 +920,7 @@ private fun WeeklyHeatmap(
     selected: Pair<Int, Int>?,
     onCellClick: (Int, Int) -> Unit
 ) {
-    val days = listOf("\uc6d4", "\ud654", "\uc218", "\ubaa9", "\uae08")
+    val days = listOf("월", "화", "수", "목", "금")
     val hours = (8..15).toList()
     val gutter = 28.dp
 
@@ -837,8 +938,7 @@ private fun WeeklyHeatmap(
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(hour.toString().padStart(2, '0'), modifier = Modifier.width(gutter), fontSize = 11.sp, color = GrayText)
                 for (day in 0..4) {
-                    val cell = cells.firstOrNull { it.dayIndex == day && it.hour == hour }
-                    val intensity = cell?.intensity ?: 0f
+                    val score = cells.firstOrNull { it.dayIndex == day && it.hour == hour }?.score
                     val isSelected = selected == (day to hour)
                     Box(
                         modifier = Modifier
@@ -846,7 +946,7 @@ private fun WeeklyHeatmap(
                             .height(30.dp)
                             .padding(3.dp)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(heatColor(intensity))
+                            .background(heatColor(score))
                             .then(
                                 if (isSelected)
                                     Modifier.border(2.dp, Dark, RoundedCornerShape(6.dp))
@@ -860,13 +960,15 @@ private fun WeeklyHeatmap(
     }
 }
 
-private fun heatColor(intensity: Float): Color =
-    lerp(Light, Dark, intensity.coerceIn(0f, 1f))
+// 점수가 높을수록 진하게. 기록 없는 칸은 회색.
+private fun heatColor(score: Int?): Color =
+    if (score == null) EmptyCellColor
+    else lerp(Light, Dark, (score / 100f).coerceIn(0f, 1f))
 
-// \uc6d4\uac04 \ub2ec\ub825 — \uc774\ubc88 \ub2ec \ub0a0\uc9dc \ud0ed \uc2dc \ud574\ub2f9 \ub0a0\uc9dc\uc758 \uc77c\uac04 \ub9ac\ud3ec\ud2b8\ub85c \uc774\ub3d9
+// 월간 달력 — 이번 달 날짜 탭 시 해당 날짜의 일간 리포트로 이동
 @Composable
 private fun MonthCalendar(days: List<CalendarDay>, onDayClick: (Int) -> Unit) {
-    val weekdays = listOf("\uc6d4", "\ud654", "\uc218", "\ubaa9", "\uae08", "\ud1a0", "\uc77c")
+    val weekdays = listOf("월", "화", "수", "목", "금", "토", "일")
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -915,7 +1017,7 @@ private fun MonthCalendar(days: List<CalendarDay>, onDayClick: (Int) -> Unit) {
     }
 }
 
-// ---------- \uc120\ud0dd \uac12 \ud45c\uc2dc pill & \ub808\ubca8 \ud5ec\ud37c ----------
+// ---------- 선택 값 표시 pill & 레벨 헬퍼 ----------
 
 @Composable
 private fun SelectedValuePill(text: String, color: Color) {
@@ -929,22 +1031,17 @@ private fun SelectedValuePill(text: String, color: Color) {
     }
 }
 
-private fun scoreColor(score: Int): Color = when {
-    score >= RiskThreshold.DANGER -> Red
-    score >= RiskThreshold.CAUTION -> Orange
-    else -> Green
-}
-
-private fun intensityLevel(intensity: Float): RiskLevel = when {
-    intensity >= 0.66f -> RiskLevel.DANGER
-    intensity >= 0.33f -> RiskLevel.CAUTION
+// 막대그래프와 히트맵이 같은 기준(주의 40 / 위험 70)을 쓴다
+private fun scoreLevel(score: Int): RiskLevel = when {
+    score >= RiskThreshold.DANGER -> RiskLevel.DANGER
+    score >= RiskThreshold.CAUTION -> RiskLevel.CAUTION
     else -> RiskLevel.SAFE
 }
 
 private fun levelText(level: RiskLevel): String = when (level) {
-    RiskLevel.DANGER -> "\uc704\ud5d8"
-    RiskLevel.CAUTION -> "\uc8fc\uc758"
-    RiskLevel.SAFE -> "\uc548\uc804"
+    RiskLevel.DANGER -> "위험"
+    RiskLevel.CAUTION -> "주의"
+    RiskLevel.SAFE -> "안정"
 }
 
 private fun levelColor(level: RiskLevel): Color = when (level) {
@@ -1012,6 +1109,22 @@ private fun ReportSavedDialog(success: Boolean, onConfirm: () -> Unit) {
 @Composable
 fun ReportDetailScreenPreview() {
     AionTheme {
-        ReportDetailScreen()
+        ReportDetailContent(
+            student = defaultReportStudents()[1],
+            period = ReportPeriod.DAILY,
+            dateLabel = "05.25 월",
+            nextEnabled = false,
+            fileDateLabel = "2026.05.25",
+            daily = ReportLoadState.Success(previewDailyReport()),
+            weekly = ReportLoadState.Success(previewWeeklyReport()),
+            monthly = ReportLoadState.Success(previewMonthlyReport()),
+            onPeriodSelect = {},
+            onPrev = {},
+            onNext = {},
+            onCalendarDayClick = {},
+            onRetry = {},
+            onBackClick = {},
+            onTabSelect = {}
+        )
     }
 }
