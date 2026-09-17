@@ -72,7 +72,8 @@ import com.example.aion_app.ui.screen.password.IdFindViewModel
 import com.example.aion_app.ui.screen.mypage.calculateAge
 import com.example.aion_app.ui.screen.report.ReportListScreen
 import com.example.aion_app.ui.screen.report.ReportDetailScreen
-import com.example.aion_app.ui.screen.report.sampleStudentReport
+import com.example.aion_app.ui.screen.report.ReportListViewModel
+import com.example.aion_app.ui.screen.report.StudentReport
 
 import com.example.aion_app.data.auth.UserRole
 import com.example.aion_app.ui.screen.login.LoginViewModel
@@ -697,8 +698,19 @@ fun AionNavHost() {
             }
 
             // ===== 리포트 =====
+            // 목록과 상세가 같은 ReportListViewModel 을 쓴다 (REPORT 백스택 엔트리에 묶음).
+            // 상세는 목록에서 이미 불러온 아동 정보를 그대로 받아, 다시 불러오지 않는다.
             composable(Route.REPORT) {
+                val reportListViewModel: ReportListViewModel = viewModel()
+
+                // 들어올 때마다 새로 받는다 (아동을 새로 연결하고 돌아온 경우 반영)
+                LaunchedEffect(Unit) { reportListViewModel.load() }
+
                 ReportListScreen(
+                    students = reportListViewModel.students,
+                    isLoading = reportListViewModel.isLoading,
+                    errorMessage = reportListViewModel.errorMessage,
+                    onRetry = { reportListViewModel.load() },
                     onStudentClick = { student ->
                         navController.navigate("${Route.REPORT_DETAIL}/${student.id}")
                     },
@@ -707,12 +719,32 @@ fun AionNavHost() {
             }
 
             composable("${Route.REPORT_DETAIL}/{studentId}") { entry ->
-                val studentId = entry.arguments?.getString("studentId") ?: "2"
-                ReportDetailScreen(
-                    report = sampleStudentReport(studentId),
-                    onBackClick = { navController.popBackStack() },
-                    onTabSelect = onTabSelect
-                )
+                val studentId = entry.arguments?.getString("studentId").orEmpty()
+
+                val parentEntry = remember(entry) {
+                    navController.getBackStackEntry(Route.REPORT)
+                }
+                val reportListViewModel: ReportListViewModel = viewModel(parentEntry)
+
+                // 담임 이름 = 로그인한 교사 이름
+                val myInfoViewModel: MyInfoViewModel = viewModel()
+                LaunchedEffect(Unit) { myInfoViewModel.load() }
+
+                val student = reportListViewModel.findStudent(studentId)
+
+                if (student == null) {
+                    // 목록에 없는 아동 (앱이 오래 백그라운드에 있다가 돌아온 경우 등)
+                    // → 목록으로 돌려보내 새로 불러오게 한다
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                } else {
+                    ReportDetailScreen(
+                        report = StudentReport(
+                            student = student.copy(teacher = myInfoViewModel.myInfo.name)
+                        ),
+                        onBackClick = { navController.popBackStack() },
+                        onTabSelect = onTabSelect
+                    )
+                }
             }
 
             // ===== 알림센터 =====

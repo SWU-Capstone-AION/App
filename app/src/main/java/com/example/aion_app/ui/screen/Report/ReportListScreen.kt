@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -23,12 +24,16 @@ import com.example.aion_app.ui.home.ChildAvatar
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.GrayText
 import com.example.aion_app.ui.theme.LightActive
+import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 
 @Composable
 fun ReportListScreen(
     students: List<ReportStudent> = defaultReportStudents(),
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    onRetry: () -> Unit = {},
     onStudentClick: (ReportStudent) -> Unit = {},
     onTabSelect: (String) -> Unit = {}
 ) {
@@ -46,12 +51,29 @@ fun ReportListScreen(
         ) {
             Spacer(modifier = Modifier.height(24.dp))
 
-            students.forEach { student ->
-                StudentReportCard(
-                    student = student,
-                    onClick = { onStudentClick(student) }
+            when {
+                // 처음 불러오는 중
+                isLoading && students.isEmpty() -> ListLoading()
+
+                // 불러오기 실패
+                errorMessage != null && students.isEmpty() -> ListMessage(
+                    message = errorMessage,
+                    buttonText = "다시 시도",
+                    onButtonClick = onRetry
                 )
-                Spacer(modifier = Modifier.height(16.dp))
+
+                // 연결된 아동 없음
+                students.isEmpty() -> ListMessage(
+                    message = "연결된 아동이 없어요.\n홈 화면에서 담당 아동을 연결해 주세요."
+                )
+
+                else -> students.forEach { student ->
+                    StudentReportCard(
+                        student = student,
+                        onClick = { onStudentClick(student) }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
             }
         }
     }
@@ -73,6 +95,48 @@ private fun ReportListTopBar() {
             fontWeight = FontWeight.Bold,   // Pretendard Bold (AionTheme 안에서만 적용됨)
             color = TextPrimary
         )
+    }
+}
+
+@Composable
+private fun ListLoading() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        CircularProgressIndicator(color = Normal)
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(text = "아동 목록을 불러오는 중이에요", fontSize = 14.sp, color = GrayText)
+    }
+}
+
+@Composable
+private fun ListMessage(
+    message: String,
+    buttonText: String? = null,
+    onButtonClick: () -> Unit = {}
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = message,
+            fontSize = 14.sp,
+            color = GrayText,
+            textAlign = TextAlign.Center,
+            lineHeight = 20.sp
+        )
+        if (buttonText != null) {
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(onClick = onButtonClick) {
+                Text(text = buttonText, color = Normal)
+            }
+        }
     }
 }
 
