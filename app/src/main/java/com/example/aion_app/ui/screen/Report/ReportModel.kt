@@ -28,14 +28,6 @@ object RiskThreshold {
     const val DANGER = 70    // 위험선
 }
 
-// 월간 달력 점 색 기준 (하루 건수)
-// 건수를 "안정으로 돌아올 때까지 한 덩어리 = 1건"으로 세서 하루 1~3건 수준.
-// 더미 다시 넣은 뒤 실제 분포 보고 백엔드와 다시 정할 값.
-object CalendarDotRule {
-    const val DANGER_MIN = 1
-    const val CAUTION_MIN = 1
-}
-
 // 불러오기 상태 (불러오는 중 / 성공 / 실패)
 sealed interface ReportLoadState<out T> {
     object Loading : ReportLoadState<Nothing>
@@ -62,20 +54,26 @@ data class AiInsight(
     val description: String  // 본문 설명
 )
 
-// 시간대별 평균 위험 점수 (막대 그래프 한 칸)
-data class HourlyRisk(
-    val hour: Int,     // 8 ~ 15
-    val score: Int?    // 0 ~ 100, 기록 없으면 null (0점과 구분)
+/**
+ * 막대그래프 한 칸.
+ * 일간은 시간대(8~15시), 월간은 요일(월~일)을 그린다.
+ * score 가 null 이면 기록이 없는 칸 — 막대를 그리지 않는다(0점과 구분).
+ */
+data class ChartBar(
+    val key: Int,               // 시간 또는 요일 번호 (선택 표시용)
+    val axisLabel: String,      // 축에 쓸 짧은 글자 ("09", "월")
+    val selectedLabel: String,  // 눌렀을 때 보여줄 글자 ("9시", "월요일")
+    val score: Int?             // 0 ~ 100
 )
 
 // ---------- 일간 ----------
 
 data class DailyReport(
-    val dateLabel: String,        // "05.25 월"
-    val detailDateLabel: String,  // "2026.05.25"
+    val dateLabel: String,        // "08.26 수"
+    val detailDateLabel: String,  // "2026.08.26"
     val cautionCount: Int,
     val dangerCount: Int,
-    val hourlyRisks: List<HourlyRisk>,
+    val hourlyRisks: List<ChartBar>,
     val insights: List<AiInsight>
 )
 
@@ -89,8 +87,8 @@ data class HeatCell(
 )
 
 data class WeeklyReport(
-    val dateLabel: String,        // "05.18 월 - 05.22 금"
-    val detailDateLabel: String,  // "2026.05.18 - 05.22"
+    val dateLabel: String,        // "08.24 월 - 08.28 금"
+    val detailDateLabel: String,  // "2026.08.24 - 08.28"
     val cautionCount: Int,
     val dangerCount: Int,
     val heatCells: List<HeatCell>,
@@ -106,12 +104,13 @@ data class CalendarDay(
 )
 
 data class MonthlyReport(
-    val monthLabel: String,       // "5월"
-    val detailDateLabel: String,  // "2026.05"
+    val monthLabel: String,       // "8월"
+    val detailDateLabel: String,  // "2026.08"
     val cautionCount: Int,
     val dangerCount: Int,
     val calendarDays: List<CalendarDay>,
-    val hourlyRisks: List<HourlyRisk>,   // 서버가 안 주면 빈 목록 (그래프 숨김)
+    // 월간은 서버가 시간대 값을 안 줘서 요일별 평균을 그린다
+    val weekdayRisks: List<ChartBar>,
     val insights: List<AiInsight>
 )
 
@@ -160,6 +159,16 @@ object ReportDates {
         cal.get(Calendar.YEAR), cal.get(Calendar.MONTH) + 1, cal.get(Calendar.DAY_OF_MONTH)
     )
 
+    /** "2026-08-24" → Calendar. 모양이 다르면 null. */
+    fun parse(dateText: String?): Calendar? {
+        val parts = dateText?.take(10)?.split("-") ?: return null
+        if (parts.size != 3) return null
+        val y = parts[0].toIntOrNull() ?: return null
+        val m = parts[1].toIntOrNull() ?: return null
+        val d = parts[2].toIntOrNull() ?: return null
+        return Calendar.getInstance().apply { clear(); set(y, m - 1, d) }
+    }
+
     fun dailyLabel(cal: Calendar): String {
         val dow = WEEKDAY_KR[cal.get(Calendar.DAY_OF_WEEK) - 1]
         return "${p2(cal.get(Calendar.MONTH) + 1)}.${p2(cal.get(Calendar.DAY_OF_MONTH))} $dow"
@@ -168,19 +177,24 @@ object ReportDates {
     fun dailyDetailLabel(cal: Calendar): String =
         "${cal.get(Calendar.YEAR)}.${p2(cal.get(Calendar.MONTH) + 1)}.${p2(cal.get(Calendar.DAY_OF_MONTH))}"
 
-    fun weeklyLabel(monday: Calendar): String {
-        val fri = friday(monday)
-        return "${p2(monday.get(Calendar.MONTH) + 1)}.${p2(monday.get(Calendar.DAY_OF_MONTH))} 월 - " +
-                "${p2(fri.get(Calendar.MONTH) + 1)}.${p2(fri.get(Calendar.DAY_OF_MONTH))} 금"
+    fun weeklyLabel(monday: Calendar): String = weeklyLabel(monday, friday(monday))
+
+    fun weeklyDetailLabel(monday: Calendar): String = weeklyDetailLabel(monday, friday(monday))
+
+    /** 서버가 준 시작·끝 날짜로 만든다. 값이 없으면 null. */
+    fun weeklyLabelFrom(startDate: String?, endDate: String?): String? {
+        val start = parse(startDate) ?: return null
+        val end = parse(endDate) ?: return null
+        return weeklyLabel(start, end)
     }
 
-    fun weeklyDetailLabel(monday: Calendar): String {
-        val fri = friday(monday)
-        return "${monday.get(Calendar.YEAR)}.${p2(monday.get(Calendar.MONTH) + 1)}.${p2(monday.get(Calendar.DAY_OF_MONTH))} - " +
-                "${p2(fri.get(Calendar.MONTH) + 1)}.${p2(fri.get(Calendar.DAY_OF_MONTH))}"
+    fun weeklyDetailLabelFrom(startDate: String?, endDate: String?): String? {
+        val start = parse(startDate) ?: return null
+        val end = parse(endDate) ?: return null
+        return weeklyDetailLabel(start, end)
     }
 
-    /** 올해면 "5월", 다른 해면 "2025년 12월" */
+    /** 올해면 "8월", 다른 해면 "2025년 12월" */
     fun monthLabel(cal: Calendar): String {
         val year = cal.get(Calendar.YEAR)
         val month = cal.get(Calendar.MONTH) + 1
@@ -196,6 +210,17 @@ object ReportDates {
         val diff = target.timeInMillis - today().timeInMillis
         return Math.round(diff.toDouble() / DAY_MS).toInt()
     }
+
+    private fun weeklyLabel(start: Calendar, end: Calendar): String {
+        val startDow = WEEKDAY_KR[start.get(Calendar.DAY_OF_WEEK) - 1]
+        val endDow = WEEKDAY_KR[end.get(Calendar.DAY_OF_WEEK) - 1]
+        return "${p2(start.get(Calendar.MONTH) + 1)}.${p2(start.get(Calendar.DAY_OF_MONTH))} $startDow - " +
+                "${p2(end.get(Calendar.MONTH) + 1)}.${p2(end.get(Calendar.DAY_OF_MONTH))} $endDow"
+    }
+
+    private fun weeklyDetailLabel(start: Calendar, end: Calendar): String =
+        "${start.get(Calendar.YEAR)}.${p2(start.get(Calendar.MONTH) + 1)}.${p2(start.get(Calendar.DAY_OF_MONTH))} - " +
+                "${p2(end.get(Calendar.MONTH) + 1)}.${p2(end.get(Calendar.DAY_OF_MONTH))}"
 
     private fun friday(monday: Calendar): Calendar =
         (monday.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 4) }
@@ -232,19 +257,18 @@ fun buildMonthCalendar(year: Int, month1: Int, levels: Map<Int, RiskLevel?>): Li
 }
 
 // ============================================================
-// 리포트 목록 학생 (임시)
+// 리포트 목록 학생 (미리보기 전용)
 //
-// 목록 화면을 Firestore 담당 아동 목록과 연결하기 전까지 쓰는 값.
-// 서버 테스트가 되도록 김지우·이주미 id는 실제 테스트 계정 uid로 넣어둠.
+// 실제 목록은 ReportListViewModel 이 담당 아동을 불러온다.
 // ============================================================
 
 fun defaultReportStudents(): List<ReportStudent> = listOf(
-    ReportStudent(id = "sKG2RTBpZqhi8yNE7EQyW9Mvnc22", name = "김지우", gender = "남", age = 9),
-    ReportStudent(id = "ymLs9qwh8kcY5Q5WKnY1ui4Nacw2", name = "이주미", gender = "여", age = 9),
-    ReportStudent(id = "3", name = "전소미", gender = "여", age = 9)
+    ReportStudent(id = "preview-1", name = "김지우", gender = "남", age = 9),
+    ReportStudent(id = "preview-2", name = "이주미", gender = "여", age = 9),
+    ReportStudent(id = "preview-3", name = "전소미", gender = "여", age = 9)
 )
 
-fun sampleStudentReport(studentId: String = "ymLs9qwh8kcY5Q5WKnY1ui4Nacw2"): StudentReport {
+fun sampleStudentReport(studentId: String = "preview-2"): StudentReport {
     val student = defaultReportStudents().firstOrNull { it.id == studentId }
         ?: defaultReportStudents()[1]
     return StudentReport(student = student)
@@ -254,53 +278,68 @@ fun sampleStudentReport(studentId: String = "ymLs9qwh8kcY5Q5WKnY1ui4Nacw2"): Stu
 // 미리보기(Preview) 전용 값 — 실제 화면에서는 안 쓰임
 // ============================================================
 
+private fun hourBar(hour: Int, score: Int?) = ChartBar(
+    key = hour,
+    axisLabel = hour.toString().padStart(2, '0'),
+    selectedLabel = "${hour}시",
+    score = score
+)
+
 fun previewDailyReport(): DailyReport = DailyReport(
-    dateLabel = "05.25 월",
-    detailDateLabel = "2026.05.25",
-    cautionCount = 2,
-    dangerCount = 1,
+    dateLabel = "08.26 수",
+    detailDateLabel = "2026.08.26",
+    cautionCount = 7,
+    dangerCount = 5,
     hourlyRisks = listOf(
-        8 to null, 9 to 12, 10 to 25, 11 to 38, 12 to 64, 13 to 82, 14 to 51, 15 to null
-    ).map { HourlyRisk(it.first, it.second) },
+        hourBar(8, null), hourBar(9, 49), hourBar(10, 42), hourBar(11, null),
+        hourBar(12, 50), hourBar(13, 47), hourBar(14, 57), hourBar(15, 56)
+    ),
     insights = listOf(
-        AiInsight("취약 시간대", "13~14시 집중 발생", "13~14시 사이의 위험점수가 다른 시간대보다 평균적으로 16% 높았습니다."),
-        AiInsight("감지 성과", "팔 흔들기 행동", "팔을 좌우로/앞뒤로 흔드는 행동을 가장 많이 감지했어요.")
+        AiInsight("취약 시간대", "14~15시 집중 발생", "14~15시 사이의 위험점수가 다른 시간대보다 평균적으로 13% 높았습니다."),
+        AiInsight("감지 성과", "몸 흔들기 7건", "가장 많이 감지된 행동이에요.")
     )
 )
 
 fun previewWeeklyReport(): WeeklyReport = WeeklyReport(
-    dateLabel = "05.18 월 - 05.22 금",
-    detailDateLabel = "2026.05.18 - 05.22",
-    cautionCount = 3,
-    dangerCount = 2,
+    dateLabel = "08.24 월 - 08.28 금",
+    detailDateLabel = "2026.08.24 - 08.28",
+    cautionCount = 20,
+    dangerCount = 10,
     heatCells = (0..4).flatMap { d ->
         (8..15).map { h ->
             val score = when {
-                d == 2 && h == 12 -> 85
-                (d + h) % 4 == 0 -> null
-                else -> (d * 7 + h * 3) % 40
+                d == 4 && h == 11 -> 58
+                (d + h) % 3 == 0 -> null
+                else -> 40 + (d * 3 + h) % 15
             }
             HeatCell(d, h, score)
         }
     },
     insights = listOf(
-        AiInsight("감지 성과", "팔 흔들기 행동", "팔을 좌우로/앞뒤로 흔드는 행동을 가장 많이 감지했어요."),
-        AiInsight("취약 시간대", "수요일 12~13시 집중 발생", "수요일 12~13시 사이의 위험점수가 다른 시간대보다 평균적으로 30% 높았습니다.")
+        AiInsight("감지 성과", "손 물기 12건", "가장 많이 감지된 행동이에요."),
+        AiInsight("취약 시간대", "금요일 11~12시 집중 발생", "금요일 11~12시 사이의 위험점수가 다른 시간대보다 평균적으로 22% 높았습니다.")
     )
 )
 
 fun previewMonthlyReport(): MonthlyReport = MonthlyReport(
-    monthLabel = "5월",
-    detailDateLabel = "2026.05",
-    cautionCount = 8,
-    dangerCount = 5,
+    monthLabel = "8월",
+    detailDateLabel = "2026.08",
+    cautionCount = 79,
+    dangerCount = 37,
     calendarDays = buildMonthCalendar(
-        2026, 5,
-        mapOf(4 to RiskLevel.SAFE, 6 to RiskLevel.CAUTION, 13 to RiskLevel.DANGER, 20 to RiskLevel.SAFE)
+        2026, 8,
+        mapOf(3 to RiskLevel.CAUTION, 5 to RiskLevel.DANGER, 12 to RiskLevel.DANGER, 26 to RiskLevel.DANGER)
     ),
-    hourlyRisks = previewDailyReport().hourlyRisks,
+    weekdayRisks = listOf("월", "화", "수", "목", "금", "토", "일").mapIndexed { i, name ->
+        ChartBar(
+            key = i,
+            axisLabel = name,
+            selectedLabel = "${name}요일",
+            score = listOf(46, 49, 49, 45, 48, null, null)[i]
+        )
+    },
     insights = listOf(
-        AiInsight("취약 요일", "수요일 집중 발생", "이번 달에는 수요일에 위험 감지가 가장 많았습니다."),
-        AiInsight("감지 성과", "팔 흔들기 행동", "팔을 좌우로/앞뒤로 흔드는 행동을 가장 많이 감지했어요.")
+        AiInsight("취약 요일", "수요일 집중 발생", "수요일의 위험 감지가 다른 요일보다 116% 많았습니다."),
+        AiInsight("감지 성과", "팔 흔들기 44건", "가장 많이 감지된 행동이에요.")
     )
 )
