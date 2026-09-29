@@ -286,7 +286,7 @@ private fun DailyContent(daily: DailyReport) {
 
     SectionTitle(main = "상세 리포트", sub = daily.detailDateLabel)
     Spacer(modifier = Modifier.height(12.dp))
-    RiskBarChartCard(title = "시간대별 평균 위험 점수", risks = daily.hourlyRisks)
+    RiskBarChartCard(title = "시간대별 평균 위험 점수", bars = daily.hourlyRisks)
 
     Spacer(modifier = Modifier.height(24.dp))
 
@@ -328,13 +328,13 @@ private fun MonthlyContent(monthly: MonthlyReport, onDayClick: (Int) -> Unit) {
     Spacer(modifier = Modifier.height(12.dp))
     MonthCalendar(days = monthly.calendarDays, onDayClick = onDayClick)
 
-    // 서버가 월간 시간대 값을 줄 때만 그래프 표시
-    if (monthly.hourlyRisks.isNotEmpty()) {
+    // 월간은 시간대 값이 없어서 요일별 평균을 그린다
+    if (monthly.weekdayRisks.isNotEmpty()) {
         Spacer(modifier = Modifier.height(24.dp))
 
         SectionTitle(main = "상세 리포트", sub = monthly.detailDateLabel)
         Spacer(modifier = Modifier.height(12.dp))
-        RiskBarChartCard(title = "시간대별 평균 위험 점수", risks = monthly.hourlyRisks)
+        RiskBarChartCard(title = "요일별 평균 위험 점수", bars = monthly.weekdayRisks)
     }
 
     Spacer(modifier = Modifier.height(24.dp))
@@ -668,10 +668,10 @@ private fun EmptyInsightCard() {
 // 차트: 막대그래프 / 히트맵 / 달력
 // ============================================================
 
-// 시간대별 평균 위험 점수 막대그래프 카드 (일간·월간 공용) — 막대 탭 시 값 표시
+// 평균 위험 점수 막대그래프 카드 (일간=시간대, 월간=요일) — 막대 탭 시 값 표시
 @Composable
-private fun RiskBarChartCard(title: String, risks: List<HourlyRisk>) {
-    var selectedHour by remember(risks) { mutableStateOf<Int?>(null) }
+private fun RiskBarChartCard(title: String, bars: List<ChartBar>) {
+    var selectedKey by remember(bars) { mutableStateOf<Int?>(null) }
 
     Column(
         modifier = Modifier
@@ -688,29 +688,31 @@ private fun RiskBarChartCard(title: String, risks: List<HourlyRisk>) {
                 color = GrayText,
                 modifier = Modifier.weight(1f)
             )
-            val sel = selectedHour
+            val sel = selectedKey
             if (sel != null) {
-                val score = risks.firstOrNull { it.hour == sel }?.score
+                val bar = bars.firstOrNull { it.key == sel }
+                val score = bar?.score
+                val where = bar?.selectedLabel ?: ""
                 if (score == null) {
-                    SelectedValuePill(text = "${sel}시 · 기록 없음", color = GrayText)
+                    SelectedValuePill(text = "$where · 기록 없음", color = GrayText)
                 } else {
-                    SelectedValuePill(text = "${sel}시 · ${score}점", color = levelColor(scoreLevel(score)))
+                    SelectedValuePill(text = "$where · ${score}점", color = levelColor(scoreLevel(score)))
                 }
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
         RiskBarChart(
-            risks = risks,
-            selectedHour = selectedHour,
-            onBarClick = { hour -> selectedHour = if (selectedHour == hour) null else hour }
+            bars = bars,
+            selectedKey = selectedKey,
+            onBarClick = { key -> selectedKey = if (selectedKey == key) null else key }
         )
     }
 }
 
 @Composable
 private fun RiskBarChart(
-    risks: List<HourlyRisk>,
-    selectedHour: Int?,
+    bars: List<ChartBar>,
+    selectedKey: Int?,
     onBarClick: (Int) -> Unit
 ) {
     // 시안 실측: 100 기준선 ~ 0 기준선 사이 131dp
@@ -798,17 +800,17 @@ private fun RiskBarChart(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Bottom
                 ) {
-                    risks.forEach { risk ->
-                        val isSelected = risk.hour == selectedHour
+                    bars.forEach { bar ->
+                        val isSelected = bar.key == selectedKey
                         Box(
                             modifier = Modifier
                                 .width(24.dp)
                                 .fillMaxHeight()
-                                .clickable { onBarClick(risk.hour) },
+                                .clickable { onBarClick(bar.key) },
                             contentAlignment = Alignment.BottomCenter
                         ) {
-                            // 기록 없는 시간(null)은 막대를 그리지 않는다 (0점과 구분)
-                            val score = risk.score
+                            // 기록 없는 칸(null)은 막대를 그리지 않는다 (0점과 구분)
+                            val score = bar.score
                             if (score != null) {
                                 Box(
                                     modifier = Modifier
@@ -851,10 +853,10 @@ private fun RiskBarChart(
                 .padding(start = startPad, end = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            risks.forEach { risk ->
-                val isSelected = risk.hour == selectedHour
+            bars.forEach { bar ->
+                val isSelected = bar.key == selectedKey
                 Text(
-                    text = risk.hour.toString().padStart(2, '0'),
+                    text = bar.axisLabel,
                     fontSize = 10.sp,
                     color = if (isSelected) TextPrimary else GrayText,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -1115,9 +1117,9 @@ fun ReportDetailScreenPreview() {
         ReportDetailContent(
             student = defaultReportStudents()[1],
             period = ReportPeriod.DAILY,
-            dateLabel = "05.25 월",
+            dateLabel = "08.26 수",
             nextEnabled = false,
-            fileDateLabel = "2026.05.25",
+            fileDateLabel = "2026.08.26",
             daily = ReportLoadState.Success(previewDailyReport()),
             weekly = ReportLoadState.Success(previewWeeklyReport()),
             monthly = ReportLoadState.Success(previewMonthlyReport()),

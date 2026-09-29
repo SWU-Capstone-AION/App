@@ -1,7 +1,5 @@
 package com.example.aion_app.data.report
 
-import com.google.gson.JsonElement
-import com.google.gson.annotations.SerializedName
 import retrofit2.http.GET
 import retrofit2.http.Query
 
@@ -33,71 +31,95 @@ interface ReportApi {
 }
 
 // ============================================================
-// 응답 모양
+// 응답 모양 (2026-09 실제 응답 기준)
 //
-// 실제 응답 예시를 받기 전이라 안쪽 이름은 인수인계 문서 기준으로 잡았다.
-// 이름이 조금 달라도 앱이 멈추지 않도록 전부 null 허용,
-// 모양이 정해지지 않은 peak·topBehavior는 JsonElement로 받아서 직접 읽는다.
+// avg 는 0~1 값이고, 기록 없는 칸은 avg: null / count: 0 으로 온다.
+// weekday 는 0=월 ... 6=일.
+// 서버가 값을 빼고 보내도 앱이 안 멈추도록 전부 null 을 허용한다.
 // ============================================================
 
+/** 덩어리(안정에서 벗어났다 돌아올 때까지) 기준 건수 */
 data class ReportSummaryDto(
-    @SerializedName(value = "caution", alternate = ["cautionCount"])
     val caution: Int? = null,
-    @SerializedName(value = "danger", alternate = ["dangerCount"])
     val danger: Int? = null,
 )
 
-/** 시간대 한 칸. 기록 없는 시간은 avg = null, count = 0 */
+/** 시간대 한 칸 */
 data class HourlyDto(
     val hour: Int? = null,
     val avg: Double? = null,
     val count: Int? = null,
 )
 
-/** 주간 히트맵 한 칸. weekday 0=월 ... 4=금 */
+/** 주간 히트맵 한 칸 */
 data class HeatmapCellDto(
-    @SerializedName(value = "weekday", alternate = ["dayIndex"])
     val weekday: Int? = null,
     val hour: Int? = null,
     val avg: Double? = null,
     val count: Int? = null,
 )
 
-/** 월간 하루. date = yyyy-MM-dd */
+/** 월간 하루. level 은 서버가 정한 달력 점 색 (CAUTION / DANGER) */
 data class DayDto(
     val date: String? = null,
+    val level: String? = null,
+    val caution: Int? = null,
+    val danger: Int? = null,
+)
+
+/** 월간 요일별 값 */
+data class WeekdayDto(
+    val weekday: Int? = null,
     val avg: Double? = null,
     val count: Int? = null,
-    @SerializedName(value = "caution", alternate = ["cautionCount"])
     val caution: Int? = null,
-    @SerializedName(value = "danger", alternate = ["dangerCount"])
     val danger: Int? = null,
+)
+
+/** 가장 위험했던 지점 (일간=시간, 주간=요일+시간, 월간=요일) */
+data class PeakDto(
+    val hour: Int? = null,
+    val weekday: Int? = null,
+    val avg: Double? = null,
+    val caution: Int? = null,
+    val danger: Int? = null,
+    // 일간·주간은 점수 기준, 월간은 위험 건수 기준
+    val percentAboveAverage: Double? = null,
+)
+
+/** 가장 많이 감지된 행동. label 은 서버가 만든 한글 이름 */
+data class BehaviorDto(
+    val type: String? = null,
+    val label: String? = null,
+    val count: Int? = null,
 )
 
 data class DailyReportDto(
     val ok: Boolean? = null,
+    val date: String? = null,
     val summary: ReportSummaryDto? = null,
     val hourly: List<HourlyDto>? = null,
-    val peakHour: JsonElement? = null,
-    val percentAboveAverage: Double? = null,
-    val topBehavior: JsonElement? = null,
+    val peakHour: PeakDto? = null,
+    val topBehavior: BehaviorDto? = null,
 )
 
 data class WeeklyReportDto(
     val ok: Boolean? = null,
+    val startDate: String? = null,
+    val endDate: String? = null,
     val summary: ReportSummaryDto? = null,
     val heatmap: List<HeatmapCellDto>? = null,
-    val peakCell: JsonElement? = null,
-    val percentAboveAverage: Double? = null,
-    val topBehavior: JsonElement? = null,
+    val peakCell: PeakDto? = null,
+    val topBehavior: BehaviorDto? = null,
 )
 
 data class MonthlyReportDto(
     val ok: Boolean? = null,
+    val year: Int? = null,
+    val month: Int? = null,
     val summary: ReportSummaryDto? = null,
     val days: List<DayDto>? = null,
-    val hourly: List<HourlyDto>? = null,
-    val peakWeekday: JsonElement? = null,
-    val percentAboveAverage: Double? = null,
-    val topBehavior: JsonElement? = null,
+    val weekdays: List<WeekdayDto>? = null,
+    val peakWeekday: PeakDto? = null,
+    val topBehavior: BehaviorDto? = null,
 )
