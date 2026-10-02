@@ -40,8 +40,12 @@ data class HrSample(
 
 sealed class HrMessage {
     data class Data(val samples: List<HrSample>) : HrMessage()
-    data class AvailabilityChanged(val available: Boolean) : HrMessage()
+    /** worn = 손목에 차고 있는지. "잡는 중(ACQUIRING)"은 차고 있는 것으로 본다 */
+    data class AvailabilityChanged(val worn: Boolean) : HrMessage()
 }
+
+/** 워치가 "손목에서 빠짐"을 알렸을 때만 미착용으로 본다 */
+private fun DataTypeAvailability.isWorn() = this != DataTypeAvailability.UNAVAILABLE_DEVICE_OFF_BODY
 
 class HealthServicesManager(context: Context) {
 
@@ -88,7 +92,7 @@ class HealthServicesManager(context: Context) {
             override fun onAvailabilityChanged(dataType: DataType<*, *>, availability: Availability) {
                 if (availability is DataTypeAvailability) {
                     Log.d(TAG, "availability=$availability")
-                    trySendBlocking(HrMessage.AvailabilityChanged(availability == DataTypeAvailability.AVAILABLE))
+                    trySendBlocking(HrMessage.AvailabilityChanged(availability.isWorn()))
                 }
             }
         }
@@ -123,9 +127,8 @@ class HealthServicesManager(context: Context) {
                 availability: Availability
             ) {
                 if (availability is DataTypeAvailability) {
-                    val ok = availability == DataTypeAvailability.AVAILABLE
                     Log.d(TAG, "availability=$availability")
-                    trySendBlocking(HrMessage.AvailabilityChanged(ok))
+                    trySendBlocking(HrMessage.AvailabilityChanged(availability.isWorn()))
                 }
             }
 

@@ -13,32 +13,39 @@ class HeartRateSender(private val context: Context) {
     private val nodeClient by lazy { Wearable.getNodeClient(context) }
     private val messageClient by lazy { Wearable.getMessageClient(context) }
 
+    /** 받을 기기(태블릿)가 연결돼 있는지. 화면의 "연결 끊김" 판단에 쓴다 */
+    suspend fun isConnected(): Boolean =
+        runCatching { nodeClient.connectedNodes.await().isNotEmpty() }.getOrDefault(false)
+
     /**
-     * 심박수 한 건을 연결된 기기 전부에 보낸다.
+     * 심박수 한 건을 연결된 기기 전부에 보낸다. 한 곳이라도 보내지면 true.
      * 페이로드는 JSON 문자열 그대로 — 테스트라 라이브러리 없이 수동 조립
      */
-    suspend fun send(sample: HrSample) {
+    suspend fun send(sample: HrSample): Boolean {
         val json = """{"bpm":${sample.bpm},"at":${sample.at}}"""
         val bytes = json.toByteArray(Charsets.UTF_8)
 
         val nodes = runCatching { nodeClient.connectedNodes.await() }
             .getOrElse {
                 Log.w(TAG, "연결된 기기 조회 실패: ${it.message}")
-                return
+                return false
             }
 
         if (nodes.isEmpty()) {
             Log.w(TAG, "연결된 기기 없음 — 페어링 확인 필요")
-            return
+            return false
         }
 
+        var sent = false
         nodes.forEach { node ->
             runCatching {
                 messageClient.sendMessage(node.id, HR_PATH, bytes).await()
                 Log.d(TAG, "전송 성공 → ${node.displayName}: $json")
+                sent = true
             }.onFailure {
                 Log.w(TAG, "전송 실패: ${it.message}")
             }
         }
+        return sent
     }
 }

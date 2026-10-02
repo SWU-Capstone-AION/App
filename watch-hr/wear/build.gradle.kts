@@ -42,4 +42,12 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-service:2.10.0")
     implementation("androidx.wear:wear-ongoing:1.1.0")
     implementation("androidx.core:core-ktx:1.18.0")
+
+    // 화면 디자인: 아이콘 + Android Studio 미리보기 (Compose UI 1.9.2에 맞춤)
+    implementation("androidx.compose.material:material-icons-core:1.7.8")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.9.2")
+    implementation("androidx.wear:wear-tooling-preview:1.0.0")
+    debugImplementation("androidx.compose.ui:ui-tooling:1.9.2")
+
+    testImplementation("junit:junit:4.13.2")
 }

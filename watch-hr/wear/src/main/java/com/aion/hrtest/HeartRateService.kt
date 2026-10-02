@@ -16,6 +16,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.wear.ongoing.OngoingActivity
 import androidx.wear.ongoing.Status
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -35,6 +39,14 @@ object HrServiceState {
 
     internal val _status = MutableStateFlow("대기")
     val status: StateFlow<String> = _status.asStateFlow()
+
+    /** 받을 기기(태블릿)에 마지막으로 보내졌는지 */
+    internal val _connected = MutableStateFlow(true)
+    val connected: StateFlow<Boolean> = _connected.asStateFlow()
+
+    /** 손목에 차고 있는지 (워치가 "손목에서 빠짐"을 감지하면 false) */
+    internal val _worn = MutableStateFlow(true)
+    val worn: StateFlow<Boolean> = _worn.asStateFlow()
 }
 
 /**
@@ -46,6 +58,18 @@ class HeartRateService : LifecycleService() {
     private lateinit var health: HealthServicesManager
     private lateinit var sender: HeartRateSender
     private var measureJob: Job? = null
+    private var tickJob: Job? = null
+
+    /** 못 보낸 값 대기열 + "연결 끊김" 판단. 센서 처리와 1초 타이머가 같이 건드리므로 잠금으로 순서를 지킨다 */
+    private val outbox = Outbox()
+    private val outboxLock = Mutex()
+
+    private suspend fun flushOutbox() = outboxLock.withLock {
+        val now = System.currentTimeMillis()
+        val sent = outbox.flush(now) { sender.send(it) }
+        HrServiceState._connected.value = outbox.connected(now)
+        if (outbox.size > 0) Log.d(TAG, "대기 중 ${outbox.size}개 (이번에 ${sent}개 전송, 넘쳐서 버림 ${outbox.dropped}개)")
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -61,6 +85,19 @@ class HeartRateService : LifecycleService() {
                 stopSelf()
                 return START_NOT_STICKY
             }
+            // [다시 연결]: 태블릿이 보이는지 바로 다시 확인 (측정은 그대로)
+            ACTION_RECHECK -> lifecycleScope.launch {
+                Log.d(TAG, "연결 다시 확인: 기기 보임=${sender.isConnected()}, 대기 ${outbox.size}개")
+                flushOutbox()
+            }
+            // [다시 시도]: 센서 측정을 처음부터 다시 시작
+            ACTION_RESTART -> {
+                Log.d(TAG, "측정 다시 시작")
+                measureJob?.cancel()
+                measureJob = null
+                HrServiceState._worn.value = true
+                startMeasuring()
+            }
             else -> startMeasuring()
         }
         // 시스템이 메모리 부족으로 죽여도 다시 살려 측정을 이어간다
@@ -72,6 +109,16 @@ class HeartRateService : LifecycleService() {
         if (measureJob?.isActive == true) return
 
         HrServiceState._running.value = true
+        // 1초마다 "연결 끊김" 판단을 갱신하고, 밀린 값이 있으면 5초마다 다시 보내 본다
+        if (tickJob?.isActive != true) tickJob = lifecycleScope.launch {
+            var tick = 0
+            while (isActive) {
+                delay(1_000)
+                tick++
+                if (outbox.size > 0 && tick % 5 == 0) flushOutbox()
+                else HrServiceState._connected.value = outbox.connected(System.currentTimeMillis())
+            }
+        }
         measureJob = lifecycleScope.launch {
             val (exerciseHr, fiveSec) = runCatching { health.exerciseSupport() }.getOrDefault(false to false)
             if (!exerciseHr && !health.hasHeartRateCapability()) {
@@ -86,12 +133,19 @@ class HeartRateService : LifecycleService() {
             source.collect { msg ->
                 when (msg) {
                     is HrMessage.Data -> {
-                        HrServiceState._bpm.value = msg.samples.last().bpm
-                        // 여러 개 묶여 오면 전부 보낸다
-                        msg.samples.forEach { sender.send(it) }
+                        // 미착용 순간에 오는 0 bpm은 화면에도, 전송에도 쓰지 않는다
+                        val valid = msg.samples.filter { it.bpm > 0 }
+                        if (valid.isNotEmpty()) {
+                            HrServiceState._bpm.value = valid.last().bpm
+                            HrServiceState._worn.value = true
+                        }
+                        // 대기열에 넣고 밀린 것부터 순서대로 보낸다 (못 보낸 건 남겨 뒀다가 다시)
+                        outboxLock.withLock { outbox.add(msg.samples) }
+                        flushOutbox()
                     }
                     is HrMessage.AvailabilityChanged -> {
-                        HrServiceState._status.value = if (msg.available) "측정 중" else "착용 확인"
+                        HrServiceState._worn.value = msg.worn
+                        HrServiceState._status.value = if (msg.worn) "측정 중" else "착용 확인"
                     }
                 }
             }
@@ -133,14 +187,29 @@ class HeartRateService : LifecycleService() {
     override fun onDestroy() {
         Log.d(TAG, "서비스 종료")
         measureJob?.cancel()   // heartRateFlow의 awaitClose에서 센서 콜백 해제
+        tickJob?.cancel()
+        if (outbox.size > 0) Log.w(TAG, "종료 시 못 보낸 값 ${outbox.size}개 버림")
+        outbox.clear()
         HrServiceState._running.value = false
         HrServiceState._status.value = "대기"
         HrServiceState._bpm.value = 0
+        HrServiceState._connected.value = true
+        HrServiceState._worn.value = true
         super.onDestroy()
     }
 
     companion object {
         private const val ACTION_STOP = "com.aion.hrtest.STOP"
+        private const val ACTION_RECHECK = "com.aion.hrtest.RECHECK"
+        private const val ACTION_RESTART = "com.aion.hrtest.RESTART"
+
+        fun recheckConnection(context: Context) {
+            context.startService(Intent(context, HeartRateService::class.java).setAction(ACTION_RECHECK))
+        }
+
+        fun restartMeasuring(context: Context) {
+            context.startService(Intent(context, HeartRateService::class.java).setAction(ACTION_RESTART))
+        }
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, HeartRateService::class.java))

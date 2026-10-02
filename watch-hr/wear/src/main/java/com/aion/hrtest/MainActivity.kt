@@ -3,73 +3,48 @@ package com.aion.hrtest
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.wear.compose.material3.Button
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.wear.compose.material3.MaterialTheme
-import androidx.wear.compose.material3.Text
 
-/** 화면은 시작/중지와 표시만 한다. 측정·전송은 HeartRateService가 한다 */
+/** 화면은 상태 표시와 버튼만 한다. 측정·전송은 HeartRateService가 한다. 화면 디자인은 WatchScreens.kt */
 class MainActivity : ComponentActivity() {
-
-    private val permissionDenied = mutableStateOf(false)
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
         // 심박 권한만 필수. 알림 권한은 거부해도 서비스는 돈다 (알림만 안 보임)
         if (result[heartRatePermission()] == true) {
-            permissionDenied.value = false
             HeartRateService.start(this)
         } else {
-            permissionDenied.value = true
+            Toast.makeText(this, "심박 측정 권한이 필요해요", Toast.LENGTH_SHORT).show()
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 디자인 확인용: adb shell am start -n com.aion.hrtest/.MainActivity --es demo DISCONNECTED
+        val demo = intent.getStringExtra("demo")?.let { runCatching { WatchScreen.valueOf(it) }.getOrNull() }
 
         setContent {
             MaterialTheme {
                 val running by HrServiceState.running.collectAsState()
+                val worn by HrServiceState.worn.collectAsState()
+                val connected by HrServiceState.connected.collectAsState()
                 val bpm by HrServiceState.bpm.collectAsState()
-                val status by HrServiceState.status.collectAsState()
-                val denied by permissionDenied
 
-                Box(
-                    Modifier.fillMaxSize().padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = if (running && bpm > 0) "$bpm" else "--",
-                            fontSize = 40.sp
-                        )
-                        Text(
-                            text = if (denied) "권한 거부됨" else status,
-                            fontSize = 12.sp,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        if (running) {
-                            Button(onClick = { HeartRateService.stop(this@MainActivity) }) {
-                                Text("중지")
-                            }
-                        } else {
-                            Button(onClick = { requestAndStart() }) {
-                                Text("측정 시작")
-                            }
-                        }
-                    }
-                }
+                AionWatchApp(
+                    screen = demo ?: screenOf(running, worn, connected),
+                    bpm = if (demo != null) 82 else bpm,
+                    onStart = { requestAndStart() },
+                    onStop = { HeartRateService.stop(this) },
+                    onReconnect = { HeartRateService.recheckConnection(this) },
+                    onRetry = { HeartRateService.restartMeasuring(this) },
+                )
             }
         }
     }
