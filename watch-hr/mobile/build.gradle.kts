@@ -28,6 +28,7 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.09.00"))
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.ui:ui")
+    implementation("androidx.core:core-ktx:1.18.0")
 
     // 3단계: 수신값 영구 보관
     implementation("androidx.room:room-runtime:2.8.5")

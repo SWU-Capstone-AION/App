@@ -1,8 +1,12 @@
 package com.aion.hrtest
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -22,6 +26,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -34,9 +39,26 @@ import kotlin.random.Random
 
 class MainActivity : ComponentActivity() {
 
+    // 알림 권한은 거부해도 서비스는 돈다 (알림만 안 보임). 결과와 상관없이 수신 서비스를 띄운다
+    private val notificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { ReceiverService.start(this) }
+
+    private fun startReceiving() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            ReceiverService.start(this)
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val repo = HrRepository.get(this)
+        // 앱을 열면 수업 세션이 시작된 것으로 보고 수신 서비스를 띄운다 (AION 앱에서는 수업 시작 시점에)
+        startReceiving()
         val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.KOREA)
 
         setContent {
@@ -49,7 +71,11 @@ class MainActivity : ComponentActivity() {
                 val rejected by repo.rejected.collectAsState()
                 val pending by repo.pending.collectAsState()
                 val behavior by repo.behaviorActive.collectAsState()
+                val receiving by ReceiverService.running.collectAsState()
                 var verdict by remember { mutableStateOf<Verdict?>(null) }
+                val uploader = remember { PcUploader.get(applicationContext) }
+                var pcAddress by remember { mutableStateOf(uploader.address) }
+                val uploadStatus by uploader.status.collectAsState()
                 // 값이 끊겨도 "연결 끊김" 판단이 갱신되도록 1초마다 시계를 돌린다
                 var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
                 LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(1000) } }
@@ -71,6 +97,19 @@ class MainActivity : ComponentActivity() {
                                 ?: "워치에서 오는 값을 기다리는 중",
                             fontSize = 14.sp
                         )
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (receiving) "● 수신 서비스 실행 중" else "○ 수신 서비스 꺼짐 (백그라운드에서 끊길 수 있음)",
+                                fontSize = 13.sp
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            if (receiving) {
+                                OutlinedButton(onClick = { ReceiverService.stop(this@MainActivity) }) { Text("수신 중지") }
+                            } else {
+                                Button(onClick = { startReceiving() }) { Text("수신 시작") }
+                            }
+                        }
                         Spacer(Modifier.height(16.dp))
 
                         // 4단계: 기준선
@@ -134,6 +173,21 @@ class MainActivity : ComponentActivity() {
                             OutlinedButton(onClick = { repo.resetBaseline(); verdict = null }) { Text("기준선 재수집") }
                             OutlinedButton(onClick = { repo.clearAll(); verdict = null }) { Text("전부 비우기") }
                         }
+                        Spacer(Modifier.height(12.dp))
+                        HorizontalDivider()
+                        Spacer(Modifier.height(8.dp))
+                        // PC 자동 저장: PC에서 tools/hr_server.py 를 켜고, 화면에 나온 주소를 넣는다
+                        Text("PC 자동 저장", fontSize = 15.sp)
+                        // 폰처럼 좁은 화면에서도 버튼이 밀려나지 않게 세로로 둔다
+                        OutlinedTextField(
+                            value = pcAddress,
+                            onValueChange = { pcAddress = it.trim() },
+                            label = { Text("PC 주소 (예: 172.19.69.233:8765)") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Button(onClick = { uploader.setAddress(pcAddress) }) { Text("연결") }
+                        Text(uploadStatus, fontSize = 12.sp)
                     }
 
                     // 오른쪽: DB 최근 기록

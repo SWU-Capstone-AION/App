@@ -1,7 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 수업 세션 동안 앱이 얼려지지 않게 하는 포그라운드 서비스 (ReceiverService) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- connectedDevice 유형의 실행 조건 (설치 시 자동 허용되는 일반 권한) -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 같은 Wi-Fi의 PC(tools/hr_server.py)로 심박 전송 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- usesCleartextTraffic: PC 수신 프로그램은 같은 Wi-Fi 안의 http 로만 받는다 (테스트용) -->
     <application
+        android:usesCleartextTraffic="true"
         android:allowBackup="true"
         android:label="AION HR 수신"
         android:supportsRtl="true"
@@ -27,6 +38,11 @@
                     android:pathPrefix="/aion/hr" />
             </intent-filter>
         </service>
+
+        <service
+            android:name=".ReceiverService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
 
         <!-- 테스트 전용 adb 입력. DUMP 권한은 adb shell만 갖고 있어 다른 앱은 보낼 수 없다 -->
         <receiver

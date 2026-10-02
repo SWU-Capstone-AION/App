@@ -10,6 +10,7 @@ import android.content.Intent
  *   adb shell am broadcast -n com.aion.hrtest/.DebugInjectReceiver --ez behavior true
  *   adb shell am broadcast -n com.aion.hrtest/.DebugInjectReceiver --ez alert true
  *   adb shell am broadcast -n com.aion.hrtest/.DebugInjectReceiver --ez reset true
+ *   adb shell am broadcast -n com.aion.hrtest/.DebugInjectReceiver --es pc 172.19.69.233:8765   (PC 자동 저장 주소)
  */
 class DebugInjectReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -22,5 +23,6 @@ class DebugInjectReceiver : BroadcastReceiver() {
             repo.onReceived(HrReceived(bpm = bpm, at = now, receivedAt = now), sourceNode = "adb")
         }
         if (intent.getBooleanExtra("alert", false)) repo.onVisionAlert()
+        intent.getStringExtra("pc")?.let { PcUploader.get(context).setAddress(it) }
     }
 }

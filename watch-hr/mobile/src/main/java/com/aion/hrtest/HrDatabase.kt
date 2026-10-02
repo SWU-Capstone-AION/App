@@ -61,6 +61,13 @@ interface HrDao {
     @Query("SELECT COUNT(*) FROM hr_record")
     fun countFlow(): Flow<Int>
 
+    /** PC 전송용: 이 id 다음 기록부터 n건 (id는 저장 순서대로 커진다) */
+    @Query("SELECT * FROM hr_record WHERE id > :afterId ORDER BY id ASC LIMIT :n")
+    suspend fun after(afterId: Long, n: Int): List<HrRecord>
+
+    @Query("SELECT COALESCE(MAX(id), 0) FROM hr_record")
+    suspend fun maxId(): Long
+
     /** 보관 기간이 지난 기록 정리 */
     @Query("DELETE FROM hr_record WHERE receivedAt < :before")
     suspend fun deleteBefore(before: Long): Int
