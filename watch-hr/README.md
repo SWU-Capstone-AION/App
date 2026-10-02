@@ -1,13 +1,20 @@
-# watch-hr — 갤럭시 워치 심박 전송·보관 (실습)
+# watch-hr — 갤럭시 워치 심박 측정·전송·보관 모듈
 
 갤럭시 워치에서 잰 심박수를 태블릿(아동앱)으로 보내고, 태블릿에 안전하게 보관한 뒤
-개인 기준선 대비 0~1 위험도를 계산하는 실습 프로젝트입니다.
-AION 앱(`app/`)과는 **별도의 Gradle 프로젝트**라 기존 빌드에 영향을 주지 않습니다.
+개인 기준선 대비 0~1 위험도를 계산하는, AION 앱에 들어갈 워치 심박 모듈입니다.
+지금은 AION 앱(`app/`)과 **별도의 Gradle 프로젝트**로 두어 기존 빌드에 영향을 주지 않으며,
+AION 앱에 합칠 때 가져갈 파일은 아래 "AION 앱에 합칠 때"에 정리했습니다.
+
+```
+⌚ 워치 ──(블루투스, 끊기면 Wi-Fi 우회)──▶ 📱 태블릿 수신 앱 ──(선택: 같은 Wi-Fi)──▶ 💻 PC CSV
+   1초마다 측정, 화면 꺼짐 중 5초 묶음        보관 · 기준선 · 위험도 · 판정            분석용 기록
+```
 
 | 모듈 | 기기 | 하는 일 |
 |---|---|---|
-| `wear/` | 갤럭시 워치 (Wear OS) | 포그라운드 서비스로 심박 측정 → 페어링된 기기로 전송 |
+| `wear/` | 갤럭시 워치 (Wear OS) | 포그라운드 서비스로 심박 측정 → 페어링된 기기로 전송, 못 보낸 값은 모아 뒀다가 다시 전송 |
 | `mobile/` | 태블릿/폰 | 수신 → 최신값·버퍼·Room DB 보관 → 기준선 M, S → 위험도 → 비전 AI와 통합 판정 |
+| `tools/` | PC | 태블릿이 보낸 기록을 `data/hr_날짜.csv`로 저장 (분석용, 선택) |
 
 ## 열기
 Android Studio → File → Open → 이 `watch-hr` 폴더 선택. `mobile`은 태블릿/폰에, `wear`는 워치에 실행합니다.
@@ -15,19 +22,44 @@ Android Studio → File → Open → 이 `watch-hr` 폴더 선택. `mobile`은 �
 ## 동작 조건
 - 워치와 받는 기기가 **Galaxy Wearable 앱으로 페어링**돼 있어야 합니다 (블루투스 연결만으로는 안 됨).
 - 두 모듈의 `applicationId`가 같아야 합니다 (`com.aion.hrtest`). 같은 PC에서 디버그 빌드하면 서명도 같아집니다.
+- 받는 앱은 수업 동안 **수신 포그라운드 서비스**를 켜 둡니다. 삼성 기기는 백그라운드 앱을 얼리는데, 얼어 있는 동안 온 값은 버려집니다 (실측 3분 7건 손실 → 서비스 사용 후 0건).
+
+## 워치 화면
+`wear/.../WatchScreens.kt` — Android Studio에서 열고 **Split/Design** 탭을 누르면 4화면 미리보기가 나옵니다.
+
+| 화면 | 언제 | 버튼 |
+|---|---|---|
+| 대기 | 측정 전 | [시작] |
+| 측정 중 | 착용 + 태블릿으로 전송 중 | [중지] |
+| 연결 끊김 | **5초 넘게** 계속 못 보낼 때 (경로 전환 중 깜빡임 방지) | [다시 연결] |
+| 착용 확인 | 워치가 "손목에서 빠짐"을 알릴 때 | [다시 시도] |
+
+기기에서 특정 화면만 확인: `adb shell am start -n com.aion.hrtest/.MainActivity --es demo DISCONNECTED`
+
+## PC 자동 저장 (선택)
+1. PC에서 `python tools/hr_server.py` 실행 → 출력된 주소(예: `192.168.0.5:8765`) 확인
+2. 받는 앱 화면의 **[PC 자동 저장]** 칸에 주소 입력 → [연결]
+3. `data/hr_날짜.csv`에 실시간으로 쌓입니다. PC가 꺼져 있던 동안의 기록은 다시 연결되면 이어서 보냅니다.
+
+> `data/`와 `*.csv`는 `.gitignore`로 **저장소에 올리지 않습니다.** 심박은 개인 건강 정보(민감정보)입니다.
+> PC와 태블릿이 같은 Wi-Fi에 있어야 하고, Windows 방화벽에서 Python 접속을 허용해야 합니다.
 
 ## 주요 파일
 **wear**
-- `HeartRateService.kt` — 포그라운드 서비스. 화면이 꺼져도 측정 유지
-- `HealthServicesManager.kt` — 운동 세션(ExerciseClient)으로 심박 측정, 화면 꺼짐 중 5초 배치
+- `HeartRateService.kt` — 포그라운드 서비스. 화면이 꺼져도 측정 유지, [시작]/[중지]/[다시 연결]/[다시 시도] 처리
+- `HealthServicesManager.kt` — 운동 세션(ExerciseClient)으로 심박 측정, 화면 꺼짐 중 5초 배치, 착용 여부 감지
 - `HeartRateSender.kt` — MessageClient로 `/aion/hr` 경로에 `{"bpm","at"}` 전송
+- `Outbox.kt` — 못 보낸 값 대기열(최대 600개 ≈ 10분), 5초 기준 연결 끊김 판단, 0 bpm 제외
+- `WatchScreens.kt`, `MainActivity.kt` — 워치 화면 4종
 
 **mobile**
-- `HeartRateListenerService.kt` — 백그라운드 수신 (앱 화면이 꺼져 있어도 받음)
+- `HeartRateListenerService.kt` — 백그라운드 수신, 다시 보낸 값 중복 제거
+- `ReceiverService.kt` — 수업 동안 앱이 얼려지지 않게 하는 포그라운드 서비스
 - `HrRepository.kt` — 최신값·버퍼·DB 동시 기록, 재시작 시 복원
 - `HrDatabase.kt` — Room DB (7일 보관)
 - `HeartRateBaseline.kt` — 기준선(최근 10분 창), 이상치 필터, 조용한 구간 가드(90초 보류·종료 후 120초 제외)
 - `Fusion.kt` — Case A(위험) / Case B(유예) / 비전 단독 판정
+- `PcUploader.kt` — PC 자동 저장 (분석용)
 - `MainActivity.kt`, `DebugInjectReceiver.kt` — 테스트용 화면과 adb 입력 (AION 앱에 옮길 때는 제외)
 
 ## 공식
@@ -35,15 +67,24 @@ Android Studio → File → Open → 이 `watch-hr` 폴더 선택. `mobile`은 �
 M = 기준선 중앙값,  S = max(MAD × 1.4826, 3)
 위험도 = clamp((현재 심박 − M) ÷ (2 × S), 0, 1)
 초록 < 0.3 ≤ 노랑 < 0.7 ≤ 빨강   (0.7 이상 + 비전 감지 = Case A)
+판단 보류 해제: 60개 + 2분 (첫날 약 3.5분, 다음 날은 지난 기준선으로 바로 시작)
 ```
 
 ## 검증
-- 단위 테스트 17개: `./gradlew :mobile:testDebugUnitTest`
-- 실기기(갤럭시 워치7 → 갤럭시 S25 Ultra): 화면 켬 3분 187건, 화면 끔 3분 117건 모두 손실 0
-- 앱 강제 종료 후 DB에서 버퍼·기준선 복원 확인
+- 단위 테스트 23개: `./gradlew :mobile:testDebugUnitTest :wear:testDebugUnitTest`
+- 실기기(갤럭시 워치7 → 갤럭시 S25 Ultra)
+  - 화면 켬 3분 187건, 화면 끔 3분 185건 전송 손실 0 (수신 서비스 사용)
+  - 폰 블루투스 끄기: 경로가 Wi-Fi로 바뀌는 동안 18건을 모아 뒀다가 다시 전송 → 50초 50건, 공백·중복 0
+  - 앱 강제 종료 후 DB에서 버퍼·기준선 복원
+  - 워치 4화면 전환: 시작 → 측정 중 → 손목에서 뺌 → 착용 확인 → 다시 시도 → 측정 중
+
+## 알려진 한계
+- 워치를 손목에서 뺀 뒤 "빠짐"을 감지하기까지 2~3분 걸릴 수 있고, 그동안 부정확한 심박이 올 수 있습니다 (센서 정확도 값으로 거르는 방안 검토 중).
+- 배터리 소모는 아직 실측 전입니다 (화면 끈 상태 1시간 측정 예정).
 
 ## AION 앱에 합칠 때
-- `mobile`의 테스트용 파일을 뺀 5개 파일을 `app/`으로 옮기고, Room·play-services-wearable 의존성을 추가합니다.
+- 워치: `wear` 폴더 전체
+- 태블릿: `mobile`의 `HeartRateListenerService`, `ReceiverService`, `HrRepository`, `HrDatabase`, `HeartRateBaseline`, `Fusion` + Room·play-services-wearable 의존성
 - 워치 앱의 `applicationId`를 AION 앱(`com.example.aion_app`)과 맞춰야 통신됩니다.
-- 비전 AI의 상동행동 감지 상태 → `behaviorActive`, 1차 위험 신호 → `onVisionAlert()` 를 연결합니다.
+- 수업 시작/종료 시점에 `ReceiverService`를 켜고 끄고, 비전 AI의 상동행동 감지 상태 → `behaviorActive`, 1차 위험 신호 → `onVisionAlert()` 를 연결합니다.
 - 워치가 갤럭시 탭과 페어링되지 않으면 교사폰 중계 등 다른 전송 경로가 필요합니다.
