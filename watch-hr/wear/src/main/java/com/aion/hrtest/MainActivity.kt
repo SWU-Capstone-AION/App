@@ -36,6 +36,8 @@ class MainActivity : ComponentActivity() {
                 val worn by HrServiceState.worn.collectAsState()
                 val connected by HrServiceState.connected.collectAsState()
                 val bpm by HrServiceState.bpm.collectAsState()
+                val target by TabletLink.chosen.collectAsState()
+                val found by TabletLink.found.collectAsState()
 
                 AionWatchApp(
                     screen = demo ?: screenOf(running, worn, connected),
@@ -44,9 +46,23 @@ class MainActivity : ComponentActivity() {
                     onStop = { HeartRateService.stop(this) },
                     onReconnect = { HeartRateService.recheckConnection(this) },
                     onRetry = { HeartRateService.restartMeasuring(this) },
+                    target = target,
+                    found = found,
+                    onChooseTarget = { TabletLink.choose(it) },
                 )
             }
         }
+    }
+
+    // 화면이 보이는 동안 같은 Wi-Fi의 태블릿을 찾는다 (측정 중에는 서비스가 따로 붙잡고 있음)
+    override fun onStart() {
+        super.onStart()
+        TabletLink.acquire(this)
+    }
+
+    override fun onStop() {
+        TabletLink.release()
+        super.onStop()
     }
 
     private fun requestAndStart() {

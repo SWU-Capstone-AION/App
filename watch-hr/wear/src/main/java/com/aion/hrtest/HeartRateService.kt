@@ -75,6 +75,8 @@ class HeartRateService : LifecycleService() {
         super.onCreate()
         health = HealthServicesManager(this)
         sender = HeartRateSender(this)
+        // 화면을 꺼도 태블릿(Wi-Fi) 연결을 붙잡아 둔다
+        TabletLink.acquire(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -87,6 +89,7 @@ class HeartRateService : LifecycleService() {
             }
             // [다시 연결]: 태블릿이 보이는지 바로 다시 확인 (측정은 그대로)
             ACTION_RECHECK -> lifecycleScope.launch {
+                TabletLink.refresh()
                 Log.d(TAG, "연결 다시 확인: 기기 보임=${sender.isConnected()}, 대기 ${outbox.size}개")
                 flushOutbox()
             }
@@ -190,6 +193,7 @@ class HeartRateService : LifecycleService() {
         tickJob?.cancel()
         if (outbox.size > 0) Log.w(TAG, "종료 시 못 보낸 값 ${outbox.size}개 버림")
         outbox.clear()
+        TabletLink.release()
         HrServiceState._running.value = false
         HrServiceState._status.value = "대기"
         HrServiceState._bpm.value = 0

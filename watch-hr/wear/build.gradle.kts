@@ -8,7 +8,10 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.aion.hrtest"   // 반드시 mobile과 동일
+        // 받는 휴대폰·태블릿 앱과 반드시 같아야 한다 (Data Layer는 같은 applicationId끼리만 메시지를 주고받는다)
+        //  - 기본: AION 앱(com.example.aion_app)으로 보낸다
+        //  - 수신 테스트 앱(mobile 모듈)으로 보낼 때: ./gradlew :wear:installDebug -Paion.phoneAppId=com.aion.hrtest
+        applicationId = (project.findProperty("aion.phoneAppId") as String?) ?: "com.example.aion_app"
         minSdk = 30
         targetSdk = 36
         versionCode = 1

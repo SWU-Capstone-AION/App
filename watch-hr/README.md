@@ -21,8 +21,19 @@ Android Studio → File → Open → 이 `watch-hr` 폴더 선택. `mobile`은 �
 
 ## 동작 조건
 - 워치와 받는 기기가 **Galaxy Wearable 앱으로 페어링**돼 있어야 합니다 (블루투스 연결만으로는 안 됨).
-- 두 모듈의 `applicationId`가 같아야 합니다 (`com.aion.hrtest`). 같은 PC에서 디버그 빌드하면 서명도 같아집니다.
+- 워치 앱과 받는 앱의 `applicationId`가 같아야 합니다. 같은 PC에서 디버그 빌드하면 서명도 같아집니다.
+  - 기본값: 워치 앱은 **AION 앱(`com.example.aion_app`)**으로 보냅니다.
+  - 이 폴더의 수신 테스트 앱(`mobile`, `com.aion.hrtest`)으로 보낼 때: `./gradlew :wear:installDebug -Paion.phoneAppId=com.aion.hrtest`
 - 받는 앱은 수업 동안 **수신 포그라운드 서비스**를 켜 둡니다. 삼성 기기는 백그라운드 앱을 얼리는데, 얼어 있는 동안 온 값은 버려집니다 (실측 3분 7건 손실 → 서비스 사용 후 0건).
+
+## 갤럭시 탭으로 보내기 (같은 Wi-Fi)
+갤럭시 워치는 갤럭시 탭과 **페어링이 안 됩니다** (삼성 공식: 워치는 휴대폰에만 연결). 그래서 탭에는 같은 Wi-Fi로 직접 보냅니다.
+1. 탭에서 AION 앱을 아동 계정으로 열어 둡니다 (아동 화면·모니터링 화면에서 수신기가 켜짐, 포트 8766).
+2. 워치 대기 화면의 **"→ 휴대폰"** 칩을 누르면 같은 Wi-Fi의 태블릿 목록이 나옵니다 (예: `AION · 은서의 Galaxy Tab`).
+3. 태블릿을 고르고 [시작]. 고른 곳과 주소는 워치에 저장돼 다음에도 그대로 씁니다.
+- 워치 자체 설정을 위해 처음 한 번은 아무 갤럭시 폰과 페어링돼 있어야 합니다. 수업 중에는 폰이 없어도 됩니다.
+- 학교 Wi-Fi가 기기끼리 통신을 막으면 동작하지 않습니다. 현장 확인이 필요합니다.
+- 지금은 같은 Wi-Fi 안에서 암호화 없이(http) 보냅니다. 학교망에서 쓰기 전에 보안을 붙여야 합니다.
 
 ## 워치 화면
 `wear/.../WatchScreens.kt` — Android Studio에서 열고 **Split/Design** 탭을 누르면 4화면 미리보기가 나옵니다.
@@ -34,7 +45,7 @@ Android Studio → File → Open → 이 `watch-hr` 폴더 선택. `mobile`은 �
 | 연결 끊김 | **5초 넘게** 계속 못 보낼 때 (경로 전환 중 깜빡임 방지) | [다시 연결] |
 | 착용 확인 | 워치가 "손목에서 빠짐"을 알릴 때 | [다시 시도] |
 
-기기에서 특정 화면만 확인: `adb shell am start -n com.aion.hrtest/.MainActivity --es demo DISCONNECTED`
+기기에서 특정 화면만 확인: `adb shell am start -n com.example.aion_app/com.aion.hrtest.MainActivity --es demo DISCONNECTED`
 
 ## PC 자동 저장 (선택)
 1. PC에서 `python tools/hr_server.py` 실행 → 출력된 주소(예: `192.168.0.5:8765`) 확인
@@ -82,9 +93,7 @@ M = 기준선 중앙값,  S = max(MAD × 1.4826, 3)
 - 워치를 손목에서 뺀 뒤 "빠짐"을 감지하기까지 2~3분 걸릴 수 있고, 그동안 부정확한 심박이 올 수 있습니다 (센서 정확도 값으로 거르는 방안 검토 중).
 - 배터리 소모는 아직 실측 전입니다 (화면 끈 상태 1시간 측정 예정).
 
-## AION 앱에 합칠 때
-- 워치: `wear` 폴더 전체
-- 태블릿: `mobile`의 `HeartRateListenerService`, `ReceiverService`, `HrRepository`, `HrDatabase`, `HeartRateBaseline`, `Fusion` + Room·play-services-wearable 의존성
-- 워치 앱의 `applicationId`를 AION 앱(`com.example.aion_app`)과 맞춰야 통신됩니다.
-- 수업 시작/종료 시점에 `ReceiverService`를 켜고 끄고, 비전 AI의 상동행동 감지 상태 → `behaviorActive`, 1차 위험 신호 → `onVisionAlert()` 를 연결합니다.
+## AION 앱과의 연결
+- 태블릿 쪽 수신·기준선·위험도 코드는 AION 앱 `app/.../watch/` 에 들어가 있습니다 (`WatchHeartRateListenerService`, `WatchHeartRate`, `HeartRateBaseline`).
+- 아동 태블릿이 비전 AI 점수와 함께 5초 평균 심박·심박 위험도를 서버로 보내고, 위험/주의 판정과 교사 알림은 서버가 합니다.
 - 워치가 갤럭시 탭과 페어링되지 않으면 교사폰 중계 등 다른 전송 경로가 필요합니다.

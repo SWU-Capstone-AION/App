@@ -15,12 +15,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,13 +80,23 @@ fun AionWatchApp(
     onStop: () -> Unit,
     onReconnect: () -> Unit,
     onRetry: () -> Unit,
+    /** 보낼 태블릿 이름. null = 휴대폰(블루투스) */
+    target: String? = null,
+    /** 같은 Wi-Fi에서 찾은 태블릿 이름들 */
+    found: List<String> = emptyList(),
+    onChooseTarget: (String?) -> Unit = {},
 ) {
+    var choosing by remember { mutableStateOf(false) }
     Box(
         Modifier.fillMaxSize().background(Bg).padding(horizontal = 18.dp),
         contentAlignment = Alignment.Center
     ) {
+        if (choosing) {
+            TargetScreen(target, found) { onChooseTarget(it); choosing = false }
+            return@Box
+        }
         when (screen) {
-            WatchScreen.IDLE -> IdleScreen(onStart)
+            WatchScreen.IDLE -> IdleScreen(target, onStart, onPickTarget = { choosing = true })
             WatchScreen.MEASURING -> MeasuringScreen(bpm, onStop)
             WatchScreen.DISCONNECTED -> DisconnectedScreen(onReconnect)
             WatchScreen.NOT_WORN -> NotWornScreen(onRetry)
@@ -90,17 +106,67 @@ fun AionWatchApp(
 
 // ---- 화면 ----
 
-/** 앱을 열면 보이는 화면. 교사가 '시작'을 누르면 측정이 시작된다 */
+/** 앱을 열면 보이는 화면. 교사가 보낼 곳을 확인하고 '시작'을 누르면 측정이 시작된다 */
 @Composable
-private fun IdleScreen(onStart: () -> Unit) {
+private fun IdleScreen(target: String?, onStart: () -> Unit, onPickTarget: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         IconCircle { VectorIcon(Icons.Filled.Favorite, Heart, 22) }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(8.dp))
         Brand()
         Spacer(Modifier.height(2.dp))
         Title("심박수 측정")
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(6.dp))
+        // 보낼 곳 칩. 누르면 같은 Wi-Fi의 태블릿 목록
+        Row(
+            Modifier.clip(RoundedCornerShape(50)).background(SurfaceTone)
+                .clickable(onClick = onPickTarget)
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("→ ${target ?: "휴대폰"}", color = SubText, fontSize = 9.sp, maxLines = 1)
+        }
+        Spacer(Modifier.height(8.dp))
         PillButton("시작", filled = true, onClick = onStart)
+    }
+}
+
+/** 보낼 곳 고르기. 갤럭시 탭은 페어링이 안 돼서 같은 Wi-Fi에서 찾은 태블릿을 고른다 */
+@Composable
+private fun TargetScreen(target: String?, found: List<String>, onPick: (String?) -> Unit) {
+    Column(
+        Modifier.verticalScroll(rememberScrollState()).padding(vertical = 28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Title("보낼 곳")
+        Spacer(Modifier.height(8.dp))
+        TargetItem("휴대폰 (블루투스)", selected = target == null) { onPick(null) }
+        found.forEach { name ->
+            Spacer(Modifier.height(6.dp))
+            TargetItem(name, selected = target == name) { onPick(name) }
+        }
+        // 골라 둔 태블릿이 지금 안 보여도 목록에 남겨 둔다 (꺼져 있을 수 있음)
+        if (target != null && target !in found) {
+            Spacer(Modifier.height(6.dp))
+            TargetItem("$target (안 보임)", selected = true) { onPick(target) }
+        }
+        Spacer(Modifier.height(8.dp))
+        Sub(if (found.isEmpty()) "같은 Wi-Fi에서 태블릿을 찾는 중…" else "태블릿 AION 앱이 켜져 있어야 보여요")
+    }
+}
+
+@Composable
+private fun TargetItem(text: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(50)
+    Box(
+        Modifier
+            .width(150.dp).height(34.dp)
+            .clip(shape)
+            .then(if (selected) Modifier.background(Accent) else Modifier.border(BorderStroke(1.dp, Outline), shape))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text, color = Color.White, fontSize = 11.sp, maxLines = 1)
     }
 }
 
@@ -137,7 +203,7 @@ private fun MeasuringScreen(bpm: Int, onStop: () -> Unit) {
         ) {
             Box(Modifier.size(5.dp).clip(CircleShape).background(Ok))
             Spacer(Modifier.width(5.dp))
-            Text("태블릿 연결됨", color = SubText, fontSize = 9.sp)
+            Text("연결됨", color = SubText, fontSize = 9.sp)
         }
         Spacer(Modifier.height(6.dp))
         PillButton("중지", filled = false, onClick = onStop, height = 34)
