@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +32,9 @@ import androidx.compose.ui.unit.sp
 import com.example.aion_app.monitor.pose.StereotypyDetector
 import com.example.aion_app.monitor.ui.theme.Orbitron
 import com.example.aion_app.monitor.ui.theme.ShareTechMono
+import com.example.aion_app.watch.HR_STALE_MS
+import com.example.aion_app.watch.MIN_SAMPLES
+import com.example.aion_app.watch.WatchHeartRate
 
 private val Blue = Color(0xFF34C6FF)
 private val Amber = Color(0xFFFFB020)
@@ -265,6 +270,8 @@ private fun Gauge(label: String, tag: String, dur: Double, alarm: Boolean) {
 
 @Composable
 private fun OperationPanel(state: StereotypyDetector.State?) {
+    // 갤럭시 워치 실측값 (5초 평균). 워치가 없거나 20초 넘게 끊기면 "--"
+    val heartRate by WatchHeartRate.displayBpm.collectAsState()
     val (actText, actColor) = when {
         state?.anyAlarm == true -> "상동 행동 탐지됨" to Red
         anyActive(state) -> "반복 동작 관찰" to Amber
@@ -281,8 +288,39 @@ private fun OperationPanel(state: StereotypyDetector.State?) {
         }
         InfoRow("포즈", "POSE", state?.poseText ?: "자세 분석 중…", Ink)
         InfoRow("활동", "ACTIVITY", actText, actColor)
-        InfoRow("바이오-피드백 · 심박수", "HEART_RATE", "${state?.heartRate ?: 75} /bpm", Blue)
+        InfoRow("바이오-피드백 · 심박수", "HEART_RATE", "${heartRate ?: "--"} /bpm", Blue)
+        HeartRateRiskRows()
     }
+}
+
+/**
+ * 개인 기준선과 심박 위험도 (서버로 보내는 hrRisk 와 같은 값).
+ * 처음 90초는 보류 시간이라 기준선 개수가 0에서 시작하고, 60개 + 2분이 모이면 위험도가 나온다 (약 3분 30초).
+ */
+@Composable
+private fun HeartRateRiskRows() {
+    val hr by WatchHeartRate.hrState.collectAsState()
+    val pending by WatchHeartRate.pending.collectAsState()
+    val b = hr.baseline
+    val latestAt = hr.latestAt
+    val now = System.currentTimeMillis()
+
+    val baselineText = when {
+        latestAt == null -> "워치 대기 중"
+        b.ready -> "M %.0f · S %.1f (%d개)".format(b.m, b.s, b.count)
+        else -> "모으는 중 %d/%d개 · 보류 %d".format(b.count, MIN_SAMPLES, pending)
+    }
+    InfoRow("개인 기준선", "BASELINE", baselineText, Ink)
+
+    val risk = hr.risk(now)
+    val (riskText, riskColor) = when {
+        risk == null && latestAt != null && now - latestAt > HR_STALE_MS -> "연결 끊김" to InkDim
+        risk == null -> "판단 보류" to InkDim
+        risk >= 0.7 -> "%.2f 위험".format(risk) to Red
+        risk >= 0.3 -> "%.2f 주의".format(risk) to Amber
+        else -> "%.2f 안정".format(risk) to Color(0xFF2ECC71)
+    }
+    InfoRow("심박 위험도", "HR_RISK", riskText, riskColor)
 }
 
 @Composable

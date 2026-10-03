@@ -3,6 +3,7 @@ package com.example.aion_app.monitor.net
 import android.util.Log
 import com.example.aion_app.BuildConfig
 import com.example.aion_app.monitor.pose.StereotypyDetector
+import com.example.aion_app.watch.WatchHeartRate
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +19,12 @@ import java.util.UUID
 /**
  * 규칙모델 판정 결과를 Django 서버로 보낸다.
  * 매 프레임 호출해도 되고, 내부에서 3초에 한 번만 실제로 전송한다.
+ *
+ * 갤럭시 워치를 차고 있으면 심박도 같이 보낸다 (없으면 칸을 아예 뺀다).
+ *  - heartRate:   최근 5초 평균 bpm (교사 홈 숫자)
+ *  - heartRateAt: 마지막으로 받은 심박의 시각
+ *  - hrRisk:      개인 기준선 대비 심박 위험도 0~1. 기준선 준비 전·연결 끊김이면 뺀다
+ * 위험/주의 판정은 서버가 score와 hrRisk를 합쳐서 한다.
  */
 object DetectionSender {
 
@@ -65,8 +72,9 @@ object DetectionSender {
             return
         }
 
-        val occurredAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
-            .format(Date(now))
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
+        val occurredAt = iso.format(Date(now))
+        val hr = WatchHeartRate.forUpload(now)
 
         val body = JSONObject().apply {
             put("eventId", UUID.randomUUID().toString())
@@ -74,6 +82,11 @@ object DetectionSender {
             put("occurredAt", occurredAt)
             put("score", score.coerceIn(0.0, 1.0))
             if (part != null) put("part", part)
+            if (hr != null) {
+                put("heartRate", hr.heartRate)
+                put("heartRateAt", iso.format(Date(hr.heartRateAt)))
+                hr.hrRisk?.let { put("hrRisk", Math.round(it * 100) / 100.0) }
+            }
         }.toString()
 
         scope.launch {
@@ -86,7 +99,7 @@ object DetectionSender {
                     readTimeout = 60_000
                 }
                 conn.outputStream.use { it.write(body.toByteArray()) }
-                Log.d("DetectionSender", "score=$score part=$part → ${conn.responseCode}")
+                Log.d("DetectionSender", "score=$score part=$part hr=${hr?.heartRate} risk=${hr?.hrRisk} → ${conn.responseCode}")
                 conn.disconnect()
             } catch (e: Exception) {
                 // 실패해도 무시. 3초 뒤 최신 값이 다시 간다.

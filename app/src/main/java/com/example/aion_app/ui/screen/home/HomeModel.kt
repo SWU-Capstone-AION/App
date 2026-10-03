@@ -23,7 +23,7 @@ data class Student(
     val status: StudentStatus,    // 활동중 / 비활동
     val stressScore: Int,         // 0 ~ 100
     val stressLevel: StressLevel, // 안정/주의/위험/데이터없음
-    val heartRate: Int? = null    // 심박수 (비활동이면 null)
+    val heartRate: Int? = null    // 화면에 보여줄 심박수 (5초마다 갱신, 없거나 20초 넘게 끊기면 null)
 )
 
 // 홈 상단 정보

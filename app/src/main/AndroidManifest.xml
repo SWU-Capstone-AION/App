@@ -58,6 +58,19 @@
             </intent-filter>
         </service>
 
+        <!-- 갤럭시 워치 심박 수신 (watch 패키지). 워치 앱과 applicationId·서명 키가 같아야 메시지가 온다 -->
+        <service
+            android:name=".watch.WatchHeartRateListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/aion/hr" />
+            </intent-filter>
+        </service>
+
         <!-- 알림 채널 지정 (앱이 백그라운드일 때 시스템이 자동 표시할 알림에 사용) -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"

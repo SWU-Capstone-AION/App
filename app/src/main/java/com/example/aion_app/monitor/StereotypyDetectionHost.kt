@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.aion_app.monitor.camera.PoseCameraView
@@ -21,6 +22,8 @@ import com.example.aion_app.monitor.net.DetectionSender
 import com.example.aion_app.monitor.pose.MinigameGate
 import com.example.aion_app.monitor.pose.PoseIndex
 import com.example.aion_app.monitor.pose.StereotypyDetector
+import com.example.aion_app.watch.WatchHeartRate
+import com.example.aion_app.watch.WifiHrReceiver
 
 // ============================================================
 // 아동 화면 뒤에서 상동행동을 감지하는 호스트
@@ -79,6 +82,22 @@ fun StereotypyDetectionHost(
 
     val detector = remember { StereotypyDetector() }
 
+    // 아동 화면에 있는 동안 워치 심박을 Wi-Fi로도 받는다 (갤럭시 탭은 워치와 페어링이 안 됨)
+    // 화면이 꺼지면 카메라 감지가 멈추고 삼성 배터리 절약이 앱을 얼려 심박도 못 받으므로 화면을 켜 둔다
+    val view = LocalView.current
+    DisposableEffect(enabled) {
+        if (enabled) {
+            WifiHrReceiver.acquire(context)
+            view.keepScreenOn = true
+        }
+        onDispose {
+            if (enabled) {
+                WifiHrReceiver.release()
+                view.keepScreenOn = false
+            }
+        }
+    }
+
     val active = enabled && hasCameraPermission
 
     // 감지 구간을 벗어나면(모니터링 / 미니게임 / 교사 화면) 판정 상태를 초기화한다.
@@ -120,6 +139,8 @@ fun StereotypyDetectionHost(
                     rightWrist = point(PoseIndex.RIGHT_WRIST),
                 )
                 StereotypySignal.detected = state.anyAlarm
+                // 반복 동작 중인 심박은 개인 기준선에 넣지 않는다
+                WatchHeartRate.onVision(state.score)
 
                 // 점수를 서버로 보낸다. 내부에서 3초에 한 번만 실제 전송한다.
                 // 위험 판정과 교사폰 FCM 알림은 서버가 담당한다.
