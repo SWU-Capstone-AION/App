@@ -1,0 +1,11 @@
+.gradle/
+.kotlin/
+.idea/
+build/
+local.properties
+*.apk
+*.iml
+
+# 내보낸 심박 기록 — 개인 건강 정보라 저장소에 올리지 않는다
+data/
+*.csv
