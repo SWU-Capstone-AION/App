@@ -45,7 +45,8 @@ class WatchHeartRateListenerService : WearableListenerService() {
             if (!RecentKeys.firstTime("${event.sourceNodeId}:$at")) return
 
             Log.d(TAG, "수신: bpm=$bpm, 지연=${now - at}ms")
-            WatchHeartRate.onReceived(bpm, receivedAt = now)
+            HrRecordLog.init(this)
+            WatchHeartRate.onReceived(bpm, at = at, receivedAt = now)
         }.onFailure {
             Log.w(TAG, "파싱 실패: $json")
         }

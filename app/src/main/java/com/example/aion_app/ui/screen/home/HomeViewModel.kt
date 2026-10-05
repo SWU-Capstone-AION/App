@@ -143,7 +143,7 @@ private fun isStale(at: String): Boolean =
     System.currentTimeMillis() - parseIsoDate(at).time > HR_STALE_MS
 
 /**
- * 시연용 (디버그 빌드 + local.properties 의 aion.hr.demoChildId 가 있을 때만).
+ * 시연용 (디버그 빌드 + local.properties 의 aion.hr.demoChildId 에 아동 uid 또는 이름이 있을 때만).
  * 서버에 심박 기능이 붙기 전에, 이 폰에 직접 연결된 워치 심박을 그 아동 카드에 띄운다.
  * 서버가 심박을 보내 주면 서버 값을 그대로 쓴다.
  */
@@ -152,7 +152,8 @@ private fun List<Student>.withLocalWatchDemo(): List<Student> {
     if (!BuildConfig.DEBUG || demoId.isBlank()) return this
     val local = WatchHeartRate.displayBpm.value ?: return this
     return map {
-        if (it.id == demoId && it.heartRate == null) it.copy(heartRate = local, status = StudentStatus.ACTIVE)
+        // uid 또는 이름으로 지정 (local.properties 의 aion.hr.demoChildId)
+        if ((it.id == demoId || it.name == demoId) && it.heartRate == null) it.copy(heartRate = local, status = StudentStatus.ACTIVE)
         else it
     }
 }

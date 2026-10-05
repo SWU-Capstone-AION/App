@@ -59,6 +59,7 @@ object WifiHrReceiver {
     }
 
     private fun start(context: Context) {
+        HrRecordLog.init(context)
         job = scope.launch {
             val ss = runCatching {
                 ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(HR_WIFI_PORT)) }
@@ -148,7 +149,7 @@ object WifiHrReceiver {
         val at = obj.getLong("at")
         if (!RecentKeys.firstTime("$node:$at")) return
         Log.d(TAG, "Wi-Fi 수신: bpm=$bpm, 지연=${now - at}ms")
-        WatchHeartRate.onReceived(bpm, receivedAt = now)
+        WatchHeartRate.onReceived(bpm, at = at, receivedAt = now)
     }
 
     /** HTTP 머리글 한 줄 (CRLF 제외). 스트림이 끝나면 null */

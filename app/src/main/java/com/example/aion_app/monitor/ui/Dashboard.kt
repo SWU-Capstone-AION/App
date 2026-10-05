@@ -35,6 +35,13 @@ import com.example.aion_app.monitor.ui.theme.ShareTechMono
 import com.example.aion_app.watch.HR_STALE_MS
 import com.example.aion_app.watch.MIN_SAMPLES
 import com.example.aion_app.watch.WatchHeartRate
+import com.example.aion_app.watch.PcLogUploader
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.text.BasicTextField
 
 private val Blue = Color(0xFF34C6FF)
 private val Amber = Color(0xFFFFB020)
@@ -290,6 +297,7 @@ private fun OperationPanel(state: StereotypyDetector.State?) {
         InfoRow("활동", "ACTIVITY", actText, actColor)
         InfoRow("바이오-피드백 · 심박수", "HEART_RATE", "${heartRate ?: "--"} /bpm", Blue)
         HeartRateRiskRows()
+        PcLogRow()
     }
 }
 
@@ -321,6 +329,38 @@ private fun HeartRateRiskRows() {
         else -> "%.2f 안정".format(risk) to Color(0xFF2ECC71)
     }
     InfoRow("심박 위험도", "HR_RISK", riskText, riskColor)
+}
+
+/** 심박 계산 근거 기록을 같은 Wi-Fi의 PC로 자동 저장 (PC에서 watch-hr/tools/hr_server.py 실행) */
+@Composable
+private fun PcLogRow() {
+    val status by PcLogUploader.status.collectAsState()
+    var address by remember { mutableStateOf(PcLogUploader.address) }
+    InfoRow("심박 기록 PC 저장", "PC_LOG", status, InkDim)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        BasicTextField(
+            value = address,
+            onValueChange = { address = it },
+            singleLine = true,
+            textStyle = TextStyle(color = Ink, fontFamily = Mono, fontSize = 14.sp),
+            cursorBrush = SolidColor(Ink),
+            modifier = Modifier.weight(1f).border(1.dp, Line).padding(horizontal = 8.dp, vertical = 6.dp),
+            decorationBox = { inner ->
+                if (address.isEmpty()) Text("PC 주소 (예: 192.168.0.5:8765)", color = InkDim, fontSize = 12.sp)
+                inner()
+            },
+        )
+        Text(
+            "연결",
+            color = Ink, fontSize = 14.sp,
+            modifier = Modifier.border(1.dp, Line).clickable { PcLogUploader.setAddress(address) }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+        )
+    }
 }
 
 @Composable
