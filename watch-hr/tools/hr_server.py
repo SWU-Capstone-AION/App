@@ -1,5 +1,11 @@
 """
-폰 수신 앱이 Wi-Fi로 보내는 심박을 받아 watch-hr/data/ 에 날짜별 CSV로 자동 저장한다.
+같은 Wi-Fi의 기기가 보내는 심박 기록을 받아 watch-hr/data/ 에 CSV로 자동 저장한다.
+
+  POST /log : AION 앱(태블릿)의 심박 계산 근거 기록
+              → data/<기기>_calc_YYYYMMDD.csv (받은 심박, 필터, 행동, 기준선 M·S, 5초 평균, 위험도)
+              → data/<기기>_send_YYYYMMDD.csv (서버로 보낸 심박·위험도와 서버 응답)
+              AION 앱 모니터링 화면의 [심박 기록 PC 저장] 칸에 아래 출력되는 주소를 넣는다.
+  POST /hr  : 예전 수신 테스트 앱(mobile 모듈)의 원본 심박 → data/hr_YYYYMMDD.csv
 
 실행 (watch-hr 폴더에서):
     python tools/hr_server.py            # 기본 포트 8765
@@ -28,6 +34,8 @@ HEADER = ["device", "id", "bpm", "measured_time", "received_time", "delay_ms",
 lock = threading.Lock()
 seen = set()          # (device, id, received_at) — 같은 기록이 다시 와도 한 번만 저장
 total = 0
+log_seen = {}         # 파일 이름 → 저장한 기록id 집합 (/log 중복 방지)
+log_total = 0
 
 
 def fmt(ms):
@@ -77,8 +85,61 @@ def save(device, rows):
     return saved
 
 
+def safe_name(text):
+    return "".join(c if c.isalnum() or c in "-_." else "_" for c in text)
+
+
+def log_ids(path):
+    """이미 저장된 기록id (프로그램을 껐다 켜도 중복 저장 방지)"""
+    if path not in log_seen:
+        ids = set()
+        if os.path.exists(path):
+            with open(path, encoding="utf-8-sig", newline="") as f:
+                for row in csv.reader(f):
+                    if row:
+                        ids.add(row[0])
+        log_seen[path] = ids
+    return log_seen[path]
+
+
+def save_log(device, file_name, header, lines):
+    """AION 앱이 보낸 CSV 줄을 그대로 이어 붙인다. 첫 칸(기록id)으로 중복을 거른다"""
+    global log_total
+    os.makedirs(DATA_DIR, exist_ok=True)
+    path = os.path.join(DATA_DIR, f"{safe_name(device)}_{safe_name(os.path.basename(file_name))}")
+    with lock:
+        ids = log_ids(path)
+        new_lines = []
+        for line in lines:
+            rid = line.split(",", 1)[0]
+            if rid and rid not in ids:
+                ids.add(rid)
+                new_lines.append(line)
+        if new_lines:
+            new = not os.path.exists(path)
+            # utf-8-sig: 엑셀로 열어도 한글이 깨지지 않게
+            with open(path, "a", encoding="utf-8-sig" if new else "utf-8", newline="") as f:
+                if new:
+                    f.write(header + "\n")
+                f.write("\n".join(new_lines) + "\n")
+        log_total += len(new_lines)
+    return path, len(new_lines)
+
+
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
+        if self.path == "/log":
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+                path, saved = save_log(body.get("device", "unknown"), body["file"], body["header"], body.get("lines", []))
+            except Exception as e:  # 잘못된 요청이어도 서버는 계속 돈다
+                self.send_error(400, str(e))
+                return
+            if saved:
+                print(f"[{datetime.now():%H:%M:%S}] {self.client_address[0]} → {os.path.basename(path)} "
+                      f"{saved}줄 저장 (누적 {log_total})", flush=True)
+            self._json({"saved": saved})
+            return
         if self.path != "/hr":
             self.send_error(404)
             return
@@ -132,7 +193,7 @@ if __name__ == "__main__":
     server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     print("심박 수신 서버 실행 중 (끄려면 Ctrl+C)")
     print(f"  저장 폴더: {DATA_DIR}")
-    print("  폰 앱에 넣을 주소:", ", ".join(f"{ip}:{PORT}" for ip in local_ips()))
+    print("  앱에 넣을 PC 주소:", ", ".join(f"{ip}:{PORT}" for ip in local_ips()))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
