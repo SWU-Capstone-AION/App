@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.aion_app.BuildConfig
 import com.example.aion_app.data.alert.AlertRepository
 import com.example.aion_app.data.alert.ChildStateDto
 import com.example.aion_app.data.alert.isToday
@@ -12,6 +13,8 @@ import com.example.aion_app.data.alert.parseIsoDate
 import com.example.aion_app.data.alert.toRelativeTime
 import com.example.aion_app.data.auth.AuthRepository
 import com.example.aion_app.data.auth.FirebaseAuthRepository
+import com.example.aion_app.watch.HR_STALE_MS
+import com.example.aion_app.watch.WatchHeartRate
 import kotlinx.coroutines.launch
 
 // ============================================
@@ -55,7 +58,7 @@ class HomeViewModel(
         viewModelScope.launch {
             alertRepository.getChildStates()
                 .onSuccess { states ->
-                    students = states.map { it.toStudent() }
+                    students = states.map { it.toStudent() }.withLocalWatchDemo()
                     isLoading = false
                 }
                 .onFailure {
@@ -79,7 +82,7 @@ class HomeViewModel(
                         stressLevel = StressLevel.NO_DATA,
                         heartRate = null,
                     )
-                }
+                }.withLocalWatchDemo()
             }
             .onFailure { students = emptyList() }
 
@@ -132,6 +135,25 @@ private fun ChildStateDto.toStudent(): Student = Student(
         // level 이 null 이면 아직 측정 기록이 없는 아동
         else -> StressLevel.NO_DATA
     },
-    // 심박수는 아직 서버가 보내지 않는다 (갤럭시 워치 연동 예정)
-    heartRate = null,
+    // 아동 태블릿이 보낸 5초 평균. 20초 넘게 새 값이 없으면 "--"
+    heartRate = heartRate?.takeIf { heartRateAt == null || !isStale(heartRateAt) },
 )
+
+private fun isStale(at: String): Boolean =
+    System.currentTimeMillis() - parseIsoDate(at).time > HR_STALE_MS
+
+/**
+ * 시연용 (디버그 빌드 + local.properties 의 aion.hr.demoChildId 에 아동 uid 또는 이름이 있을 때만).
+ * 서버에 심박 기능이 붙기 전에, 이 폰에 직접 연결된 워치 심박을 그 아동 카드에 띄운다.
+ * 서버가 심박을 보내 주면 서버 값을 그대로 쓴다.
+ */
+private fun List<Student>.withLocalWatchDemo(): List<Student> {
+    val demoId = BuildConfig.HR_DEMO_CHILD_ID
+    if (!BuildConfig.DEBUG || demoId.isBlank()) return this
+    val local = WatchHeartRate.displayBpm.value ?: return this
+    return map {
+        // uid 또는 이름으로 지정 (local.properties 의 aion.hr.demoChildId)
+        if ((it.id == demoId || it.name == demoId) && it.heartRate == null) it.copy(heartRate = local, status = StudentStatus.ACTIVE)
+        else it
+    }
+}

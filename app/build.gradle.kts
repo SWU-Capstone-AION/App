@@ -29,6 +29,20 @@ android {
         }.getProperty("aion.server.url") ?: "http://192.168.0.10:8000"
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
+
+        // 시연용: 서버에 심박 기능이 붙기 전, 이 폰에 연결된 워치 심박을 교사 홈의 이 아동 카드에 띄운다 (디버그 빌드만)
+        val hrDemoChildId = org.jetbrains.kotlin.konan.properties.Properties().apply {
+            val file = rootProject.file("local.properties")
+            if (file.exists()) load(file.inputStream())
+        }.getProperty("aion.hr.demoChildId") ?: ""
+        buildConfigField("String", "HR_DEMO_CHILD_ID", "\"$hrDemoChildId\"")
+
+        // 심박 계산 근거 기록을 자동 저장할 PC (watch-hr/tools/hr_server.py). 예: 192.168.0.5:8765
+        val hrPcAddr = org.jetbrains.kotlin.konan.properties.Properties().apply {
+            val file = rootProject.file("local.properties")
+            if (file.exists()) load(file.inputStream())
+        }.getProperty("aion.hr.pcAddr") ?: ""
+        buildConfigField("String", "HR_PC_ADDR", "\"$hrPcAddr\"")
     }
 
     buildTypes {
@@ -48,6 +62,10 @@ android {
         compose = true
         buildConfig = true
     }
+    // 단위 테스트에서 android.util.Log 같은 안드로이드 호출은 아무 일도 안 하게 (WatchHeartRate 테스트)
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
     // MediaPipe .task 모델은 압축하면 못 읽으므로 그대로 둔다 (모니터링 기능 필수)
     androidResources {
         noCompress += "task"
@@ -55,6 +73,9 @@ android {
 }
 
 dependencies {
+
+    // 단위 테스트 (심박 5초 집계 등)
+    testImplementation(libs.junit)
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0")
@@ -102,6 +123,9 @@ dependencies {
 
     // 구슬 보상 저장 (아동 태블릿 기기 내 저장)
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // 갤럭시 워치 심박 수신 (Wear OS Data Layer)
+    implementation("com.google.android.gms:play-services-wearable:19.0.0")
 
     // 서버 통신 (Django 알림 API)
     implementation("com.squareup.retrofit2:retrofit:2.11.0")

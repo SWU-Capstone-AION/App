@@ -50,6 +50,8 @@ import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.Red
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
+import com.example.aion_app.watch.HEART_RATE_DISPLAY_MS
+import com.example.aion_app.watch.HeartRateWindow
 
 @Composable
 fun HomeScreen(
@@ -590,49 +592,14 @@ private fun StudentCard(
                 isActive = isActive
             )
 
-            // 심박수 (활동중일 때만)
-            if (isActive && student.heartRate != null) {
+            // 심박수 (활동중일 때만). 값이 없거나 20초 넘게 끊기면 "-- bpm"으로 보여서 끊김을 알 수 있다
+            if (isActive) {
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(color = LightActive, thickness = 1.dp)
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center  // ← 가운데 정렬
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Favorite,
-                        contentDescription = null,
-                        tint = Red,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "심박수",
-                        fontSize = 14.sp,
-                        color = TextPrimary
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Image(
-                        painter = painterResource(id = R.drawable.heart_graph),
-                        contentDescription = null,
-                        modifier = Modifier.size(60.dp, 24.dp)  // ← 크게
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "${student.heartRate}",
-                        fontSize = 22.sp,  // ← 크게
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "bpm",
-                        fontSize = 13.sp,
-                        color = GrayText
-                    )
-                }
+                // 숫자는 5초마다 최근 5초 평균으로 바뀐다 (HeartRateDisplay.kt)
+                HeartRateRow(bpm = student.heartRate)
             }
         }
     }
@@ -925,6 +892,43 @@ private fun defaultStudents(): List<Student> = listOf(
 fun HomeScreenPreview() {
     MaterialTheme {
         HomeScreen()
+    }
+}
+
+// 심박이 1초마다 들어오고, 카드의 숫자는 5초마다 최근 5초 평균으로 바뀌는 모습.
+// 미리보기에서 ▶(Start Interactive Mode)를 누르면 움직인다.
+@Preview(showBackground = true, showSystemUi = true, name = "심박 5초 갱신 (실시간)")
+@Composable
+fun HomeScreenLiveHeartRatePreview() {
+    val base = remember { defaultStudents() }
+    val windows = remember { base.associate { it.id to HeartRateWindow() } }
+    var shown by remember { mutableStateOf(base.associate { it.id to it.heartRate }) }
+
+    // 활동 중인 아이마다 1초에 한 번 심박이 들어온다
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val current = base.associate { it.id to (it.heartRate ?: 80) }.toMutableMap()
+        while (true) {
+            val now = System.currentTimeMillis()
+            base.filter { it.status == StudentStatus.ACTIVE }.forEach { s ->
+                current[s.id] = (current.getValue(s.id) + kotlin.random.Random.nextInt(-3, 4)).coerceIn(60, 130)
+                windows.getValue(s.id).add(current.getValue(s.id), now)
+            }
+            kotlinx.coroutines.delay(1_000)
+        }
+    }
+    // 화면 숫자는 5초에 한 번만 바뀐다
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(HEART_RATE_DISPLAY_MS)
+            val now = System.currentTimeMillis()
+            shown = base.associate { s ->
+                s.id to if (s.status == StudentStatus.ACTIVE) windows.getValue(s.id).tick(now) else null
+            }
+        }
+    }
+
+    MaterialTheme {
+        HomeScreen(students = base.map { it.copy(heartRate = shown[it.id]) })
     }
 }
 

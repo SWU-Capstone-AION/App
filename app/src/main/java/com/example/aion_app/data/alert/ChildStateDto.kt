@@ -22,4 +22,10 @@ data class ChildStateDto(
     /** 지금 태블릿에서 모니터링 중인지 */
     @SerializedName("active") val active: Boolean = false,
     @SerializedName("updatedAt") val updatedAt: String? = null,
+    /** 갤럭시 워치 심박 5초 평균 bpm. 워치가 없거나 측정 전이면 null */
+    @SerializedName("heartRate") val heartRate: Int? = null,
+    /** 그 심박을 워치가 잰 시각 (ISO 8601). 서버는 20초 넘은 심박을 null로 보낸다 */
+    @SerializedName("heartRateAt") val heartRateAt: String? = null,
+    /** 심박 위험도 0~1 (개인 기준선 대비). 기준선 준비 전·워치 없음이면 null. 규칙모델 점수와 다른 값 */
+    @SerializedName("hrRisk") val hrRisk: Double? = null,
 )

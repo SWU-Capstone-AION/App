@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -26,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,6 +38,8 @@ import com.example.aion_app.monitor.pose.MinigameGate
 import com.example.aion_app.monitor.pose.PoseIndex
 import com.example.aion_app.monitor.pose.PoseLandmarkerHelper
 import com.example.aion_app.monitor.pose.StereotypyDetector
+import com.example.aion_app.watch.WatchHeartRate
+import com.example.aion_app.watch.WifiHrReceiver
 import com.example.aion_app.monitor.ui.AlarmBanner
 import com.example.aion_app.monitor.ui.Dashboard
 import com.example.aion_app.monitor.ui.PoseOverlay
@@ -62,6 +66,18 @@ fun StereotypyMonitorScreen(
     onBack: () -> Unit = {},
 ) {
     val context = LocalContext.current
+
+    // 이 화면에서도 워치 심박을 Wi-Fi로 받는다 (감지 호스트는 이 화면에서 꺼져 있음)
+    // 화면이 꺼지면 카메라와 심박 수신이 함께 멈추므로 켜 둔다
+    val view = LocalView.current
+    DisposableEffect(Unit) {
+        WifiHrReceiver.acquire(context)
+        view.keepScreenOn = true
+        onDispose {
+            WifiHrReceiver.release()
+            view.keepScreenOn = false
+        }
+    }
     var hasCameraPermission by remember {
         mutableStateOf(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
@@ -123,6 +139,7 @@ fun StereotypyMonitorScreen(
                             rightWrist = w(PoseIndex.RIGHT_WRIST),
                         )
                         detState = st
+                        WatchHeartRate.onVision(st.score)
                         DetectionSender.send(st)
                         if (st.alarmCount > lastAlarmCount[0]) {
                             lastAlarmCount[0] = st.alarmCount

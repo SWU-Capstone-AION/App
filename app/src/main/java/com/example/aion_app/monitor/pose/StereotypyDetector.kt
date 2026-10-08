@@ -1,9 +1,7 @@
 package com.example.aion_app.monitor.pose
 
 import kotlin.math.floor
-import kotlin.math.roundToInt
 import kotlin.math.sqrt
-import kotlin.random.Random
 
 /**
  * 상동행동 판정기. 여러 신체 부위의 좌표를 슬라이딩 윈도우로 버퍼링하여
@@ -44,12 +42,15 @@ class StereotypyDetector {
         val elapsedSec: Double,
         val alarmCount: Int,
         val maxStreak: Double,
-        val heartRate: Int,
         val poseText: String,
         val activeTotals: Map<Part, Double>,
         val timeline: List<TimelinePoint>,
         val wristTrace: List<WristPoint>,
-    )
+    ) {
+        /** 서버로 보내는 점수와 같은 값: 가장 오래 반복한 부위의 누적 시간 ÷ 알람 기준(3.9초), 0~1 */
+        val score: Double
+            get() = ((parts.values.maxOfOrNull { it.duration } ?: 0.0) / DURATION_THRESHOLD).coerceIn(0.0, 1.0)
+    }
 
     /** 추적 점(정규화 좌표). 손목·코·중심점 등 무엇이든 담는다. */
     data class Wrist(val xNorm: Double, val yNorm: Double, val visibility: Double)
@@ -79,8 +80,6 @@ class StereotypyDetector {
     private var lastFrameT = 0.0
     private var maxStreak = 0.0
     private var alarmCount = 0
-    private var bioHR = 75.0
-    private var lastBioUpdate = 0.0
     private var shoulderW = 0.0   // ② 신체크기 정규화용 어깨너비(EMA)
     private var refShoulder = 0.0 // 세션 기준 어깨너비(자동 보정)
 
@@ -117,7 +116,6 @@ class StereotypyDetector {
         lastFrameT = 0.0
         maxStreak = 0.0
         alarmCount = 0
-        bioHR = 75.0; lastBioUpdate = 0.0
         shoulderW = 0.0; refShoulder = 0.0
         timeline.clear(); wristTrace.clear()
     }
@@ -215,14 +213,6 @@ class StereotypyDetector {
 
         val anyActive = results.values.any { it.analysis.active }
 
-        // 심박 시뮬레이션 (1s 주기)
-        if (tNow - lastBioUpdate >= 1.0) {
-            lastBioUpdate = tNow
-            val activeCount = results.values.count { it.analysis.active }
-            val intensity = activeCount.toDouble() + (if (anyAlarm) 1.5 else 0.0)
-            val hrTarget = 72 + intensity * 8 + (Random.nextDouble() * 4 - 2)
-            bioHR += (hrTarget - bioHR) * 0.35
-        }
 
         val poseText = computePose(leftShoulder, rightShoulder, leftWrist, rightWrist)
 
@@ -251,7 +241,6 @@ class StereotypyDetector {
             elapsedSec = tNow,
             alarmCount = alarmCount,
             maxStreak = maxStreak,
-            heartRate = bioHR.roundToInt(),
             poseText = poseText,
             activeTotals = HashMap(activeTotal),
             timeline = ArrayList(timeline),
@@ -266,7 +255,6 @@ class StereotypyDetector {
         elapsedSec = tNow,
         alarmCount = alarmCount,
         maxStreak = maxStreak,
-        heartRate = bioHR.roundToInt(),
         poseText = "미니게임 중 · 판정 일시정지",
         activeTotals = HashMap(activeTotal),
         timeline = ArrayList(timeline),
