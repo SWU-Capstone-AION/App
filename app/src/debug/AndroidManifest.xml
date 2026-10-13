@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 디버그 빌드에서만: 심박 계산 기록을 같은 Wi-Fi의 PC(http)로 자동 저장하기 위해 평문 통신 허용 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:usesCleartextTraffic="true" />
+</manifest>
