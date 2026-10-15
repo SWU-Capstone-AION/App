@@ -5,8 +5,10 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -64,7 +66,7 @@ import kotlin.math.sin
 //   1. "우와, 끝까지 해냈어! / 보물상자를 톡 눌러볼까?"  닫힌 상자
 //   2. "두근두근..."                                    흔들림 (약 1.2초)
 //   3. "짜잔! / 귀여운 구슬 친구가 태어났어!"            상자가 사라지고 구슬 등장
-//   4. "구슬 주머니에 쏙 넣었어!"                        확인 버튼
+//   4. "구슬 주머니에 쏙 넣었어!"                        구슬은 그대로, 문구만 바뀌고 확인 버튼
 //
 // 1→2 만 아이가 누르고, 2→3→4 는 화면이 알아서 넘어간다.
 // 아이가 눌러야 넘어가는 지점을 하나로 줄여서 헤매지 않게 했다.
@@ -94,8 +96,38 @@ private val MarbleSize = 110.dp
 private val MarbleBottomGap = 20.dp     // 구슬을 바닥에서 얼마나 띄울지
 
 // 제목 두 줄 + 그림이 들어가는 영역. 장면이 바뀌어도 이 높이는 고정이다.
+private val TitleTopGap = 24.dp
 private val TitleAreaHeight = 62.dp
-private val ContentAreaHeight = 24.dp + TitleAreaHeight + 14.dp + BoxImageSize
+private val TitleImageGap = 14.dp
+private val ContentAreaHeight = TitleTopGap + TitleAreaHeight + TitleImageGap + BoxImageSize
+
+// ------------------------------------------------------------
+// 4번 장면 배치
+// ------------------------------------------------------------
+// 문구가 한 줄로 줄어들면 문구와 구슬 사이가 휑하고, 구슬 아래는 확인 버튼에 붙어
+// 한쪽으로 쏠려 보였다 (디자인 피드백 10/15).
+// 그래서 4번 장면에서는 "문구 한 줄 + 간격 + 구슬" 을 한 묶음으로 보고
+// 영역 위아래 가운데에 놓는다. 위아래 여백이 같아진다.
+//
+// 아래 값들은 기존 배치에서 얼마나 옮길지를 계산으로 구한다.
+// 크기 값을 바꿔도 자동으로 다시 가운데가 맞는다.
+private val StoredTextHeight = 26.dp        // 18sp 한 줄 (lineHeight 26sp)
+private val StoredTextMarbleGap = 20.dp     // 문구와 구슬 사이 — 간격 조절은 이 값만
+private const val StoredMoveMs = 400        // 구슬이 제자리로 올라가는 시간
+
+// 묶음이 가운데 올 때의 맨 윗자리
+private val StoredGroupTop =
+    (ContentAreaHeight - (StoredTextHeight + StoredTextMarbleGap + MarbleSize)) / 2
+
+// 3번 장면에서 문구·구슬이 원래 있던 윗자리
+private val TitleRestTop = TitleTopGap + (TitleAreaHeight - StoredTextHeight) / 2
+private val MarbleRestTop =
+    TitleTopGap + TitleAreaHeight + TitleImageGap + (BoxImageSize - MarbleBottomGap - MarbleSize)
+
+// 원래 자리 → 가운데 자리까지 옮길 거리 (양수면 아래로, 음수면 위로)
+private val StoredTitleShift: Dp = StoredGroupTop - TitleRestTop
+private val StoredMarbleShift: Dp =
+    StoredGroupTop + StoredTextHeight + StoredTextMarbleGap - MarbleRestTop
 
 /**
  * 상자 → 구슬 팝업.
@@ -153,30 +185,20 @@ fun BoxScope.KidsRewardDialog(
             // ⚠ 네 장면의 세로 길이를 똑같이 맞춰 둔다.
             //   카드 높이가 달라지면 팝업이 화면 가운데 정렬이라
             //   장면이 넘어갈 때마다 카드가 위아래로 움찔한다.
+            //   4번 장면도 카드 높이는 그대로 두고 안쪽 배치만 바꾼다.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(ContentAreaHeight),
                 contentAlignment = Alignment.Center
             ) {
-                if (phase == BoxPhase.STORED) {
-                    // 마지막 장면은 그림 없이 문구만. 영역 한가운데에 둔다.
-                    Text(
-                        text = "구슬 주머니에 쏙 넣었어!",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AionTextDark,
-                        textAlign = TextAlign.Center
-                    )
-                } else {
-                    SceneWithImage(
-                        phase = phase,
-                        marble = marble,
-                        onBoxTap = onBoxTap,
-                        onShakeFinished = onShakeFinished,
-                        onMarbleShown = onMarbleShown
-                    )
-                }
+                SceneWithImage(
+                    phase = phase,
+                    marble = marble,
+                    onBoxTap = onBoxTap,
+                    onShakeFinished = onShakeFinished,
+                    onMarbleShown = onMarbleShown
+                )
             }
 
             // 하단 영역. 마지막 장면에서만 버튼이 보이고, 그 전에는 빈 자리다.
@@ -209,7 +231,7 @@ fun BoxScope.KidsRewardDialog(
 }
 
 // ------------------------------------------------------------
-// 제목 + 그림 (1~3번 장면)
+// 제목 + 그림 (네 장면 모두)
 // ------------------------------------------------------------
 @Composable
 private fun SceneWithImage(
@@ -220,9 +242,19 @@ private fun SceneWithImage(
     onMarbleShown: () -> Unit
 ) {
     val opened = phase == BoxPhase.OPENED && marble != null
+    val stored = phase == BoxPhase.STORED && marble != null
+
+    // 4번 장면으로 옮겨 가는 정도. 0 = 원래 자리, 1 = 가운데 자리.
+    // 4번이 될 때만 천천히 움직이고, 다음 상자로 넘어갈 때는 바로 원래 자리로 돌아온다.
+    // (돌아올 때까지 천천히 하면 다음 상자의 제목이 잠깐 어긋나 보인다)
+    val storedProgress by animateFloatAsState(
+        targetValue = if (stored) 1f else 0f,
+        animationSpec = if (stored) tween(StoredMoveMs) else snap(),
+        label = "stored_move"
+    )
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(TitleTopGap))
 
         // 제목 자리도 높이를 고정한다. 한 줄짜리("두근두근...")로 바뀔 때
         // 아래 그림이 위아래로 흔들리지 않게.
@@ -232,6 +264,7 @@ private fun SceneWithImage(
         ) {
             Text(
                 text = when {
+                    stored -> "구슬 주머니에 쏙 넣었어!"
                     opened -> "짜잔!\n귀여운 구슬 친구가 태어났어!"
                     phase == BoxPhase.SHAKING -> "두근두근..."
                     else -> "우와, 끝까지 해냈어!\n보물상자를 톡 눌러볼까?"
@@ -240,11 +273,16 @@ private fun SceneWithImage(
                 fontWeight = FontWeight.Bold,
                 color = AionTextDark,
                 textAlign = TextAlign.Center,
-                lineHeight = 26.sp
+                lineHeight = 26.sp,
+                // 4번 장면에서만 가운데 자리로 옮긴다.
+                // 자리를 옮기는 값은 graphicsLayer 안에서 읽어야 매 프레임 전체를 다시 계산하지 않는다.
+                modifier = Modifier.graphicsLayer {
+                    translationY = StoredTitleShift.toPx() * storedProgress
+                }
             )
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(TitleImageGap))
 
         // 그림 영역. 상자는 바닥 기준으로 놓는다.
         // 닫힌 상자(150x115)와 열린 상자(150x141)는 이미지 비율이 달라서
@@ -255,10 +293,16 @@ private fun SceneWithImage(
                 .height(BoxImageSize),
             contentAlignment = Alignment.BottomCenter
         ) {
-            if (opened && marble != null) {
-                OpenedBoxContent(marble = marble, onMarbleShown = onMarbleShown)
-            } else {
-                ClosedBoxContent(
+            when {
+                stored && marble != null -> StoredMarble(
+                    marble = marble,
+                    progress = { storedProgress }
+                )
+                opened && marble != null -> OpenedBoxContent(
+                    marble = marble,
+                    onMarbleShown = onMarbleShown
+                )
+                else -> ClosedBoxContent(
                     isShaking = phase == BoxPhase.SHAKING,
                     onTap = onBoxTap,
                     onShakeFinished = onShakeFinished
@@ -376,6 +420,30 @@ private fun OpenedBoxContent(
                 scaleX = marbleScale.value
                 scaleY = marbleScale.value
                 alpha = marbleScale.value.coerceIn(0f, 1f)
+            }
+    )
+}
+
+// ------------------------------------------------------------
+// 주머니에 넣은 뒤의 구슬 (4번 장면)
+// ------------------------------------------------------------
+// 3번 장면 마지막 모습(상자 없음, 같은 크기·같은 위치)에서 시작해
+// 가운데 자리까지 부드럽게 올라간다.
+// 다시 튀어나오는 효과는 넣지 않는다 — 같은 구슬이 그대로 있는 것처럼 보여야 한다.
+@Composable
+private fun StoredMarble(
+    marble: Marble,
+    progress: () -> Float
+) {
+    Image(
+        painter = painterResource(marble.imageRes),
+        contentDescription = marble.label,
+        contentScale = ContentScale.Fit,
+        modifier = Modifier
+            .padding(bottom = MarbleBottomGap)
+            .size(MarbleSize)
+            .graphicsLayer {
+                translationY = StoredMarbleShift.toPx() * progress()
             }
     )
 }
