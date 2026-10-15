@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aion_app.BuildConfig
+import com.example.aion_app.data.alert.AlertDto
 import com.example.aion_app.data.alert.AlertRepository
 import com.example.aion_app.data.alert.ChildStateDto
 import com.example.aion_app.data.alert.isToday
@@ -13,6 +14,9 @@ import com.example.aion_app.data.alert.parseIsoDate
 import com.example.aion_app.data.alert.toRelativeTime
 import com.example.aion_app.data.auth.AuthRepository
 import com.example.aion_app.data.auth.FirebaseAuthRepository
+import com.example.aion_app.data.messaging.AlertBus
+import com.example.aion_app.data.messaging.AlertKind
+import com.example.aion_app.data.messaging.DangerAlert
 import com.example.aion_app.watch.HR_STALE_MS
 import com.example.aion_app.watch.WatchHeartRate
 import kotlinx.coroutines.launch
@@ -41,6 +45,11 @@ class HomeViewModel(
 
     var isLoading by mutableStateOf(true)
         private set
+
+    // 지금까지 본 알림 중 가장 큰 id.
+    // null 이면 아직 한 번도 못 받아온 것 → 첫 조회는 기준만 잡고 팝업을 띄우지 않는다.
+    // (홈에 들어올 때마다 예전 알림이 팝업으로 쏟아지면 안 되니까)
+    private var lastSeenAlertId: Int? = null
 
     init {
         loadChildren()
@@ -110,6 +119,8 @@ class HomeViewModel(
                     val todayAlerts = alerts.filter { parseIsoDate(it.occurredAt).isToday() }
                     todayCautionCount = todayAlerts.count { it.level == "CAUTION" }
                     todayDangerCount = todayAlerts.count { it.level == "DANGER" }
+
+                    popupNewAlert(alerts)
                 }
                 .onFailure {
                     recentAlert = null
@@ -117,6 +128,52 @@ class HomeViewModel(
                     todayDangerCount = 0
                 }
         }
+    }
+
+    /**
+     * 5초 조회에서 새로 생긴 위험·도움 요청 알림을 찾아 팝업으로 띄운다.
+     *
+     * 원래 팝업은 FCM 푸시로만 떴는데, FCM 이 늦게 오면 배너만 먼저 바뀌고
+     * 팝업은 한참 뒤에 떴다. 그래서 목록 조회에서도 팝업을 띄운다.
+     * FCM 이 나중에 같은 알림을 가져와도 AlertBus 가 alertId 로 걸러 준다.
+     */
+    private fun popupNewAlert(alerts: List<AlertDto>) {
+        val maxId = alerts.maxOfOrNull { it.id } ?: return
+        val lastSeen = lastSeenAlertId
+
+        // 첫 조회: 기준만 잡는다
+        if (lastSeen == null) {
+            lastSeenAlertId = maxId
+            return
+        }
+        if (maxId <= lastSeen) return
+        lastSeenAlertId = maxId
+
+        // 새 알림 중 팝업 대상(위험·도움 요청)인 가장 최근 1건
+        val newest = alerts
+            .filter { it.id > lastSeen }
+            .filter { it.level == LEVEL_DANGER || it.level == LEVEL_HELP }
+            .maxByOrNull { it.id }
+            ?: return
+
+        // 목록 API 에는 성별·나이가 없어서 홈 아동 카드 정보에서 가져온다
+        val student = students.firstOrNull { it.id == newest.childId }
+
+        AlertBus.push(
+            DangerAlert(
+                kind = if (newest.level == LEVEL_HELP) AlertKind.HELP else AlertKind.DANGER,
+                childId = newest.childId,
+                childName = newest.childName.ifBlank { student?.name.orEmpty() },
+                gender = student?.gender.orEmpty(),
+                age = student?.age ?: 0,
+                alertId = newest.id.toString(),
+            )
+        )
+    }
+
+    private companion object {
+        const val LEVEL_DANGER = "DANGER"
+        const val LEVEL_HELP = "HELP"
     }
 }
 

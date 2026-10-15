@@ -135,6 +135,8 @@ class MainActivity : ComponentActivity() {
                 childName = childName,
                 gender = intent.getStringExtra(AionMessagingService.EXTRA_GENDER).orEmpty(),
                 age = intent.getIntExtra(AionMessagingService.EXTRA_AGE, 0),
+                // 이미 팝업으로 본 알림이면 AlertBus 가 다시 띄우지 않는다
+                alertId = intent.getStringExtra(AionMessagingService.EXTRA_ALERT_ID).orEmpty(),
             )
         )
     }

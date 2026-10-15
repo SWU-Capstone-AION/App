@@ -55,6 +55,7 @@ class AionMessagingService : FirebaseMessagingService() {
 
         if (alert != null) {
             // 화면을 보고 있으면 팝업으로 충분하다. 시스템 알림까지 띄우면 중복이다.
+            // 홈 5초 조회가 먼저 띄운 알림이면 push 가 알아서 무시한다.
             AlertBus.push(alert)
             if (AlertBus.isAppForeground) return
 
@@ -89,6 +90,7 @@ class AionMessagingService : FirebaseMessagingService() {
             childName = childName,
             gender = this["gender"].orEmpty(),
             age = this["age"]?.toIntOrNull() ?: 0,
+            alertId = this["alertId"].orEmpty(),
         )
     }
 
@@ -105,6 +107,7 @@ class AionMessagingService : FirebaseMessagingService() {
                 putExtra(EXTRA_CHILD_NAME, alert.childName)
                 putExtra(EXTRA_GENDER, alert.gender)
                 putExtra(EXTRA_AGE, alert.age)
+                putExtra(EXTRA_ALERT_ID, alert.alertId)
             }
         }
         val pendingIntent = PendingIntent.getActivity(
@@ -168,5 +171,6 @@ class AionMessagingService : FirebaseMessagingService() {
         const val EXTRA_CHILD_NAME = "childName"
         const val EXTRA_GENDER = "gender"
         const val EXTRA_AGE = "age"
+        const val EXTRA_ALERT_ID = "alertId"
     }
 }
