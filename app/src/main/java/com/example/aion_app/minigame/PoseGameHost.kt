@@ -98,6 +98,8 @@ private val FillColor = Color(0xFFB0B0B0)
  * 헬퍼가 이미 전면 카메라 미러링을 처리하므로 좌표를 다시 뒤집지 않는다.
  *
  * @param introMessage 시작 전 안내창에 띄울 문구.
+ * @param idleStartHint 1분 동안 동작이 없는데 아직 하나도 못 했을 때 (방법을 알려준다)
+ * @param idleResumeHint 1분 동안 동작이 없는데 하다가 멈췄을 때 (남은 걸 마저 하자고 권한다)
  * @param update 매 프레임 호출. **MediaPipe 결과 콜백(백그라운드 스레드)에서 돌아간다.**
  * @param draw 게임 그래픽. Canvas 안에서 호출된다.
  * @param onExit X 버튼을 눌렀을 때 (홈으로 복귀)
@@ -113,6 +115,8 @@ fun <S : MinigameStatus> PoseGameHost(
     //   1줄 = 무엇을 하는지, 2줄 = 부담 덜어주는 말
     introMessage: String,
     clearedMessage: String,
+    idleStartHint: String = "천천히 한 번 해 볼까?",
+    idleResumeHint: String = "아직 남았어! 조금만 더 해볼까?",
     onExit: () -> Unit,
     onForceClear: () -> Unit,
     onGameStateChanged: (Boolean) -> Unit,
@@ -309,7 +313,9 @@ fun <S : MinigameStatus> PoseGameHost(
                 introVisible -> Unit
                 state == null -> Unit
                 !state.poseVisible -> Pill("화면에 몸이 보이도록 앉아 줘")
-                state.nudge == Nudge.KEEP_GOING -> Pill("아직 남았어! 조금만 더 해볼까?")
+                // 1분 무동작: 아직 시작 전이면 방법을, 하다가 멈췄으면 남은 걸 마저 하자고
+                state.nudge == Nudge.KEEP_GOING ->
+                    Pill(if (state.progress <= 0f) idleStartHint else idleResumeHint)
                 state.nudge == Nudge.HOW_TO_QUIT -> Pill("그만두고 싶으면 X 버튼을 눌러 줘")
             }
 
