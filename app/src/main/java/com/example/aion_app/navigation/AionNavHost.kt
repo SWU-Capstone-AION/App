@@ -46,6 +46,7 @@ import com.example.aion_app.ui.screen.kids.KidsSignUpAccountScreen
 import com.example.aion_app.ui.screen.kids.KidsProfileSetupScreen
 import com.example.aion_app.ui.screen.kids.KidsOnboardingCompleteScreen
 import com.example.aion_app.ui.screen.kids.KidsHomeScreen
+import com.example.aion_app.watch.WatchHeartRate
 import com.example.aion_app.ui.screen.kids.HelpRequestViewModel
 import com.example.aion_app.ui.screen.kids.reward.RewardSource
 import com.example.aion_app.ui.screen.kids.reward.RewardViewModel
@@ -422,7 +423,8 @@ fun AionNavHost() {
                 // (이 파일 맨 아래) 여기서는 결과만 읽어 쓴다.
                 //
                 // 감지되면 KidsHomeScreen 이 알아서 진정 제안 팝업으로 넘어간다.
-                //   감지 → 팝업 → 호흡 4회 → 홈 복귀
+                //   감지 → 팝업 → 호흡 → 홈 복귀
+                //   호흡은 워치 심박이 올라가 있었으면 심박이 평소로 내려갈 때까지(최대 2분), 아니면 4회.
                 //
                 // 마이페이지 등 다른 아동용 화면에 있는 동안 감지된 경우,
                 // 홈으로 돌아온 시점에 팝업이 뜬다.
@@ -446,8 +448,9 @@ fun AionNavHost() {
                     onHelpRequest = {
                         helpViewModel.requestHelp()
                     },
+                    heartRate = WatchHeartRate.hrState,
                     onBreathingComplete = {
-                        // 호흡 4회를 끝까지 마쳤을 때만 들어온다 (시간 초과 복귀는 제외).
+                        // 호흡으로 진정했을 때만 들어온다: 심박이 평소로 내려감 또는 4회 완료 (시간 초과 복귀는 제외).
                         // 하루 상한은 RewardStore.BREATH_DAILY_LIMIT 가 처리한다.
                         rewardViewModel.grant(RewardSource.BREATHING)
                     },
