@@ -43,7 +43,7 @@ fun BoardGameScreen(
     PoseGameHost(
         title = "칠판을 깨끗하게 지워보자!",
         introMessage = "손바닥으로 칠판을 쓱쓱 문질러 줘!\n천천히 해도 괜찮아.",
-        clearedMessage = "칠판이 반짝반짝해! 잘했어",
+        clearedMessage = "칠판이 반짝반짝해졌어!",
         onExit = onExit,
         onForceClear = { engine.forceClear() },
         onGameStateChanged = onGameStateChanged,

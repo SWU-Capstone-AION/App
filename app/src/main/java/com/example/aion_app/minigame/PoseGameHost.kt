@@ -19,24 +19,32 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -53,11 +61,17 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.aion_app.monitor.pose.PoseLandmarkerHelper
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.example.aion_app.ui.screen.kids.KidsDialogScrim
+import com.example.aion_app.ui.theme.AionTextDark
+import com.example.aion_app.ui.theme.LightActive
+import com.example.aion_app.ui.theme.Normal
+import com.example.aion_app.ui.theme.White
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
  * 손 아이콘용 Paint. 프레임마다 새로 만들면 낭비라 한 번만 만들어 재사용한다.
@@ -149,6 +163,14 @@ fun <S : MinigameStatus> PoseGameHost(
     var introVisible by remember { mutableStateOf(true) }
     val started = remember { AtomicBoolean(false) }
 
+    // 3분 동안 아무 동작이 없으면 홈으로 돌아간다 (안내 없이 바로).
+    // 동작 여부는 게임 엔진이 잰다 (잡초 잡기·뽑기, 칠판 지우기). 안내창에서 '시작할게요'를 안 누른 채로
+    // 있거나, 시작했는데 카메라 결과가 아직 없거나, 완료 화면에서 그대로 있어도 똑같이 3분이면 돌아간다.
+    val exit by rememberUpdatedState(onExit)
+    val enteredAt = remember { System.currentTimeMillis() }
+    var startedAt by remember { mutableLongStateOf(0L) }
+    var snapshotAt by remember { mutableLongStateOf(0L) }
+
     // 오버레이 크기는 추론 콜백(백그라운드 스레드)에서 읽으므로 원자적으로 보관한다.
     val overlaySize = remember { AtomicReference(IntSize.Zero) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
@@ -168,7 +190,10 @@ fun <S : MinigameStatus> PoseGameHost(
                         viewHeight = size.height.toFloat(),
                     )
                     val next = update(pose, System.currentTimeMillis())
-                    mainHandler.post { snapshot = next }
+                    mainHandler.post {
+                        snapshot = next
+                        snapshotAt = System.currentTimeMillis()
+                    }
                 }
             },
             onError = { message ->
@@ -214,6 +239,23 @@ fun <S : MinigameStatus> PoseGameHost(
         onDispose {
             helper.close()
             analysisExecutor.shutdown()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1_000)
+            val now = System.currentTimeMillis()
+            val last = snapshot
+            val idle = when {
+                startedAt == 0L -> now - enteredAt          // 안내창에서 시작을 안 누름
+                last == null -> now - startedAt             // 시작했지만 카메라 결과가 아직 없음
+                else -> last.idleMs + (now - snapshotAt)    // 마지막 결과 뒤로 흐른 시간까지 더한다
+            }
+            if (idle >= GAME_IDLE_EXIT_MS) {
+                exit()
+                break
+            }
         }
     }
 
@@ -303,6 +345,7 @@ fun <S : MinigameStatus> PoseGameHost(
                 message = introMessage,
                 onStart = {
                     started.set(true)
+                    startedAt = System.currentTimeMillis()
                     introVisible = false
                 },
             )
@@ -391,22 +434,85 @@ private fun DrawScope.drawHands(state: MinigameStatus) {
 
 private const val HAND_ICON = "✋"
 
+/**
+ * 게임 완료 팝업. 아동 홈의 진정 제안 팝업과 같은 모양(흰 카드 + 동그란 아이콘 + 아래 꽉 찬 버튼)으로 맞췄다.
+ *
+ * 아동 홈 팝업은 시안 프레임(930x582)을 화면에 맞춰 키우는 틀(KidsDesignScale) 안에 있고, 게임 화면은
+ * 그 틀 밖이라 같은 dp로 그리면 태블릿에서 작아 보인다. 그래서 크기·글자를 약 1.3배로 잡았다.
+ * 바깥을 눌러도 닫히지 않는다 (아이가 실수로 닫지 않도록).
+ */
 @Composable
 private fun BoxScope.ClearedOverlay(message: String, onExit: () -> Unit) {
     Box(
-        Modifier.fillMaxSize().background(Color(0x99000000)),
+        Modifier
+            .fillMaxSize()
+            .background(KidsDialogScrim)
+            // 뒤쪽(X 버튼 등)이 눌리지 않도록 클릭을 흡수만 한다
+            .clickable(enabled = true) { },
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(message, color = Color.White, fontSize = 28.sp)
+        Column(
+            modifier = Modifier
+                .width(420.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(White),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(Modifier.height(32.dp))
+
             Box(
-                Modifier
-                    .padding(top = 24.dp)
-                    .background(Color.White, RoundedCornerShape(24.dp))
-                    .clickable { onExit() }
-                    .padding(horizontal = 32.dp, vertical = 14.dp)
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(LightActive),
+                contentAlignment = Alignment.Center,
             ) {
-                Text("종료", color = PillText, fontSize = 18.sp)
+                Icon(
+                    imageVector = Icons.Filled.Star,
+                    contentDescription = null,
+                    tint = Normal,
+                    modifier = Modifier.size(36.dp),
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            Text(
+                text = message,
+                color = AionTextDark,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                text = "정말 잘했어!\n홈에서 구슬 상자를 열어 봐.",
+                color = AionTextDark,
+                fontSize = 17.sp,
+                lineHeight = 28.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 24.dp),
+            )
+
+            Spacer(Modifier.height(30.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .background(Normal)
+                    .clickable { onExit() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "홈으로",
+                    color = White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                )
             }
         }
     }

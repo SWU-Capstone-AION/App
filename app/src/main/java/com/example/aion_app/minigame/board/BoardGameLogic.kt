@@ -1,6 +1,8 @@
 package com.example.aion_app.minigame.board
 
 import com.example.aion_app.minigame.MinigameStatus
+import com.example.aion_app.minigame.NUDGE_HOW_TO_QUIT_MS
+import com.example.aion_app.minigame.NUDGE_KEEP_GOING_MS
 import com.example.aion_app.minigame.Nudge
 import com.example.aion_app.minigame.PoseInput
 import com.example.aion_app.minigame.Vec2
@@ -40,6 +42,7 @@ data class BoardSnapshot(
     override val poseVisible: Boolean = false,
     override val nudge: Nudge = Nudge.NONE,
     override val cleared: Boolean = false,
+    override val idleMs: Long = 0L,
 ) : MinigameStatus
 
 class BoardGameEngine(
@@ -61,8 +64,8 @@ class BoardGameEngine(
     private val clearThreshold: Float = 0.93f,
     /** 이만큼 아무 진전이 없으면 남은 얼룩이 저절로 옅어진다 (수업 중 막힘 방지) */
     private val assistAfterIdleMs: Long = 30_000L,
-    private val nudgeKeepGoingAfterMs: Long = 60_000L,
-    private val nudgeHowToQuitAfterMs: Long = 180_000L,
+    private val nudgeKeepGoingAfterMs: Long = NUDGE_KEEP_GOING_MS,
+    private val nudgeHowToQuitAfterMs: Long = NUDGE_HOW_TO_QUIT_MS,
 ) {
 
     private class BoardRect(val left: Float, val top: Float, val width: Float, val height: Float)
@@ -258,6 +261,7 @@ class BoardGameEngine(
             poseVisible = poseVisible,
             nudge = nudge,
             cleared = cleared,
+            idleMs = idleElapsedMs,
         )
     }
 
