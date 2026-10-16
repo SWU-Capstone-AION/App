@@ -36,6 +36,29 @@ class WatchHeartRateTest {
     }
 
     @Test
+    fun `기준선이 잡힌 뒤 오래 높은 심박은 상동행동이 아니어도 기준선을 밀어 올리지 않는다`() {
+        // 실기기 상황: 평소 70으로 기준선이 잡힌 뒤, 상동행동이 아닌 움직임으로 5분 동안 120
+        for (i in 0 until 300) WatchHeartRate.onReceived(70, at = t0 + i * 1_000L, receivedAt = t0 + i * 1_000L)
+        assertTrue(WatchHeartRate.hrState.value.baseline.ready)
+
+        for (i in 300 until 600) WatchHeartRate.onReceived(120, at = t0 + i * 1_000L, receivedAt = t0 + i * 1_000L)
+
+        val b = WatchHeartRate.hrState.value.baseline
+        assertEquals(70.0, b.m, 1e-9)                 // 고치기 전에는 120 쪽으로 밀려 올라갔다
+        assertEquals(S_FLOOR, b.s, 1e-9)
+        // 그래서 지금 120은 여전히 "높음"으로 읽힌다
+        assertEquals(1.0, WatchHeartRate.hrState.value.risk(t0 + 599_000)!!, 1e-9)
+    }
+
+    @Test
+    fun `평소보다 조금 높은 값은 기준선에 들어간다 (평소 심박이 서서히 바뀌는 경우)`() {
+        for (i in 0 until 300) WatchHeartRate.onReceived(70, at = t0 + i * 1_000L, receivedAt = t0 + i * 1_000L)
+        // 72 = 위험도 (72 − 70) ÷ 6 = 0.33 < 0.7 → 들어간다
+        for (i in 300 until 900) WatchHeartRate.onReceived(72, at = t0 + i * 1_000L, receivedAt = t0 + i * 1_000L)
+        assertEquals(72.0, WatchHeartRate.hrState.value.baseline.m, 1e-9)
+    }
+
+    @Test
     fun `잰 시각에 상동행동 중이었으면 늦게 와도 기준선에서 뺀다`() {
         // 50초 무렵 비전 AI가 상동행동을 봤다
         WatchHeartRate.onVision(1.0, now = t0 + 50_000)
