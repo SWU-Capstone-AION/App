@@ -29,6 +29,10 @@ interface MinigameStatus {
     val handSize: Float
     val nudge: Nudge
     val cleared: Boolean
-    /** 마지막으로 게임 동작(잡초 잡기·뽑기, 칠판 지우기)을 한 뒤 지난 시간. 3분 무동작 종료에 쓴다 */
-    val idleMs: Long
+    /**
+     * 마지막으로 게임 동작(잡초 잡기·뽑기, 칠판 지우기)을 한 시각(ms, System.currentTimeMillis 기준). 없으면 0.
+     * 3분 무동작 종료에 쓴다. 엔진의 무반응 시간은 아이가 화면에 안 보이면 멈추기 때문에(안내 문구용),
+     * 종료 판단은 이 시각부터 실제 시계로 잰다. 그래야 아이가 자리를 떠나도 3분 뒤 홈으로 돌아간다.
+     */
+    val lastActiveAt: Long
 }

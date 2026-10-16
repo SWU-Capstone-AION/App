@@ -42,7 +42,7 @@ data class BoardSnapshot(
     override val poseVisible: Boolean = false,
     override val nudge: Nudge = Nudge.NONE,
     override val cleared: Boolean = false,
-    override val idleMs: Long = 0L,
+    override val lastActiveAt: Long = 0L,
 ) : MinigameStatus
 
 class BoardGameEngine(
@@ -62,13 +62,16 @@ class BoardGameEngine(
     private val erasePerSecond: Float = 1.8f,
     /** 이 비율만큼 지우면 완료. 구석 한 칸까지 강요하지 않는다. */
     private val clearThreshold: Float = 0.93f,
-    /** 이만큼 아무 진전이 없으면 남은 얼룩이 저절로 옅어진다 (수업 중 막힘 방지) */
-    private val assistAfterIdleMs: Long = 30_000L,
     private val nudgeKeepGoingAfterMs: Long = NUDGE_KEEP_GOING_MS,
     private val nudgeHowToQuitAfterMs: Long = NUDGE_HOW_TO_QUIT_MS,
 ) {
 
-    private class BoardRect(val left: Float, val top: Float, val width: Float, val height: Float)
+    private class BoardRect(val left: Float, val top: Float, val width: Float, val height: Float) {
+        /** 칠판 사각형을 [margin] 만큼 넓혀서 그 안에 점이 있는지 */
+        fun contains(p: Vec2, margin: Float = 0f): Boolean =
+            p.x >= left - margin && p.x <= left + width + margin &&
+                p.y >= top - margin && p.y <= top + height + margin
+    }
 
     /** 칸별 남은 얼룩. 인덱스 = row * columns + column */
     private val dirt = FloatArray(columns * rows) { 1f }
@@ -79,6 +82,7 @@ class BoardGameEngine(
 
     private var lastUpdateMs = 0L
     private var idleElapsedMs = 0L
+    private var lastActiveAt = 0L
 
     fun reset() {
         dirt.fill(1f)
@@ -111,13 +115,16 @@ class BoardGameEngine(
         if (s <= 1f) return snapshot(poseVisible = false)
 
         val rect = boardRect(center, s, pose.viewWidth, pose.viewHeight)
-        val wrists = listOfNotNull(pose.leftWrist, pose.rightWrist)
         val eraserRadius = eraserRadiusInS * s
+        // 칠판 근처(칠판 + 지우개 반경)에 있는 손만 쓴다.
+        // 내린 손(책상·무릎)이나 화면 가장자리에서 추정된 손목까지 손 아이콘으로 그려져
+        // 한 손만 들어도 손이 두 개 보였다. 칠판 밖의 손은 원래도 지우지 못하므로 동작은 같다.
+        val wrists = listOfNotNull(pose.leftWrist, pose.rightWrist)
+            .filter { rect.contains(it, margin = eraserRadius) }
 
         val erased = erase(wrists, rect, eraserRadius, dt)
         idleElapsedMs = if (erased) 0L else idleElapsedMs + dtMs
-
-        applyAssist(dt)
+        if (erased) lastActiveAt = nowMs
 
         return snapshot(
             poseVisible = true,
@@ -201,14 +208,6 @@ class BoardGameEngine(
         return erased
     }
 
-    /** 오래 진전이 없으면 남은 얼룩을 서서히 옅게 만들어 막힘을 푼다. */
-    private fun applyAssist(dt: Float) {
-        if (idleElapsedMs < assistAfterIdleMs || dt <= 0f) return
-        for (i in dirt.indices) {
-            if (dirt[i] > 0f) dirt[i] = max(0f, dirt[i] - ASSIST_PER_SECOND * dt)
-        }
-    }
-
     private fun snapshot(
         poseVisible: Boolean,
         wrists: List<Vec2> = emptyList(),
@@ -261,7 +260,7 @@ class BoardGameEngine(
             poseVisible = poseVisible,
             nudge = nudge,
             cleared = cleared,
-            idleMs = idleElapsedMs,
+            lastActiveAt = lastActiveAt,
         )
     }
 
@@ -271,6 +270,5 @@ class BoardGameEngine(
         const val VISIBLE_MIN = 0.02f
         /** 지웠다고 인정하는 최소 변화량 (무반응 타이머 판정용) */
         const val ERASE_EPSILON = 0.001f
-        const val ASSIST_PER_SECOND = 0.05f
     }
 }

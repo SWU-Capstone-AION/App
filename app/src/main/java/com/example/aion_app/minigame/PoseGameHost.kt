@@ -169,7 +169,6 @@ fun <S : MinigameStatus> PoseGameHost(
     val exit by rememberUpdatedState(onExit)
     val enteredAt = remember { System.currentTimeMillis() }
     var startedAt by remember { mutableLongStateOf(0L) }
-    var snapshotAt by remember { mutableLongStateOf(0L) }
 
     // 오버레이 크기는 추론 콜백(백그라운드 스레드)에서 읽으므로 원자적으로 보관한다.
     val overlaySize = remember { AtomicReference(IntSize.Zero) }
@@ -190,10 +189,7 @@ fun <S : MinigameStatus> PoseGameHost(
                         viewHeight = size.height.toFloat(),
                     )
                     val next = update(pose, System.currentTimeMillis())
-                    mainHandler.post {
-                        snapshot = next
-                        snapshotAt = System.currentTimeMillis()
-                    }
+                    mainHandler.post { snapshot = next }
                 }
             },
             onError = { message ->
@@ -246,11 +242,11 @@ fun <S : MinigameStatus> PoseGameHost(
         while (true) {
             delay(1_000)
             val now = System.currentTimeMillis()
-            val last = snapshot
-            val idle = when {
-                startedAt == 0L -> now - enteredAt          // 안내창에서 시작을 안 누름
-                last == null -> now - startedAt             // 시작했지만 카메라 결과가 아직 없음
-                else -> last.idleMs + (now - snapshotAt)    // 마지막 결과 뒤로 흐른 시간까지 더한다
+            // 실제 시계로 잰다. 아이가 화면 밖으로 나가 어깨가 안 잡혀도 시간은 흐른다.
+            val idle = if (startedAt == 0L) {
+                now - enteredAt                                         // 안내창에서 시작을 안 누름
+            } else {
+                now - maxOf(startedAt, snapshot?.lastActiveAt ?: 0L)    // 시작 또는 마지막 동작부터
             }
             if (idle >= GAME_IDLE_EXIT_MS) {
                 exit()
@@ -435,7 +431,7 @@ private fun DrawScope.drawHands(state: MinigameStatus) {
 private const val HAND_ICON = "✋"
 
 /**
- * 게임 완료 팝업. 아동 홈의 진정 제안 팝업과 같은 모양(흰 카드 + 동그란 아이콘 + 아래 꽉 찬 버튼)으로 맞췄다.
+ * 게임 완료 팝업. 아동 홈의 진정 제안 팝업과 같은 모양(흰 카드 + 동그란 아이콘 + 아래 꽉 찬 [확인] 버튼)으로 맞췄다.
  *
  * 아동 홈 팝업은 시안 프레임(930x582)을 화면에 맞춰 키우는 틀(KidsDesignScale) 안에 있고, 게임 화면은
  * 그 틀 밖이라 같은 dp로 그리면 태블릿에서 작아 보인다. 그래서 크기·글자를 약 1.3배로 잡았다.
@@ -508,7 +504,7 @@ private fun BoxScope.ClearedOverlay(message: String, onExit: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "홈으로",
+                    text = "확인",
                     color = White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,

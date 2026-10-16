@@ -41,7 +41,7 @@ data class GameSnapshot(
     override val poseVisible: Boolean = false,
     override val nudge: Nudge = Nudge.NONE,
     override val cleared: Boolean = false,
-    override val idleMs: Long = 0L,
+    override val lastActiveAt: Long = 0L,
 ) : MinigameStatus
 
 class WeedGameEngine(
@@ -94,6 +94,7 @@ class WeedGameEngine(
     private var pulledCount = 0
     private var lastUpdateMs = 0L
     private var idleElapsedMs = 0L
+    private var lastActiveAt = 0L
 
     fun reset() {
         weeds.clear()
@@ -101,6 +102,7 @@ class WeedGameEngine(
         anchorS = 0f
         pulledCount = 0
         idleElapsedMs = 0L
+        lastActiveAt = 0L
         lastUpdateMs = 0L
     }
 
@@ -134,6 +136,7 @@ class WeedGameEngine(
         val interacted = stepStateMachine(wrists, s)
 
         idleElapsedMs = if (interacted) 0L else idleElapsedMs + dt
+        if (interacted) lastActiveAt = nowMs
 
         applyAssist()
 
@@ -334,7 +337,7 @@ class WeedGameEngine(
             poseVisible = poseVisible,
             nudge = nudge,
             cleared = cleared,
-            idleMs = idleElapsedMs,
+            lastActiveAt = lastActiveAt,
         )
     }
 
