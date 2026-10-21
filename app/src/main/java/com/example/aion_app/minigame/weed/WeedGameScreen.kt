@@ -42,7 +42,9 @@ fun WeedGameScreen(
     PoseGameHost(
         title = "잡초를 전부 뽑아보자!",
         introMessage = "잡초를 손으로 잡고 위로 쑥 뽑아 줘!\n천천히 해도 괜찮아.",
-        clearedMessage = "다 뽑았어! 잘했어",
+        clearedMessage = "잡초를 다 뽑았어!",
+        idleStartHint = "잡초에 손을 대고 위로 쑥 뽑아 볼까?",
+        idleResumeHint = "잡초가 조금 남았어! 하나만 더 뽑아 볼까?",
         onExit = onExit,
         onForceClear = { engine.forceClear() },
         onGameStateChanged = onGameStateChanged,

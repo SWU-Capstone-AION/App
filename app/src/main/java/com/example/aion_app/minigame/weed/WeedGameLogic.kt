@@ -1,6 +1,8 @@
 package com.example.aion_app.minigame.weed
 
 import com.example.aion_app.minigame.MinigameStatus
+import com.example.aion_app.minigame.NUDGE_HOW_TO_QUIT_MS
+import com.example.aion_app.minigame.NUDGE_KEEP_GOING_MS
 import com.example.aion_app.minigame.Nudge
 import com.example.aion_app.minigame.PoseInput
 import com.example.aion_app.minigame.Vec2
@@ -39,6 +41,7 @@ data class GameSnapshot(
     override val poseVisible: Boolean = false,
     override val nudge: Nudge = Nudge.NONE,
     override val cleared: Boolean = false,
+    override val lastActiveAt: Long = 0L,
 ) : MinigameStatus
 
 class WeedGameEngine(
@@ -64,10 +67,8 @@ class WeedGameEngine(
     private val pullRatio: Float = 0.8f,
     /** 잡은 뒤 손이 이만큼 옆으로 벗어나면 취소 (S 배수) */
     private val cancelDistanceInS: Float = 0.55f,
-    /** 이만큼 아무 진전이 없으면 남은 잡초를 몸 쪽으로 당겨준다 (수업 중 막힘 방지) */
-    private val assistAfterIdleMs: Long = 30_000L,
-    private val nudgeKeepGoingAfterMs: Long = 60_000L,
-    private val nudgeHowToQuitAfterMs: Long = 180_000L,
+    private val nudgeKeepGoingAfterMs: Long = NUDGE_KEEP_GOING_MS,
+    private val nudgeHowToQuitAfterMs: Long = NUDGE_HOW_TO_QUIT_MS,
     private val random: Random = Random.Default,
 ) {
 
@@ -91,6 +92,7 @@ class WeedGameEngine(
     private var pulledCount = 0
     private var lastUpdateMs = 0L
     private var idleElapsedMs = 0L
+    private var lastActiveAt = 0L
 
     fun reset() {
         weeds.clear()
@@ -98,6 +100,7 @@ class WeedGameEngine(
         anchorS = 0f
         pulledCount = 0
         idleElapsedMs = 0L
+        lastActiveAt = 0L
         lastUpdateMs = 0L
     }
 
@@ -131,8 +134,7 @@ class WeedGameEngine(
         val interacted = stepStateMachine(wrists, s)
 
         idleElapsedMs = if (interacted) 0L else idleElapsedMs + dt
-
-        applyAssist()
+        if (interacted) lastActiveAt = nowMs
 
         return snapshot(poseVisible = true, wrists = wrists)
     }
@@ -298,16 +300,6 @@ class WeedGameEngine(
             wrist.y <= w.pos.y + height * 0.3f
     }
 
-    /** 오래 진전이 없으면 남은 잡초를 몸 쪽으로 당겨 막힘을 푼다. */
-    private fun applyAssist() {
-        if (weeds.isEmpty() || idleElapsedMs < assistAfterIdleMs) return
-        weeds.forEach { w ->
-            if (w.state != WeedState.PULLED && w.radiusInS > ASSIST_TARGET_RADIUS) {
-                w.radiusInS = max(ASSIST_TARGET_RADIUS, w.radiusInS - ASSIST_STEP)
-            }
-        }
-    }
-
     private fun snapshot(
         poseVisible: Boolean,
         wrists: List<Vec2> = emptyList(),
@@ -331,13 +323,12 @@ class WeedGameEngine(
             poseVisible = poseVisible,
             nudge = nudge,
             cleared = cleared,
+            lastActiveAt = lastActiveAt,
         )
     }
 
     private companion object {
         const val SMOOTHING = 0.25f
         const val EPSILON = 1e-4f
-        const val ASSIST_TARGET_RADIUS = 1.0f
-        const val ASSIST_STEP = 0.01f
     }
 }

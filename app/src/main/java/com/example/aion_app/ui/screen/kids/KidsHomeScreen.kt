@@ -43,13 +43,15 @@ import com.example.aion_app.ui.theme.LightActive
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.Red
 import com.example.aion_app.ui.theme.White
+import com.example.aion_app.watch.HrState
+import kotlinx.coroutines.flow.StateFlow
 
 // ============================================================
 // 아동용 홈
 // ============================================================
 // 시안 3장(홈 / 진정 제안 팝업 / 호흡)이 사실상 한 화면의 3가지 상태다.
-// 호흡은 30초 안에 끝나고 홈으로 돌아오는 흐름이라 라우트를 나누지 않고
-// 내부 상태로 전환한다.
+// 호흡은 30초(심박이 올라가 있었으면 심박이 내려갈 때까지, 최대 2분) 안에 끝나고
+// 홈으로 돌아오는 흐름이라 라우트를 나누지 않고 내부 상태로 전환한다.
 //
 //   CALM           평소 화면
 //   PROMPT_DETECTED 상동행동이 감지되어 뜬 팝업
@@ -167,8 +169,10 @@ fun KidsHomeScreen(
     onProfileClick: () -> Unit = {},
     // "도움이 필요해요"를 눌렀을 때 (교사에게 알림 전송 등)
     onHelpRequest: () -> Unit = {},
-    // 호흡 4회를 끝까지 마쳤을 때 (포인트 지급 등)
+    // 호흡으로 진정했을 때 = 심박이 평소로 내려감 또는 4회 완료 (포인트 지급 등)
     onBreathingComplete: () -> Unit = {},
+    // 워치 심박 (WatchHeartRate.hrState). 호흡을 심박으로 끝낼 때 쓴다. null 이면 4회만
+    heartRate: StateFlow<HrState>? = null,
     // 잡초 뽑기 미니게임으로 이동
     onWeedGameClick: () -> Unit = {},
     // 칠판 지우기 미니게임으로 이동
@@ -209,6 +213,7 @@ fun KidsHomeScreen(
         KidsBreathingScreen(
             onProfileClick = onProfileClick,
             onHelpRequest = onHelpRequest,
+            heartRate = heartRate,
             onFinish = { completed ->
                 if (completed) onBreathingComplete()
                 mode = KidsHomeMode.CALM

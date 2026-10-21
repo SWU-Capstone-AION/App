@@ -24,6 +24,14 @@ private const val BEHAVIOR_KEEP_MS = 15 * 60_000L
 private const val BEHAVIOR_SCORE = 0.5
 
 /**
+ * 기준선이 준비된 뒤, 위험도가 이 값 이상(빨강 = 평소 + 1.4S 이상)인 심박은 기준선에 넣지 않는다.
+ * 비전 AI는 상동행동만 걸러서, 걷기·게임처럼 상동행동이 아닌 움직임으로 오른 심박은 "조용함"으로 들어갔다.
+ * 실기기에서 5분 동안 90~130 bpm이 그대로 들어가 기준선이 67 → 95로 올라갔고, 그 뒤 진짜 상승을 놓쳤다.
+ * 평소 심박이 서서히 바뀌는 것은 이보다 낮은 값들로 천천히 따라간다.
+ */
+private const val BASELINE_EXCLUDE_RISK = 0.7
+
+/**
  * 워치에서 받은 심박을 앱 안에서 모아 두는 곳.
  *
  *  - displayBpm: 5초 평균. 화면 숫자와 서버 전송값 (5초마다 갱신, 20초 끊기면 null)
@@ -89,8 +97,11 @@ object WatchHeartRate {
         val check = filter.check(bpm, t)
         val valid = check == HrFilter.Result.OK
         val behavior = behaviorAt(t)
+        // 평소보다 확실히 높은 값은 상동행동이 감지되지 않았어도 조용한 구간으로 보지 않는다
+        val current = baseline.current()
+        val elevated = valid && current.ready && current.risk(bpm) >= BASELINE_EXCLUDE_RISK
         // 기준선에는 조용한 구간의 유효한 값만, 보류 시간(90초)을 넘긴 뒤에 넣는다
-        val gated = gate.offer(bpm, t, behavior, valid)
+        val gated = gate.offer(bpm, t, behavior, valid && !elevated)
         gated.commit.forEach { (time, b) -> baseline.add(time, b) }
         _pending.value = gate.pendingCount
 
@@ -117,6 +128,7 @@ object WatchHeartRate {
                 behavior -> "제외: 상동행동 중"
                 !gated.quietNow -> "제외: 행동 뒤 회복 2분"
                 !valid -> "제외: 이상치"
+                elevated -> "제외: 평소보다 높음(위험도 0.7 이상)"
                 else -> "보류: 90초 뒤 기준선"
             },
             gated.commit.takeIf { it.isNotEmpty() }
