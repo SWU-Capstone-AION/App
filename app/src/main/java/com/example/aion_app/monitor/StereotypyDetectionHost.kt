@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.example.aion_app.monitor.camera.PoseCameraView
+import com.example.aion_app.monitor.ml.StereotypyMlDetector
 import com.example.aion_app.monitor.net.DetectionSender
 import com.example.aion_app.monitor.pose.MinigameGate
 import com.example.aion_app.monitor.pose.PoseIndex
@@ -82,6 +83,13 @@ fun StereotypyDetectionHost(
 
     val detector = remember { StereotypyDetector() }
 
+    // 학습모델(TFLite). assets 에 model_1.tflite / model_meta.json 이 없으면 null 이 되고
+    // 규칙모델만으로 그대로 동작한다.
+    val mlDetector = remember { StereotypyMlDetector.createOrNull(context) }
+    DisposableEffect(mlDetector) {
+        onDispose { mlDetector?.close() }
+    }
+
     // 아동 화면에 있는 동안 워치 심박을 Wi-Fi로도 받는다 (갤럭시 탭은 워치와 페어링이 안 됨)
     // 화면이 꺼지면 카메라 감지가 멈추고 삼성 배터리 절약이 앱을 얼려 심박도 못 받으므로 화면을 켜 둔다
     val view = LocalView.current
@@ -105,7 +113,10 @@ fun StereotypyDetectionHost(
     DisposableEffect(active) {
         onDispose {
             detector.reset()
+            mlDetector?.reset()
             StereotypySignal.detected = false
+            StereotypySignal.mlScore = null
+            StereotypySignal.mlAlarm = false
             // 감지가 꺼졌다는 걸 서버에도 알린다. 안 보내면 교사앱 게이지가
             // 마지막 점수에서 멈춘 채로 남는다.
             DetectionSender.send(0.0, force = true)
@@ -139,6 +150,25 @@ fun StereotypyDetectionHost(
                     rightWrist = point(PoseIndex.RIGHT_WRIST),
                 )
                 StereotypySignal.detected = state.anyAlarm
+
+                // 학습모델 판정 (0.5초마다 점수 갱신)
+                // 미니게임 중에는 규칙모델처럼 멈추고, 다시 시작할 때 처음부터 2초를 모은다.
+                // ⚠ 지금은 점수를 StereotypySignal 에 올리기만 한다.
+                //   규칙모델·심박과 어떻게 합칠지(알람·서버 전송)는 팀에서 정한 뒤 연결할 것.
+                if (mlDetector != null) {
+                    if (MinigameGate.active) {
+                        mlDetector.reset()
+                        StereotypySignal.mlScore = null
+                        StereotypySignal.mlAlarm = false
+                    } else {
+                        val ml = mlDetector.update(bundle.result.timestampMs(), lm)
+                        if (ml.updated) {
+                            StereotypySignal.mlScore = ml.score
+                            StereotypySignal.mlAlarm = ml.alarm
+                        }
+                    }
+                }
+
                 // 반복 동작 중인 심박은 개인 기준선에 넣지 않는다
                 WatchHeartRate.onVision(state.score)
 
