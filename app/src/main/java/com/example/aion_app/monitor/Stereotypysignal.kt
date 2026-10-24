@@ -19,4 +19,11 @@ object StereotypySignal {
     // StereotypyDetector.State.anyAlarm
     // 쓰는 곳: StereotypyDetectionHost / 읽는 곳: KidsHomeScreen
     var detected by mutableStateOf(false)
+
+    // 학습모델(TFLite) 점수 0~1. 판정 전이거나 사람이 잘 안 잡힌 구간이면 null
+    // 쓰는 곳: StereotypyDetectionHost (0.5초마다 갱신)
+    var mlScore by mutableStateOf<Float?>(null)
+
+    // 학습모델 알람 (0.5 이상 2번 연속이면 켜짐, 0.35 아래면 꺼짐 — model_meta.json 값)
+    var mlAlarm by mutableStateOf(false)
 }

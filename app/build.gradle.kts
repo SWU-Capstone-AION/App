@@ -67,8 +67,9 @@ android {
         unitTests.isReturnDefaultValues = true
     }
     // MediaPipe .task 모델은 압축하면 못 읽으므로 그대로 둔다 (모니터링 기능 필수)
+    // 학습모델 .tflite 도 같은 이유로 압축하지 않는다 (압축되면 openFd 에서 에러)
     androidResources {
-        noCompress += "task"
+        noCompress += listOf("task", "tflite")
     }
 }
 
@@ -114,6 +115,9 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
+
+    // 상동행동 학습모델 실행 (assets/model_1.tflite, com.example.aion_app.monitor.ml)
+    implementation("org.tensorflow:tensorflow-lite:2.16.1")
 
     // Firebase — BoM이 버전을 관리하므로 개별 라이브러리엔 버전 안 씀
     implementation(platform("com.google.firebase:firebase-bom:34.17.0"))
