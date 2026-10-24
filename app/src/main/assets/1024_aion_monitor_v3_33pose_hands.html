@@ -1,0 +1,2331 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AION Stereotypy Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --green:#34c6ff; --cyan:#00e0ff; --amber:#ffb020; --red:#ff5a3c;
+    --blue:#3b6dff;
+    --feed-w:clamp(380px, 42vw, 800px);  /* 가운데 라이브 창 폭 */
+    --edge:14px;                          /* 화면 가장자리 여백 */
+    --cgap:14px;                          /* 패널과 라이브 창 사이 간격 */
+    --ink:#cfe6ff; --ink-dim:#7fa6cf;
+    --line:rgba(52,198,255,0.30);
+    --panel:rgba(5,11,18,0.86);
+    --mono:'Share Tech Mono', ui-monospace, monospace;
+    --kr:'IBM Plex Sans KR','Share Tech Mono',sans-serif;
+    --disp:'Orbitron','IBM Plex Sans KR',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;overflow:hidden;background:#04070e;color:var(--ink);font-family:var(--kr);-webkit-font-smoothing:antialiased;}
+
+  /* ===== 영상 스테이지 (중앙 소형 라이브 창) ===== */
+  .stage{position:fixed;top:64px;left:50%;transform:translateX(-50%);
+    width:var(--feed-w);min-width:300px;height:clamp(300px,72vh,700px);
+    z-index:1;background:#000;overflow:hidden;
+    border:1px solid rgba(52,198,255,.40);
+    box-shadow:0 0 0 1px rgba(0,0,0,.7), 0 0 44px rgba(0,0,0,.8), 0 0 30px rgba(52,198,255,.12);}
+  #video,#overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+  #video{transform:scaleX(-1);filter:saturate(0.6) brightness(0.95);}
+  #overlay{transform:scaleX(-1);pointer-events:none;}
+  /* 스캔라인 */
+  .stage::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,0) 0 2px, rgba(0,0,0,0.14) 2px 3px);mix-blend-mode:multiply;opacity:.4;}
+  .vbracket{position:absolute;width:28px;height:28px;border:2px solid var(--green);opacity:.7;pointer-events:none;z-index:3;box-shadow:0 0 8px rgba(52,198,255,.4);}
+  .vbracket.tl{top:8px;left:8px;border-right:none;border-bottom:none;}
+  .vbracket.tr{top:8px;right:8px;border-left:none;border-bottom:none;}
+  .vbracket.bl{bottom:8px;left:8px;border-right:none;border-top:none;}
+  .vbracket.br{bottom:8px;right:8px;border-left:none;border-top:none;}
+  .vfeed-tag{position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:3;font-family:var(--mono);font-size:14px;color:var(--green);letter-spacing:1px;background:rgba(2,7,14,.7);padding:4px 10px;border:1px solid var(--line);}
+
+  .pre-start{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(2,6,12,0.86);text-align:center;padding:24px;z-index:5;}
+  .pre-start.hidden{display:none;}
+  .pre-start h3{font-family:var(--disp);font-weight:700;font-size:26px;color:var(--green);letter-spacing:1px;text-shadow:0 0 16px rgba(52,198,255,.5);margin-bottom:14px;}
+  .pre-start p{color:var(--ink-dim);font-family:var(--mono);font-size:15px;line-height:1.7;max-width:480px;margin-bottom:22px;}
+  #pre-start-btn{cursor:pointer;font-family:var(--mono);font-size:16px;letter-spacing:2px;padding:13px 34px;border:1px solid var(--green);background:rgba(52,198,255,.10);color:var(--green);transition:.15s;
+    clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);}
+  #pre-start-btn:hover{background:rgba(52,198,255,.2);box-shadow:0 0 22px rgba(52,198,255,.35);}
+
+  /* ===== HUD 오버레이 ===== */
+  .hud{position:fixed;inset:0;z-index:20;pointer-events:none;}
+  .hud > *{pointer-events:auto;}
+
+  /* 상단 바 */
+  .gv-header{position:absolute;top:0;left:0;right:0;height:58px;
+    display:flex;justify-content:space-between;align-items:center;gap:18px;padding:0 22px;
+    background:linear-gradient(180deg, rgba(3,8,16,0.82), rgba(3,8,16,0.10));backdrop-filter:blur(6px);border-bottom:1px solid var(--line);}
+  .gv-brand{display:flex;align-items:baseline;gap:15px;}
+  .gv-brand .logo{font-family:var(--disp);font-weight:900;font-size:28px;letter-spacing:2px;color:#eaf6ff;text-shadow:0 0 16px rgba(52,198,255,0.6);}
+  .gv-brand .logo b{color:var(--green);}
+  .gv-brand .ver{font-family:var(--mono);font-size:15px;color:var(--ink-dim);letter-spacing:1px;}
+  .gv-brand .sub{font-family:var(--mono);font-size:14px;color:var(--green);border:1px solid var(--line);padding:3px 10px;letter-spacing:1.5px;
+    clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);}
+  .video-ctrls{display:flex;gap:10px;align-items:center;}
+  select#camera-select{background:rgba(2,7,14,0.85);color:#cde4ff;border:1px solid var(--line);padding:8px 10px;font-family:var(--mono);font-size:14px;max-width:190px;}
+  .vbtn{cursor:pointer;font-family:var(--mono);font-size:15px;letter-spacing:1px;padding:9px 20px;border:1px solid var(--line);background:rgba(6,12,20,0.7);color:#cde4ff;transition:.15s;
+    clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);}
+  .vbtn.go{border-color:var(--green);color:var(--green);}
+  .vbtn.go:hover{background:rgba(52,198,255,.14);box-shadow:0 0 14px rgba(52,198,255,.25);}
+  .vbtn.stop{border-color:rgba(255,90,60,.5);color:var(--red);}
+  .vbtn:disabled{opacity:.4;cursor:not-allowed;}
+  .gv-status{font-family:var(--mono);font-size:16px;color:var(--ink-dim);display:flex;gap:14px;align-items:center;}
+  .status-dot{width:11px;height:11px;border-radius:50%;background:#2a344a;transition:.3s;}
+  .status-dot.active{background:var(--green);box-shadow:0 0 10px var(--green);}
+  .status-dot.warn{background:var(--amber);box-shadow:0 0 10px var(--amber);}
+  .status-dot.alarm{background:var(--red);box-shadow:0 0 12px var(--red);animation:blink 1s infinite;}
+  @keyframes blink{50%{opacity:.25;}}
+  #status-text{color:var(--ink);}
+
+  /* 알람 배너 */
+  .alert-banner{display:none;align-items:center;gap:16px;position:absolute;top:72px;left:50%;transform:translateX(-50%);z-index:60;width:min(680px,60vw);
+    padding:16px 22px;background:linear-gradient(90deg,#e01b0c,#8c0f04);border:2px solid #ff7a5f;color:#fff;
+    box-shadow:0 0 34px rgba(255,60,40,.55), 0 10px 50px rgba(0,0,0,.65);
+    clip-path:polygon(13px 0,100% 0,100% calc(100% - 13px),calc(100% - 13px) 100%,0 100%,0 13px);animation:alertpulse 1.3s ease-in-out infinite;}
+  .alert-banner.show{display:flex;}
+  @keyframes alertpulse{0%,100%{box-shadow:0 0 24px rgba(255,60,40,.5), 0 10px 50px rgba(0,0,0,.65);}50%{box-shadow:0 0 52px rgba(255,90,60,.85), 0 10px 50px rgba(0,0,0,.65);}}
+  .alert-icon{width:44px;height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid #fff;background:rgba(0,0,0,.25);color:#fff;font-size:24px;font-weight:700;font-family:var(--mono);
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+  .alert-text .title{font-size:20px;font-weight:700;color:#fff;}
+  .alert-text .subtitle{font-size:13px;font-family:var(--mono);opacity:1;margin-top:3px;color:#ffe1da;}
+
+  /* ===== 좌/우 클러스터 ===== */
+  .cluster{position:absolute;top:64px;bottom:10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;scrollbar-width:thin;}
+  .cluster.left{left:var(--edge);width:calc((100vw - var(--feed-w)) / 2 - var(--edge) - var(--cgap));}
+  .cluster.right{right:var(--edge);width:calc((100vw - var(--feed-w)) / 2 - var(--edge) - var(--cgap));}
+  .cluster::-webkit-scrollbar{width:6px;}
+  .cluster::-webkit-scrollbar-thumb{background:rgba(52,198,255,0.3);}
+
+  /* ===== 패널 (반투명) ===== */
+  .panel{position:relative;background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(8px) saturate(1.1);
+    clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);
+    padding:12px 16px 13px;box-shadow:0 0 22px rgba(0,0,0,0.45), inset 0 0 30px rgba(52,198,255,0.04);}
+  .panel.fill{display:flex;flex-direction:column;flex:0 0 auto;}
+  .panel-title{display:flex;align-items:center;gap:9px;justify-content:space-between;font-family:var(--mono);font-size:15px;letter-spacing:1.2px;color:var(--green);text-transform:uppercase;
+    padding-bottom:9px;margin-bottom:11px;border-bottom:1px solid var(--line);flex:0 0 auto;}
+  .panel-title .kr{font-family:var(--kr);font-weight:600;color:#eaf6ff;letter-spacing:.5px;font-size:19px;}
+  .panel-title .tag{color:var(--ink-dim);font-size:12px;}
+  .panel-title::before{content:"\25B8";color:var(--green);}
+
+  /* 추이 그래프 (고정 높이로 항상 완전히 보이게) */
+  .trend-wrap{position:relative;flex:0 0 auto;height:128px;}
+  .timeline-canvas{width:100%;height:100%;display:block;background:rgba(1,4,9,0.5);border:1px solid rgba(52,198,255,0.14);}
+  .trend-legend{display:flex;gap:16px;margin-top:9px;font-family:var(--mono);font-size:14px;color:var(--ink-dim);flex:0 0 auto;}
+  .trend-legend i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:6px;}
+
+  /* 게이지 */
+  .gauge{margin-bottom:12px;}
+  .gauge:last-child{margin-bottom:0;}
+  .gauge-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+  .gauge-head .lbl{font-size:17px;color:#cde4ff;font-weight:500;}
+  .gauge-head .tag{font-family:var(--mono);font-size:13px;padding:2px 9px;letter-spacing:1px;border:1px solid var(--line);color:var(--green);}
+  .gauge.alarm .gauge-head .tag{border-color:var(--red);color:var(--red);}
+  .progress-bar{position:relative;height:28px;background:rgba(1,4,9,0.6);border:1px solid rgba(52,198,255,0.16);overflow:hidden;}
+  .progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#1d5f9e,var(--green) 70%,#7fd6ff);box-shadow:0 0 12px rgba(52,198,255,0.5);transition:width .25s;}
+  .gauge.alarm .progress-fill{background:linear-gradient(90deg,#b21,var(--red));box-shadow:0 0 14px rgba(255,90,60,.6);}
+  .gauge.warn .progress-fill{background:linear-gradient(90deg,#8a5a0a,var(--amber));}
+  .progress-threshold{position:absolute;top:0;bottom:0;width:2px;left:32%;background:var(--amber);box-shadow:0 0 6px var(--amber);}
+  .progress-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--mono);font-size:16px;color:#eaf6ff;text-shadow:0 0 4px #000;letter-spacing:.5px;}
+
+  /* 시스템 메뉴 */
+  .sys-menu{display:flex;flex-direction:column;gap:9px;}
+  .sys-btn{position:relative;width:100%;text-align:left;cursor:pointer;background:rgba(6,12,20,0.5);border:1px solid var(--line);color:#cde4ff;
+    padding:11px 14px;display:flex;align-items:center;justify-content:space-between;font-family:var(--kr);transition:.15s;
+    clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);}
+  .sys-btn:hover{border-color:var(--green);background:rgba(52,198,255,0.08);box-shadow:0 0 14px rgba(52,198,255,0.12);}
+  .sys-btn .lab{display:flex;flex-direction:column;gap:2px;}
+  .sys-btn .lab b{font-size:18px;font-weight:600;letter-spacing:.4px;}
+  .sys-btn .lab span{font-family:var(--mono);font-size:12px;color:var(--ink-dim);letter-spacing:1px;}
+  .sys-btn .sys-state{font-family:var(--mono);font-size:13px;color:var(--ink-dim);border:1px solid var(--line);padding:3px 9px;letter-spacing:1px;}
+  .sys-btn.active{border-color:var(--green);background:rgba(52,198,255,0.12);}
+  .sys-btn.active .lab b{color:var(--green);text-shadow:0 0 8px rgba(52,198,255,.4);}
+  .sys-btn.active .sys-state{color:var(--green);border-color:var(--green);}
+  .rec-row{display:flex;gap:9px;margin-top:12px;}
+  .cyber-btn{flex:1;cursor:pointer;font-family:var(--mono);font-size:15px;letter-spacing:.5px;background:rgba(6,12,20,0.5);border:1px solid var(--line);color:#bfdcff;padding:9px 8px;transition:.15s;
+    clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);}
+  .cyber-btn:hover:not(:disabled){border-color:var(--green);color:var(--green);box-shadow:0 0 12px rgba(52,198,255,.15);}
+  .cyber-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .rec-meta{font-family:var(--mono);font-size:13px;color:var(--ink-dim);margin-top:9px;line-height:1.55;}
+
+  /* 운영 기록 */
+  .op-panel .op-body{flex:0 0 auto;display:flex;flex-direction:column;}
+  /* 실시간 손목 좌표 그래프 */
+  .wrist-graph-wrap{position:relative;flex:0 0 auto;height:150px;margin-bottom:9px;}
+  #wrist-graph{width:100%;height:100%;display:block;background:rgba(1,4,9,0.55);border:1px solid rgba(52,198,255,0.16);}
+  .wrist-legend{display:flex;gap:18px;align-items:center;font-family:var(--mono);font-size:14px;color:var(--ink-dim);margin-bottom:12px;flex:0 0 auto;}
+  .wrist-legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:6px;border-radius:2px;}
+  .wrist-legend #wrist-live{color:#cde4ff;letter-spacing:.3px;font-size:13px;}
+  .op-row{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid rgba(52,198,255,0.12);}
+  .op-row:last-child{border-bottom:none;}
+  .op-row .ok{display:flex;flex-direction:column;}
+  .op-row .ok b{font-size:19px;color:#eaf6ff;font-weight:500;}
+  .op-row .ok span{font-family:var(--mono);font-size:13px;color:var(--ink-dim);letter-spacing:.8px;}
+  .op-state-val,.op-bio-val{font-family:var(--mono);font-size:23px;letter-spacing:.5px;color:var(--green);}
+  .op-state-val.ok{color:var(--green);}
+  .op-state-val.warn{color:var(--amber);}
+  .op-state-val.alarm{color:var(--red);text-shadow:0 0 8px rgba(255,90,60,.5);}
+  #op-pose{font-family:var(--mono);font-size:19px;color:#cde4ff;letter-spacing:.3px;}
+  .op-bio-val.hot{color:var(--red);}
+
+  /* 정밀 분석 (기본 숨김) */
+  .analyst-panel{display:none;}
+  body.analyst-on .analyst-panel{display:block;}
+  .crit-block{margin-bottom:11px;}
+  .crit-block:last-child{margin-bottom:0;}
+  .crit-block > .ct{font-family:var(--mono);font-size:13px;color:var(--ink-dim);letter-spacing:1px;margin-bottom:6px;}
+  .crit-row{display:flex;align-items:center;gap:10px;padding:5px 0;}
+  .crit-mark{width:21px;height:21px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;background:rgba(52,198,255,0.1);color:var(--ink-dim);border:1px solid var(--line);}
+  .crit-mark.ok{background:rgba(52,198,255,0.22);color:var(--green);border-color:var(--green);}
+  .crit-mark.fail{background:rgba(255,90,60,0.16);color:var(--red);border-color:rgba(255,90,60,.5);}
+  .crit-name{flex:1;font-size:15px;color:#bfdcff;}
+  .crit-value{font-family:var(--mono);font-size:15px;color:var(--ink-dim);}
+  .coord-block{margin-top:11px;padding-top:11px;border-top:1px solid rgba(52,198,255,0.12);}
+  .coord-grid{display:grid;grid-template-columns:54px 1fr 1fr;gap:6px 10px;align-items:center;font-family:var(--mono);font-size:15px;}
+  .coord-head{font-size:13px;color:var(--ink-dim);letter-spacing:.5px;}
+  .coord-label{font-family:var(--mono);font-size:13px;padding:2px 7px;text-align:center;border:1px solid var(--line);}
+  .coord-label.left{color:var(--cyan);border-color:rgba(0,224,255,.4);}
+  .coord-label.right{color:#6db4ff;border-color:rgba(109,180,255,.4);}
+  .coord-val{color:#cde4ff;}
+  .coord-val .dim{color:var(--ink-dim);}
+
+  /* 세션 요약 */
+  .sess-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(52,198,255,0.12);}
+  .sess-row:last-child{border-bottom:none;}
+  .sess-row .sk{display:flex;flex-direction:column;}
+  .sess-row .sk b{font-size:17px;color:#eaf6ff;font-weight:500;}
+  .sess-row .sk span{font-family:var(--mono);font-size:12px;color:var(--ink-dim);letter-spacing:.8px;}
+  .sess-val{font-family:var(--mono);font-size:clamp(22px,2.9vh,28px);color:var(--green);letter-spacing:1px;text-shadow:0 0 10px rgba(52,198,255,.4);}
+  .sess-val.warn{color:var(--amber);text-shadow:0 0 10px rgba(255,176,32,.4);}
+
+  /* 하단 안내 (중앙 하단 오버레이) */
+  .footer-note{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);max-width:44vw;text-align:center;pointer-events:none;
+    font-family:var(--mono);font-size:13px;color:var(--ink-dim);line-height:1.45;letter-spacing:.2px;
+    background:rgba(2,7,14,0.85);padding:6px 14px;border:1px solid rgba(52,198,255,0.22);
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+
+  input[type="checkbox"]{position:absolute;opacity:0;pointer-events:none;}
+
+  /* 좁은 화면: 클러스터 폭 축소 / 매우 작으면 스크롤 허용 */
+  @media(max-width:1280px){ :root{--feed-w:clamp(340px, 40vw, 560px);} .footer-note{max-width:30vw;} }
+  @media(max-width:1080px){ :root{--feed-w:clamp(300px, 38vw, 460px);} }
+  /* 세로가 짧은 노트북: 메뉴/게이지 간격을 줄여 그래프 높이를 확보 */
+  @media(max-height:860px){
+    .cluster{gap:8px;top:62px;bottom:6px;}
+    .panel{padding:9px 13px 10px;}
+    .panel-title{padding-bottom:8px;margin-bottom:9px;}
+    .sys-menu{gap:6px;}
+    .sys-btn{padding:7px 12px;}
+    .sys-btn .lab b{font-size:17px;}
+    .gauge{margin-bottom:9px;}
+    .gauge-head{margin-bottom:5px;}
+    .progress-bar{height:25px;}
+    .op-row,.sess-row{padding:6px 0;}
+    .att-grid{margin-bottom:8px;}
+    .wrist-graph-wrap{height:118px;margin-bottom:7px;}
+    .wrist-legend{margin-bottom:9px;}
+    .rec-row{margin-top:9px;}
+    .rec-meta{margin-top:6px;}
+    .trend-wrap{height:88px;}
+  }
+  @media(max-height:620px){ html,body{overflow:auto;} }
+
+  
+  /* ===== v2 추가 스타일 ===== */
+  .vbtn.small{padding:9px 13px;font-size:14px;}
+  .vbtn.on{border-color:var(--green);color:var(--green);background:rgba(52,198,255,.12);}
+  select.hsel{background:rgba(2,7,14,0.85);color:#cde4ff;border:1px solid var(--line);padding:8px 8px;font-family:var(--mono);font-size:13px;}
+  .progress-threshold.red{background:var(--red);box-shadow:0 0 6px var(--red);}
+  .gauge.small{margin-bottom:9px;}
+  .gauge.small .gauge-head{margin-bottom:5px;}
+  .gauge.small .gauge-head .lbl{font-size:15px;}
+  .gauge.small .progress-bar{height:20px;}
+  .gauge.small .progress-text{font-size:13px;}
+  .gauge.na .progress-fill{width:0 !important;}
+  .gauge.na .progress-text{color:var(--ink-dim);}
+  .gauge.na .gauge-head .tag{color:var(--ink-dim);}
+  .stage-chip{font-family:var(--mono);font-size:14px;padding:3px 10px;border:1px solid var(--line);letter-spacing:1px;}
+  .stage-chip.ok{color:var(--green);border-color:var(--green);}
+  .stage-chip.warn{color:var(--amber);border-color:var(--amber);}
+  .stage-chip.alarm{color:var(--red);border-color:var(--red);text-shadow:0 0 8px rgba(255,90,60,.5);}
+  .op-state-val.na{color:var(--ink-dim);font-size:17px;}
+  #op-dl,#op-cal,#op-recog{font-family:var(--mono);font-size:14px;color:#cde4ff;text-align:right;max-width:62%;}
+  #part-graph{width:100%;height:100%;display:block;background:rgba(1,4,9,0.55);border:1px solid rgba(52,198,255,0.16);}
+  .slider-row{display:flex;align-items:center;gap:10px;padding:6px 0 2px;}
+  .slider-row input[type=range]{flex:1;accent-color:#34c6ff;}
+  .slider-row .crit-value{min-width:44px;text-align:right;}
+  .crit-note{font-family:var(--mono);font-size:12px;color:var(--ink-dim);line-height:1.5;margin-top:6px;}
+  .out-grid{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center;font-family:var(--mono);font-size:14px;}
+  .out-grid .k{color:var(--ink-dim);font-family:var(--kr);font-size:14px;}
+  .out-grid .v{color:#eaf6ff;text-align:right;}
+  .out-grid .v.big{font-size:20px;color:var(--green);text-shadow:0 0 8px rgba(52,198,255,.35);}
+  .out-sep{grid-column:1/-1;height:1px;background:rgba(52,198,255,0.14);margin:3px 0;}
+  .out-note{font-family:var(--mono);font-size:12px;color:var(--amber);margin-top:8px;line-height:1.5;}
+  .out-note.ok{color:var(--green);}
+  #out-json{margin-top:9px;max-height:170px;overflow:auto;font-family:var(--mono);font-size:12px;line-height:1.45;color:#9fc6ea;
+    background:rgba(1,4,9,0.6);border:1px solid rgba(52,198,255,0.14);padding:8px;white-space:pre;}
+  .alert-banner.repeat{background:linear-gradient(90deg,#b0007a,#5a0a6e);border-color:#ff7ad9;}
+  #alert-mode{width:100%;margin-top:4px;}
+  .cal-tag{font-family:var(--mono);font-size:11px;padding:1px 6px;border:1px solid var(--line);margin-left:6px;color:var(--ink-dim);}
+  .cal-tag.ok{color:var(--green);border-color:var(--green);}
+  .cal-tag.warn{color:var(--amber);border-color:var(--amber);}
+
+  .beh-group{margin-bottom:6px;}
+  .beh-group-title{font-family:var(--kr);font-weight:600;font-size:14px;margin:8px 0 4px;letter-spacing:.5px;}
+  .touch-dot{width:12px;height:12px;border-radius:50%;border:1px solid var(--line);display:inline-block;transition:.1s;}
+  .touch-dot.on{background:var(--amber);box-shadow:0 0 10px var(--amber);}
+  #op-touch{font-family:var(--mono);font-size:14px;color:#cde4ff;text-align:right;max-width:62%;}
+  #op-activity{font-size:18px;}
+</style>
+</head>
+<body>
+<!-- ===== 영상 스테이지 ===== -->
+<div class="stage">
+  <video id="video" autoplay playsinline muted></video>
+  <canvas id="overlay"></canvas>
+  <span class="vbracket tl"></span><span class="vbracket tr"></span>
+  <span class="vbracket bl"></span><span class="vbracket br"></span>
+  <span class="vfeed-tag">CAM_FEED · LIVE</span>
+  <div class="pre-start" id="pre-start">
+    <h3>STEREOTYPY MONITORING</h3>
+    <p>포즈 33개 관절과 손 21개 관절(양손)로 전신·머리·어깨·손가락·감각 상동행동 17가지를 분석합니다.<br>규칙모델과 학습모델이 각각 "지금 2초가 상동행동일 확률"을 내고, 두 확률을 가중 평균(소프트 보팅)합니다.<br>태블릿 화면을 두드리는 동안의 손 움직임은 목적 있는 행동으로 보고 점수를 낮춥니다.<br>모든 분석은 브라우저 안에서만 처리되며, 영상은 외부로 전송되지 않습니다.</p>
+    <button id="pre-start-btn">▶ 스캔 시작</button>
+  </div>
+</div>
+
+<!-- ===== HUD ===== -->
+<div class="hud">
+
+  <div class="gv-header">
+    <div class="gv-brand">
+      <span class="logo"><b>AI</b>ON</span>
+      <span class="ver">V27.0</span>
+      <span class="sub">SOFT VOTING</span>
+    </div>
+    <div class="video-ctrls">
+      <select id="camera-select" disabled></select>
+      <select id="model-select" class="hsel" title="포즈 인식 모델 — 빠름은 fps가 올라가 빠른 손 흔들기를 더 잘 잡지만 좌표가 조금 덜 정확함">
+        <option value="full">인식: 기본</option>
+        <option value="lite">인식: 빠름</option>
+        <option value="heavy">인식: 정밀</option>
+      </select>
+      <select id="hand-select" class="hsel" title="손 21개 관절 모델 — 손가락 행동(꼼지락·팔랑이기·눈 비비기)에 필요">
+        <option value="on">손 인식: 켜기</option>
+        <option value="off">손 인식: 끄기</option>
+      </select>
+      <button class="vbtn go" id="start-btn">▶ 시작</button>
+      <button class="vbtn stop" id="stop-btn" disabled>■ 정지</button>
+      <button class="vbtn small" id="dl-btn" title="model.json, 가중치(.bin), model_meta.json을 함께 선택">학습모델 불러오기</button>
+      <input type="file" id="dl-files" multiple accept=".json,.bin" style="display:none">
+      <button class="vbtn small" id="cfg-btn" title="검증 데이터로 만든 ensemble_config.json (보정값·가중치·기준값)">앙상블 설정 불러오기</button>
+      <input type="file" id="cfg-file" accept=".json" style="display:none">
+      <button class="vbtn small" id="csv-btn" disabled>기록 CSV</button>
+      <button class="vbtn small" id="game-btn" title="반복 동작이 필요한 게임 중이면 켜기 — 손·팔 행동 점수를 낮춤">게임 중</button>
+      <span class="touch-dot" id="touch-dot" title="화면을 누르거나 T를 누르고 있으면 터치 중"></span>
+      <button class="vbtn small" id="analyst-btn">정밀 분석</button>
+    </div>
+    <div class="gv-status">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">대기 중</span>
+      <span style="color:#1c2f4a">│</span>
+      <span id="fps-text">— fps</span>
+    </div>
+  </div>
+
+  <div class="alert-banner" id="alert-banner">
+    <div class="alert-icon">!</div>
+    <div class="alert-text">
+      <div class="title" id="alert-title">상동행동입니다. 안정을 취해주세요.</div>
+      <div class="subtitle" id="alert-subtitle">상동행동 확률이 4초 이상 이어짐</div>
+    </div>
+  </div>
+
+  <!-- ───── 좌측 ───── -->
+  <div class="cluster left">
+    <div class="panel fill">
+      <div class="panel-title"><span class="kr">확률 추이</span><span class="tag">PROB_TREND</span></div>
+      <div class="trend-wrap"><canvas class="timeline-canvas" id="timeline"></canvas></div>
+      <div class="trend-legend">
+        <span><i style="background:#eaf6ff"></i>앙상블</span>
+        <span><i style="background:#34c6ff"></i>규칙</span>
+        <span><i style="background:#b48cff"></i>학습</span>
+        <span><i style="background:#ffb020"></i>지속</span>
+        <span style="margin-left:auto">최근 <span id="timeline-window-label">30</span>s</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><span class="kr">모델 출력</span><span class="tag">P(상동행동 | 최근 2초)</span></div>
+      <div class="out-grid">
+        <span class="k">규칙 근거 점수 r (2초 평균)</span><span class="v" id="out-rule-r">—</span>
+        <span class="k">규칙모델 확률 <span class="cal-tag warn" id="rule-cal-tag">미보정</span></span><span class="v big" id="out-rule">—</span>
+        <span class="k">· 가장 높은 행동</span><span class="v" id="out-rule-part">—</span>
+        <span class="out-sep"></span>
+        <span class="k">학습모델 원출력</span><span class="v" id="out-dl-raw">—</span>
+        <span class="k">학습모델 확률 <span class="cal-tag" id="dl-cal-tag">보정 없음</span></span><span class="v big" id="out-dl">—</span>
+        <span class="out-sep"></span>
+        <span class="k">앙상블 확률 p</span><span class="v big" id="out-ens">—</span>
+        <span class="k">지속 점수 D (4초 = 1.0)</span><span class="v" id="out-dur">—</span>
+        <span class="k">· 단계 / 결합 방식</span><span class="v" id="out-ens-stage">—</span>
+      </div>
+      <div class="out-note" id="out-note">규칙모델 확률이 아직 보정되지 않았습니다. 지금 값은 설계 점수이며 확률로 해석할 수 없습니다.</div>
+      <pre id="out-json">{}</pre>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><span class="kr">세션 요약</span><span class="tag">SESSION_SUMMARY</span></div>
+      <div class="sess-row"><span class="sk"><b>세션 모니터링 시간</b><span>SESSION_TIME</span></span><span class="sess-val" id="sess-time">00:00:00</span></div>
+      <div class="sess-row"><span class="sk"><b>주의 이상 누계</b><span>WARN_TOTAL</span></span><span class="sess-val" id="sess-warn-total">00:00:00</span></div>
+      <div class="sess-row"><span class="sk"><b>위험 누계</b><span>ALARM_TOTAL</span></span><span class="sess-val" id="sess-alarm-total">00:00:00</span></div>
+      <div class="sess-row"><span class="sk"><b>위험 발생 (전체 / 최근 10분)</b><span>EPISODES</span></span><span class="sess-val warn" id="episode-count">0 / 0</span></div>
+      <div class="sess-row"><span class="sk"><b>알림 전송 수</b><span>ALERTS_SENT</span></span><span class="sess-val warn" id="alarm-count">0</span></div>
+      <div class="sess-row"><span class="sk"><b>최대 연속 감지 시간</b><span>PEAK_STREAK</span></span><span class="sess-val" id="peak-streak">00:00:00</span></div>
+    </div>
+  </div>
+
+  <!-- ───── 우측 ───── -->
+  <div class="cluster right">
+    <div class="panel">
+      <div class="panel-title"><span class="kr">앙상블 판정</span><span class="stage-chip ok" id="stage-chip">안정</span></div>
+      <div class="gauge" id="gauge-ens">
+        <div class="gauge-head"><span class="lbl">앙상블 확률 p</span><span class="tag" id="ens-tag">대기</span></div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="bar-ens"></div>
+          <div class="progress-threshold" id="th-ens"></div>
+          <div class="progress-text" id="bar-ens-text">—</div>
+        </div>
+      </div>
+      <div class="gauge small" id="gauge-dur">
+        <div class="gauge-head"><span class="lbl">지속 시간 (위험 = 가득 참)</span><span class="tag" id="dur-tag">DURATION</span></div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="bar-dur"></div>
+          <div class="progress-threshold" id="th-dur"></div>
+          <div class="progress-text" id="bar-dur-text">0.0s</div>
+        </div>
+      </div>
+      <div class="gauge small na" id="gauge-rule">
+        <div class="gauge-head"><span class="lbl">규칙모델 확률</span><span class="tag" id="rule-tag">RULE</span></div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="bar-rule"></div>
+          <div class="progress-text" id="bar-rule-text">—</div>
+        </div>
+      </div>
+      <div class="gauge small na" id="gauge-dl">
+        <div class="gauge-head"><span class="lbl">학습모델 확률</span><span class="tag" id="dl-tag">미연결</span></div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="bar-dl"></div>
+          <div class="progress-text" id="bar-dl-text">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel fill op-panel">
+      <div class="panel-title"><span class="kr">행동별 감지</span><span class="tag">BEHAVIORS · 2s</span></div>
+      <div class="wrist-graph-wrap"><canvas id="part-graph"></canvas></div>
+      <div class="wrist-legend" id="part-legend" style="flex-wrap:wrap;gap:10px 14px"></div>
+      <div id="part-gauges"></div>
+      <div class="op-body">
+        <div class="op-row"><span class="ok"><b>포즈</b><span>POSE</span></span><span id="op-pose">자세 분석 중…</span></div>
+        <div class="op-row"><span class="ok"><b>인식 상태</b><span>LANDMARKS</span></span><span id="op-recog">—</span></div>
+        <div class="op-row"><span class="ok"><b>태블릿 터치</b><span>TOUCH</span></span><span id="op-touch">—</span></div>
+        <div class="op-row"><span class="ok"><b>판정</b><span>STATUS</span></span><span class="op-state-val ok" id="op-activity">대기</span></div>
+        <div class="op-row"><span class="ok"><b>학습모델</b><span>DL_MODEL</span></span><span id="op-dl">미연결 · 규칙모델 단독</span></div>
+        <div class="op-row"><span class="ok"><b>보정·가중치</b><span>CALIBRATION</span></span><span id="op-cal">기본값 (미보정)</span></div>
+      </div>
+    </div>
+
+    <div class="panel analyst-panel">
+      <div class="panel-title"><span class="kr">정밀 분석</span><span class="tag">ANALYST_VIEW</span></div>
+      <div class="crit-block">
+        <div class="ct">ALERT · 알림 방식</div>
+        <select id="alert-mode" class="hsel">
+          <option value="immediate">위험 발생 시 바로 알림 (30초 간격 제한)</option>
+          <option value="count3">위험 3회 누적 시 1회 알림</option>
+        </select>
+        <div class="crit-note" id="alert-mode-note"></div>
+      </div>
+      <div class="crit-block">
+        <div class="ct">ENSEMBLE · 소프트 보팅</div>
+        <div class="slider-row">
+          <span class="crit-name">학습모델 비중 w</span>
+          <input type="range" id="w-slider" min="0" max="1" step="0.05">
+          <span class="crit-value" id="w-val">0.50</span>
+        </div>
+        <div class="slider-row">
+          <span class="crit-name">판정 기준값 τ</span>
+          <input type="range" id="tau-slider" min="0.2" max="0.9" step="0.05">
+          <span class="crit-value" id="tau-val">0.50</span>
+        </div>
+        <div class="crit-note">p = w × 학습확률 + (1 − w) × 규칙확률 · p ≥ τ 이면 그 2초는 '상동행동' · 이것이 4초 이어지면 '위험'<br>w, τ는 검증 데이터로 정한 값을 '앙상블 설정 불러오기'로 넣는 것이 원칙</div>
+      </div>
+      <div class="crit-block">
+        <div class="ct">COMMON · 공통</div>
+        <div class="crit-row"><span class="crit-mark ok">·</span><span class="crit-name">기준 길이 (어깨 너비)</span><span class="crit-value" id="scale-v">—</span></div>
+        <div class="crit-row"><span class="crit-mark ok">·</span><span class="crit-name">최소 반복 횟수</span><span class="crit-value" id="mincyc-v">—</span></div>
+      </div>
+      <div id="crit-parts"></div>
+    </div>
+  </div>
+
+  <div class="footer-note" id="footer-note">본 모니터링은 자동 검출 결과이며 임상 판단의 보조 자료로만 사용되어야 합니다.</div>
+
+  <div id="hidden-controls" style="display:none">
+    <input type="checkbox" id="sound-toggle" checked>
+    <input type="checkbox" id="overlay-toggle" checked>
+  </div>
+</div>
+
+<script type="module">
+import {
+  PoseLandmarker,
+  HandLandmarker,
+  FilesetResolver,
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/vision_bundle.mjs";
+
+// ===CORE-START===
+// ============================================================
+//  AION 규칙모델 v3 — 계산 부분 (화면과 분리 → 파이썬/코틀린으로 그대로 옮길 부분)
+//
+//  입력: MediaPipe 포즈 33개 관절(x, y, 보임 정도 + 3D) + 손 21개 관절 × 양손(2D + 3D)
+//  출력: 0.5초마다 "최근 2초가 상동행동일 확률" (검증 데이터로 보정한 값)
+//
+//  행동 17가지를 따로 감지
+//   리듬형      : 같은 동작이 일정한 박자로 3번 이상 → 진폭·주기성·중심편차 (+ 위치 조건)
+//   자세 유지형 : 눈 가리기·귀 막기 → 위치 조건 + 유지 시간 + 중심편차
+//  지속 시간(4초)은 두 모델 확률을 합친 뒤에 적용
+//  태블릿 터치 중에는 손·팔·손가락 행동 점수를 낮춤 (기능적 행동)
+// ============================================================
+const TH = {
+  fps: 30,
+  windowS: 2.0,              // 판정 구간 (학습모델과 같음)
+  strideS: 0.5,              // 판정 간격
+  analysisHz: 15,            // 리듬 분석을 초당 몇 번 할지 (계산량 조절)
+  minCycles: 3,              // 같은 동작 최소 3번 연속
+  durationS: 4.0,            // 앙상블 확률 ≥ τ가 4초 이어지면 위험
+  decayRate: 1.5,
+  durSoftness: 0.05,
+  centerWinMinS: 3.0,
+  centerDevMax: 0.35,        // SW
+  visibilityMin: 0.5,
+  looseVisMin: 0.2,
+  handScoreMin: 0.5,         // 손 모델 신뢰도
+  edgeMargin: 0.02,
+  scaleWindowS: 3.0,
+  scaleHoldS: 1.0,
+  scaleCarryS: 3.0,
+  refKeepS: 10.0,
+  dtCapS: 0.25,
+  keepS: 16.0,
+  timelineWindowS: 30.0,
+  regMin: 0.5,
+  regProminence: 0.3,
+  acfHz: 30,
+  minChannelValid: 0.7,
+  floorKeepS: 60,
+  floorMult: 2.5,
+  soft: { amp: 0.12, int: 0.10, cdev: 0.20, reg: 0.15, gate: 0.15 },
+  holdS: 1.5,                // 자세 유지형: 1.5초 유지 시 점수 0.5
+  holdGapS: 0.3,             // 잠깐 끊겨도 이어진 것으로 보는 시간
+  partCoverMin: 0.5,
+  lowFps: 20,                // 이보다 느리면 손가락 행동 '정확도 낮음'
+  // 기능적 행동 (터치)
+  touchTailS: 0.4,           // 탭이 끝난 뒤에도 '터치 중'으로 보는 시간
+  touchPenalty: 0.8,         // 점수 × (1 − 0.8 × f)
+  tapMatchTol: 0.25,         // 반복 박자가 탭 간격과 ±25% 안이면 f = 1
+  ensembleW: 0.5,
+  decision: 0.5,
+  alert: { mode: 'immediate', enterLevel: 0.999, exitLevel: 0.5, mergeGapS: 5, cooldownS: 30, countWindowS: 600, countNeed: 3 },
+  dlMaxGapS: 0.5,
+  dlKeepS: 4.0,
+};
+
+// MediaPipe 포즈 33개 관절 이름
+const POSE = {
+  nose: 0, leyeI: 1, leye: 2, leyeO: 3, reyeI: 4, reye: 5, reyeO: 6, lear: 7, rear: 8, mouthL: 9, mouthR: 10,
+  ls: 11, rs: 12, le: 13, re: 14, lw: 15, rw: 16, lpk: 17, rpk: 18, lix: 19, rix: 20, lth: 21, rth: 22,
+  lh: 23, rh: 24, lk: 25, rk: 26, la: 27, ra: 28, lhe: 29, rhe: 30, lft: 31, rft: 32,
+};
+// 학습모델 입력 (학습 때와 같은 13개 — model_meta.json의 joints가 있으면 그것을 따름)
+const JOINTS13 = [0, 2, 5, 7, 8, 11, 12, 13, 14, 15, 16, 23, 24];
+// 손 관절 번호: 0 손목 / 엄지 1~4 / 검지 5~8 / 중지 9~12 / 약지 13~16 / 새끼 17~20
+const FINGERS = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16], [17, 18, 19, 20]];
+const FINGER_NAMES = ['엄지', '검지', '중지', '약지', '새끼'];
+
+// ---------- 행동 정의 ----------
+//  ch   : [특징 이름, 화면 이름, 최소 진폭]   (sides: true면 _L/_R가 붙음)
+//  iMin/iMax : 한 번 반복 시간(초)
+//  vis  : 인식 확인에 쓸 부위 / gate: 프레임마다 보는 위치 조건 / winGate: 구간 전체로 보는 조건
+//  functional: 태블릿 터치 중 점수를 낮출 행동
+const BEHAVIORS = [
+  // 전신
+  { key: 'body_rock', label: '몸 앞뒤 흔들기', group: '전신', type: 'rhythm', iMin: 0.4, iMax: 2.5, vis: 'trunk',
+    ch: [['trunk_sw', '어깨 너비 변화', 0.08], ['trunk_face', '얼굴 폭 변화', 0.08], ['trunk_zlean', '3D 앞뒤 기울기', 0.04]] },
+  { key: 'body_sway', label: '몸 좌우 흔들기', group: '전신', type: 'rhythm', iMin: 0.4, iMax: 2.5, vis: 'trunk',
+    ch: [['trunk_x', '어깨 좌우', 0.08], ['trunk_tilt', '어깨선 기울기', 0.10]] },
+  // 머리
+  { key: 'head_roll', label: '머리 굴리기', group: '머리', type: 'circle', iMin: 0.5, iMax: 3.0, vis: 'head',
+    ch: [['head_x', '코 좌우', 0.10], ['head_y', '코 상하', 0.10]] },
+  { key: 'head_nod', label: '끄덕이기', group: '머리', type: 'rhythm', iMin: 0.25, iMax: 1.5, vis: 'head',
+    ch: [['head_pitch', '코-귀 높이차', 0.15]] },
+  { key: 'head_tilt', label: '갸웃거리기', group: '머리', type: 'rhythm', iMin: 0.4, iMax: 2.0, vis: 'head',
+    ch: [['head_roll', '귀 선 기울기', 0.15]] },
+  { key: 'head_turn', label: '고개 돌리기', group: '머리', type: 'rhythm', iMin: 0.3, iMax: 2.0, vis: 'head',
+    ch: [['head_yaw', '고개 돌림', 0.25]] },
+  // 어깨
+  { key: 'shrug', label: '으쓱하기', group: '어깨', type: 'rhythm', iMin: 0.4, iMax: 2.5, vis: 'trunk', winGate: 'shrug', aux: ['ear_y', 'sh_y'],
+    ch: [['shrug_mid', '양 어깨', 0.06], ['shrug_l', '왼 어깨', 0.06], ['shrug_r', '오른 어깨', 0.06]] },
+  { key: 'arch', label: '등 젖히기', group: '어깨', type: 'rhythm', iMin: 0.6, iMax: 4.0, vis: 'hips', experimental: true, needAll: true,
+    ch: [['trunk_zlean', '3D 뒤로 기울기', 0.04], ['head_pitch', '고개 젖힘', 0.15]] },
+  // 손·손가락
+  { key: 'flap', label: '손·팔 퍼덕이기', group: '손·손가락', type: 'rhythm', sides: true, iMin: 0.15, iMax: 1.0, vis: 'hand', functional: true,
+    ch: [['hand_y', '손 상하', 0.15], ['elbow_y', '팔꿈치 상하', 0.12], ['wflex', '손목 꺾임', 0.5]] },
+  { key: 'finger', label: '손가락 꼼지락·튕기기', group: '손·손가락', type: 'rhythm', sides: true, iMin: 0.12, iMax: 0.8, vis: 'handModel', functional: true, fingerType: true,
+    ch: [['curl0', '엄지 굽힘', 0.35], ['curl1', '검지 굽힘', 0.35], ['curl2', '중지 굽힘', 0.35], ['curl3', '약지 굽힘', 0.35], ['curl4', '새끼 굽힘', 0.35], ['curlm', '평균 굽힘', 0.35]] },
+  { key: 'flutter', label: '얼굴 앞 손가락 팔랑이기', group: '손·손가락', type: 'rhythm', sides: true, iMin: 0.12, iMax: 0.8, vis: 'handModel', gate: 'flutter',
+    ch: [['curl1', '검지 굽힘', 0.35], ['curl2', '중지 굽힘', 0.35], ['curl3', '약지 굽힘', 0.35], ['curl4', '새끼 굽힘', 0.35], ['curlm', '평균 굽힘', 0.35]] },
+  { key: 'clap', label: '박수', group: '손·손가락', type: 'rhythm', iMin: 0.2, iMax: 1.2, vis: 'bothHands', winGate: 'clap',
+    ch: [['hands_d', '양손 거리', 0.25]] },
+  { key: 'wave', label: '손·팔 흔들기', group: '손·손가락', type: 'rhythm', sides: true, iMin: 0.2, iMax: 1.2, vis: 'hand', functional: true, winGate: 'notclap', aux: ['hands_d'],
+    ch: [['hand_x', '손 좌우', 0.15], ['fore_x', '아래팔 좌우', 0.12], ['palm_open', '손바닥 회전', 0.4]] },
+  // 감각
+  { key: 'eye_cover', label: '눈 가리기', group: '감각', type: 'hold', sides: true, vis: 'hand', gate: 'eyecover', aux: ['hand_x', 'hand_y', 'curlm'] },
+  { key: 'ear_cover', label: '귀 막기', group: '감각', type: 'hold', sides: true, vis: 'hand', gate: 'earcover', aux: ['hand_x', 'hand_y', 'curlm'] },
+  { key: 'eye_rub', label: '눈 비비기', group: '감각', type: 'rhythm', sides: true, iMin: 0.2, iMax: 1.0, vis: 'handModel', winGate: 'eyerub', aux: ['eyetip_d', 'curlm'],
+    ch: [['eyetip_x', '손끝 좌우', 0.08], ['eyetip_y', '손끝 상하', 0.08]] },
+  { key: 'hit', label: '자기 때리기', group: '감각', type: 'rhythm', sides: true, iMin: 0.25, iMax: 1.5, vis: 'hand', winGate: 'hit',
+    ch: [['hit_d', '몸까지 거리', 0.25]] },
+  // 전신 큰 움직임 (실험 — 앉은 자세에서는 드묾)
+  { key: 'jump', label: '점프·바운스', group: '전신(실험)', type: 'rhythm', iMin: 0.3, iMax: 2.0, vis: 'loose', experimental: true,
+    ch: [['whole_y', '큰 상하', 0.35]] },
+  { key: 'spin', label: '회전', group: '전신(실험)', type: 'rhythm', iMin: 0.5, iMax: 3.0, vis: 'loose', experimental: true,
+    ch: [['whole_rot', '몸 방향', 1.0]] },
+];
+const BEH = Object.fromEntries(BEHAVIORS.map(b => [b.key, b]));
+const GROUPS = [...new Set(BEHAVIORS.map(b => b.group))];
+const GATES = { flutter: 'g_flutter', eyecover: 'g_eyecover', earcover: 'g_earcover' };
+const INSTANCES = [];
+for (const b of BEHAVIORS) {
+  for (const sd of (b.sides ? ['L', 'R'] : [null])) {
+    const sfx = k => (sd ? `${k}_${sd}` : k);
+    INSTANCES.push({
+      id: sfx(b.key), beh: b, side: sd,
+      chKeys: (b.ch || []).map(c => sfx(c[0])),
+      auxKeys: (b.aux || []).map(k => (k === 'hands_d' || k === 'ear_y' || k === 'sh_y') ? k : sfx(k)),
+      gateKey: b.gate ? sfx(GATES[b.gate]) : null,
+      localWindowS: b.type === 'hold' ? TH.windowS : (TH.minCycles + 0.5) * b.iMax,
+      cdevWindowS: Math.max(TH.centerWinMinS, 3 * (b.iMax || 1)),
+    });
+  }
+}
+const INST = Object.fromEntries(INSTANCES.map(i => [i.id, i]));
+
+// ---------- 작은 계산 도구 ----------
+function mean(a) { return a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0; }
+function variance(a) { const m = mean(a); return a.reduce((s, v) => s + (v - m) * (v - m), 0) / a.length; }
+function median(a) {
+  if (!a.length) return 0;
+  const s = [...a].sort((x, y) => x - y), n = s.length;
+  return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
+}
+function percentile(a, q) {
+  if (!a.length) return 0;
+  const s = [...a].sort((x, y) => x - y);
+  return s[Math.floor(q * (s.length - 1))];
+}
+function pRange(a) {
+  if (a.length < 2) return 0;
+  const s = [...a].sort((x, y) => x - y);
+  return s[Math.ceil(0.95 * (s.length - 1))] - s[Math.floor(0.05 * (s.length - 1))];
+}
+function smoothN(a, n) {
+  if (n < 1) return a.slice();
+  return a.map((_, i) => {
+    let s = 0, c = 0;
+    for (let j = Math.max(0, i - n); j <= Math.min(a.length - 1, i + n); j++) { s += a[j]; c++; }
+    return s / c;
+  });
+}
+function highpass(a, n) {
+  if (n < 1) return a.slice();
+  const base = smoothN(a, n);
+  return a.map((v, i) => v - base[i]);
+}
+function fillGaps(a) {
+  const out = a.slice();
+  let last = -1;
+  for (let i = 0; i < out.length; i++) {
+    if (!Number.isFinite(out[i])) continue;
+    if (last === -1) for (let j = 0; j < i; j++) out[j] = out[i];
+    else for (let j = last + 1; j < i; j++) out[j] = out[last] + (out[i] - out[last]) * (j - last) / (i - last);
+    last = i;
+  }
+  if (last >= 0) for (let j = last + 1; j < out.length; j++) out[j] = out[last];
+  return out;
+}
+function softAbove(x, th, s) { return 1 / (1 + Math.exp(-(x - th) / (s * th))); }
+function softBelow(x, th, s) { return 1 / (1 + Math.exp((x - th) / (s * th))); }
+function sigmoid(z) { return 1 / (1 + Math.exp(-z)); }
+function logit(p) { const q = Math.min(1 - 1e-6, Math.max(1e-6, p)); return Math.log(q / (1 - q)); }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function visOf(lm) { return (lm && lm.visibility != null) ? lm.visibility : 1; }
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function mid(a, b) { return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
+function avgPts(ps) { return { x: mean(ps.map(p => p.x)), y: mean(ps.map(p => p.y)) }; }
+function signedAngle(u, v) { return Math.atan2(u.x * v.y - u.y * v.x, u.x * v.x + u.y * v.y); }
+// 세 점 A-B-C에서 B 마디가 꺾인 정도 (펴져 있으면 0, 굽을수록 커짐, 라디안, 3D)
+function bend(A, B, C) {
+  const u = [A.x - B.x, A.y - B.y, (A.z || 0) - (B.z || 0)], v = [C.x - B.x, C.y - B.y, (C.z || 0) - (B.z || 0)];
+  const nu = Math.hypot(...u), nv = Math.hypot(...v);
+  if (nu < 1e-9 || nv < 1e-9) return Number.NaN;
+  const c = clamp((u[0] * v[0] + u[1] * v[1] + u[2] * v[2]) / (nu * nv), -1, 1);
+  return Math.PI - Math.acos(c);
+}
+// 손가락 굽힘 = 뿌리 마디 + 가운데 마디 꺾임 (엄지는 두 마디)
+function fingerCurl(p, f) {
+  return f[0] === 1 ? bend(p[1], p[2], p[3]) + bend(p[2], p[3], p[4])
+                    : bend(p[0], p[f[0]], p[f[1]]) + bend(p[f[0]], p[f[1]], p[f[2]]);
+}
+function corr(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (n < 4) return 0;
+  const ma = mean(a.slice(0, n)), mb = mean(b.slice(0, n));
+  let sab = 0, saa = 0, sbb = 0;
+  for (let i = 0; i < n; i++) { const x = a[i] - ma, y = b[i] - mb; sab += x * y; saa += x * x; sbb += y * y; }
+  return saa > 0 && sbb > 0 ? sab / Math.sqrt(saa * sbb) : 0;
+}
+function resampleUniform(ts, vals, hz) {
+  const out = [], dt = 1 / hz;
+  let j = 0;
+  for (let t = ts[0]; t <= ts[ts.length - 1]; t += dt) {
+    while (j < ts.length - 2 && ts[j + 1] <= t) j++;
+    const a = ts[j], b = ts[j + 1];
+    const u = b > a ? Math.min(1, Math.max(0, (t - a) / (b - a))) : 0;
+    out.push(vals[j] + (vals[j + 1] - vals[j]) * u);
+  }
+  return out;
+}
+function detrend(a) {
+  const n = a.length, mx = (n - 1) / 2, my = mean(a);
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (i - mx) * (a[i] - my); den += (i - mx) * (i - mx); }
+  const slope = den ? num / den : 0;
+  return a.map((v, i) => v - my - slope * (i - mx));
+}
+// 규칙성: 신호를 한 박자만큼 밀었을 때 원래 신호와 겹치는 정도. 밀 수 있는 최대 길이 = 구간 ÷ 3
+function periodicity(x, hz, minS, maxS) {
+  const n = x.length;
+  let e0 = 0; for (const v of x) e0 += v * v;
+  if (e0 <= 1e-12) return { reg: 0, period: 0 };
+  const Lmin = Math.max(2, Math.floor(minS * 0.8 * hz));
+  const Lmax = Math.min(Math.ceil(maxS * 1.2 * hz), Math.floor(n / TH.minCycles));
+  if (Lmax <= Lmin + 1) return { reg: 0, period: 0 };
+  const r = new Array(Lmax + 2).fill(0);
+  for (let L = 1; L <= Lmax + 1; L++) {
+    let sxy = 0;
+    for (let i = 0; i + L < n; i++) sxy += x[i] * x[i + L];
+    r[L] = (sxy / (n - L)) / (e0 / n);
+  }
+  const peaks = [];
+  for (let L = Lmin; L <= Lmax; L++) {
+    if (!(r[L] >= r[L - 1] && r[L] >= r[L + 1])) continue;
+    let dip = Infinity; for (let q = 1; q < L; q++) dip = Math.min(dip, r[q]);
+    if (r[L] - dip < TH.regProminence) continue;
+    peaks.push(L);
+  }
+  if (!peaks.length) return { reg: 0, period: 0 };
+  const top = Math.max(...peaks.map(L => r[L]));
+  if (!(top > 0.1)) return { reg: 0, period: 0 };
+  const bestL = peaks.find(L => r[L] >= 0.7 * top);
+  const a = r[bestL - 1], b = r[bestL], c = r[bestL + 1], d = a - 2 * b + c;
+  const off = d !== 0 ? Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / d)) : 0;
+  return { reg: Math.min(1, b), period: (bestL + off) / hz };
+}
+
+// ---------- 상태 ----------
+function createState() {
+  const inst = {}, floor = {}, streak = {}, hold = {}, lastA = {};
+  for (const I of INSTANCES) {
+    inst[I.id] = { t: [], sig: [], aux: [], vis: [], gate: [], score: [], sAmp: [], sReg: [], sInt: [], sCdev: [], ok: [] };
+    floor[I.id] = { t: [], v: [] };
+    streak[I.id] = 0; hold[I.id] = { held: 0, lastOk: -1e9 }; lastA[I.id] = null;
+  }
+  return {
+    inst, floor, streak, hold, lastA,
+    center: { t: [], x: [], y: [] },
+    scale: { t: [], v: [] }, fwHist: { t: [], v: [] }, ratioFw: { t: [], v: [] }, ratioEye: { t: [], v: [] },
+    offs: { t: [], x: [], y: [] }, swHist: { t: [], v: [] },
+    frames: [],
+    lastEvalT: null, lastAnalysisT: -1e9, lastScale: null, lastScaleT: -1e9,
+    accDur: 0, lastTickT: null,
+    touch: { downs: [], spans: [], game: false },
+  };
+}
+function trimFront(obj, cutoff) {
+  let n = 0;
+  while (n < obj.t.length && obj.t[n] < cutoff) n++;
+  if (n) for (const key of Object.keys(obj)) obj[key].splice(0, n);
+}
+
+// ---------- 태블릿 터치 기록 (앱에서는 화면 터치 이벤트를 그대로 넣음) ----------
+function touchDown(st, t) { st.touch.downs.push(t); st.touch.spans.push([t, null]); }
+function touchUp(st, t) {
+  const open = st.touch.spans.filter(s => s[1] == null);
+  if (open.length) open[0][1] = t;
+}
+function setGameActive(st, on) { st.touch.game = !!on; }   // 반복 동작이 필요한 게임 중
+function touchContext(st, tNow) {
+  const T = st.touch, w0 = tNow - TH.windowS;
+  while (T.downs.length && T.downs[0] < tNow - 10) T.downs.shift();
+  while (T.spans.length && T.spans[0][1] != null && T.spans[0][1] + TH.touchTailS < tNow - 10) T.spans.shift();
+  // 손가락이 닿아 있던 시간 (+ 뗀 뒤 0.4초) — 여러 손가락이 겹쳐도 한 번만 셈
+  const segs = T.spans.map(([a, b]) => [Math.max(a, w0), Math.min(b == null ? tNow : b + TH.touchTailS, tNow)])
+                      .filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  let covered = 0, curA = null, curB = null;
+  for (const [a, b] of segs) {
+    if (curA == null) { curA = a; curB = b; }
+    else if (a <= curB) curB = Math.max(curB, b);
+    else { covered += curB - curA; curA = a; curB = b; }
+  }
+  if (curA != null) covered += curB - curA;
+  const taps = T.downs.filter(t => t >= w0).length;
+  let f = clamp(Math.max(covered / TH.windowS, taps / 2), 0, 1);
+  if (T.game) f = 1;
+  const rec = T.downs.filter(t => t >= tNow - 4);
+  const gaps = rec.slice(1).map((t, i) => t - rec[i]);
+  return { f, taps, tapInterval: gaps.length >= 2 ? median(gaps) : null, game: T.game };
+}
+
+// ---------- 프레임 하나 정리 (포즈 33 + 손 21 × 2) ----------
+//  poseLms   : 포즈 33개 (정규화 0~1)   poseWorld : 포즈 33개 3D (미터, 엉덩이 기준)
+//  handRes   : HandLandmarker 결과 { landmarks, worldLandmarks, handedness }
+function handInfo(hd, P, side) {
+  const wr = P[side === 'L' ? 'lw' : 'rw'], el = P[side === 'L' ? 'le' : 're'];
+  if (hd) {
+    const p = hd.pts;
+    const curlSrc = hd.w3 || p;
+    return {
+      model: true, score: hd.score, pts: p, palm: avgPts([p[0], p[5], p[9], p[13], p[17]]),
+      pw: dist(p[0], p[9]) || 1, palmW: dist(p[5], p[17]), wrist: p[0], mcp9: p[9],
+      tips: [p[8], p[12]], allTips: [p[4], p[8], p[12], p[16], p[20]],
+      curls: FINGERS.map(f => fingerCurl(curlSrc, f)), elbow: el,
+    };
+  }
+  // 손 모델이 놓쳤을 때: 포즈의 손 관절 3개(손목·검지·새끼)로 대신
+  const ix = P[side === 'L' ? 'lix' : 'rix'], pk = P[side === 'L' ? 'lpk' : 'rpk'];
+  return {
+    model: false, score: Math.min(wr.v, ix.v) * 0.8, pts: null, palm: avgPts([wr, ix, pk]),
+    pw: dist(wr, ix) || 1, palmW: dist(ix, pk), wrist: wr, mcp9: ix, tips: [ix], allTips: [ix, pk],
+    curls: null, elbow: el,
+  };
+}
+function extractFrame(lms, world, handRes, w, h) {
+  const P = {};
+  for (const [name, i] of Object.entries(POSE)) P[name] = { x: lms[i].x * w, y: lms[i].y * h, v: visOf(lms[i]) };
+  const W3 = world ? Object.fromEntries(Object.entries(POSE).map(([n, i]) => [n, { x: world[i].x, y: world[i].y, z: world[i].z }])) : null;
+  // 손 21개: 화면 px 좌표 (z는 x와 같은 크기로) + 3D(미터)
+  const raws = [];
+  if (handRes && handRes.landmarks) {
+    const hn = handRes.handedness || handRes.handednesses || [];
+    handRes.landmarks.forEach((lm, i) => {
+      raws.push({
+        norm: lm.map(p => ({ x: p.x, y: p.y, z: p.z })),
+        pts: lm.map(p => ({ x: p.x * w, y: p.y * h, z: (p.z || 0) * w })),
+        w3: handRes.worldLandmarks && handRes.worldLandmarks[i] ? handRes.worldLandmarks[i].map(p => ({ x: p.x, y: p.y, z: p.z })) : null,
+        score: hn[i] && hn[i][0] ? hn[i][0].score : 0.8,
+      });
+    });
+  }
+  const good = raws.filter(r => r.score >= TH.handScoreMin);
+  // 왼손·오른손 정하기: 손 모델의 손목이 포즈의 어느 손목에 가까운지로 정함 (화면 반전과 상관없음)
+  const H = { L: null, R: null };
+  const c = good.map(hd => ({ hd, dL: dist(hd.pts[0], P.lw), dR: dist(hd.pts[0], P.rw) }));
+  if (c.length === 1) { if (c[0].dL <= c[0].dR) H.L = c[0].hd; else H.R = c[0].hd; }
+  else if (c.length >= 2) {
+    if (c[0].dL + c[1].dR <= c[0].dR + c[1].dL) { H.L = c[0].hd; H.R = c[1].hd; } else { H.L = c[1].hd; H.R = c[0].hd; }
+  }
+  const m = TH.edgeMargin;
+  const inFrame = q => q.x > m && q.x < 1 - m && q.y > m && q.y < 1 - m;
+  const ls = lms[POSE.ls], rs = lms[POSE.rs];
+  const shIn = inFrame(ls) && inFrame(rs);
+  const shOk = P.ls.v >= TH.visibilityMin && P.rs.v >= TH.visibilityMin && shIn;
+  const shLoose = P.ls.v >= TH.looseVisMin && P.rs.v >= TH.looseVisMin && shIn;
+  const earOk = P.lear.v >= TH.visibilityMin && P.rear.v >= TH.visibilityMin;
+  const eyeOk = P.leyeO.v >= TH.visibilityMin && P.reyeO.v >= TH.visibilityMin;
+  return {
+    xy: lms.flatMap(l => [l.x, l.y]),          // 33 × 2 (학습모델 입력은 여기서 고름)
+    raw: lms.map(l => ({ x: l.x, y: l.y, v: visOf(l) })),
+    handRaw: H,
+    pts: P, world: W3, hands: { L: handInfo(H.L, P, 'L'), R: handInfo(H.R, P, 'R') },
+    shOk, shLoose, earOk, eyeOk,
+    shVis: Math.min(P.ls.v, P.rs.v),
+    swPx: dist(P.ls, P.rs),
+    cx: (P.ls.x + P.rs.x) / 2, cy: (P.ls.y + P.rs.y) / 2,
+    earW: earOk ? dist(P.lear, P.rear) : null,
+    eyeW: eyeOk ? dist(P.leyeO, P.reyeO) : null,
+    scxN: (ls.x + rs.x) / 2, scyN: (ls.y + rs.y) / 2, swN: Math.hypot(rs.x - ls.x, rs.y - ls.y),
+  };
+}
+
+// ---------- 특징 계산 (행동별 신호) ----------
+function computeFeatures(st, f, s, cx, cy, sLong) {
+  const P = f.pts, N = Number.NaN, F = {};
+  const noseOk = P.nose.v >= TH.visibilityMin;
+  // 얼굴 폭 FW: 두 귀 사이 (없으면 두 눈 바깥쪽 × 기억한 비율)
+  let fw = f.earW;
+  if (!fw && f.eyeW && st.ratioEye.v.length) fw = f.eyeW * median(st.ratioEye.v);
+  if (!fw) fw = 0.55 * s;
+  const ref = f.earOk ? mid(P.lear, P.rear) : (f.eyeOk ? mid(P.leyeO, P.reyeO) : null);
+  // 머리
+  F.head_x = noseOk ? (P.nose.x - cx) / s : N;
+  F.head_y = noseOk ? (P.nose.y - cy) / s : N;
+  F.head_pitch = noseOk && ref ? (P.nose.y - ref.y) / fw : N;
+  F.head_yaw = noseOk && ref ? (P.nose.x - ref.x) / fw : N;
+  F.head_roll = f.earOk ? Math.atan2(P.lear.y - P.rear.y, P.lear.x - P.rear.x)
+              : (f.eyeOk ? Math.atan2(P.leyeO.y - P.reyeO.y, P.leyeO.x - P.reyeO.x) : N);
+  // 몸통
+  const fwRef = st.fwHist.v.length ? median(st.fwHist.v) : null;
+  F.trunk_sw = f.shOk ? f.swPx / s - 1 : N;
+  F.trunk_face = (f.earW && fwRef) ? f.earW / fwRef - 1 : N;
+  // 몸 위치는 10초 동안 안정된 어깨 너비로 나눔 (앞뒤 흔들기로 기준 길이가 출렁여도 좌우·상하 값이 흔들리지 않게)
+  F.trunk_y = f.shOk ? f.cy / sLong : N;
+  F.trunk_x = f.shOk ? f.cx / sLong : N;
+  F.trunk_tilt = f.shOk ? Math.atan2(P.ls.y - P.rs.y, P.ls.x - P.rs.x) : N;
+  const W3 = f.world;
+  F.trunk_zlean = W3 ? ((W3.ls.z + W3.rs.z) / 2 - (W3.lh.z + W3.rh.z) / 2) : N;
+  // 어깨
+  F.shrug_mid = f.shOk && P.lear.v >= 0.3 && P.rear.v >= 0.3 ? (f.cy - (P.lear.y + P.rear.y) / 2) / s : N;
+  F.shrug_l = f.shOk && P.lear.v >= 0.3 ? (P.ls.y - P.lear.y) / s : N;
+  F.shrug_r = f.shOk && P.rear.v >= 0.3 ? (P.rs.y - P.rear.y) / s : N;
+  const hipsVis = Math.min(P.lh.v, P.rh.v);
+  const hipMid = mid(P.lh, P.rh);
+  F.torso_len = f.shOk && hipsVis >= 0.3 ? (hipMid.y - f.cy) / s : N;
+  // 으쓱하기 구분용: 귀와 어깨 각각의 높이 (어깨만 움직여야 으쓱하기)
+  F.ear_y = P.lear.v >= 0.3 && P.rear.v >= 0.3 ? (P.lear.y + P.rear.y) / 2 / sLong : N;
+  F.sh_y = f.shOk ? f.cy / sLong : N;
+  F.hips_vis = hipsVis;
+  // 손
+  const eyeMid = mid(P.leye, P.reye);
+  const chest = hipsVis >= 0.3 ? { x: cx + 0.35 * (hipMid.x - cx), y: cy + 0.35 * (hipMid.y - cy) } : { x: cx, y: cy + 0.4 * s };
+  const eyesHidden = Math.min(P.leye.v, P.reye.v) < 0.5;
+  for (const sd of ['L', 'R']) {
+    const hd = f.hands[sd], sh = sd === 'L' ? P.ls : P.rs;
+    const ok = hd.score >= 0.3, elOk = hd.elbow.v >= 0.3;
+    const k = n => `${n}_${sd}`;
+    F[k('hand_x')] = ok ? (hd.palm.x - cx) / s : N;
+    F[k('hand_y')] = ok ? (hd.palm.y - sh.y) / s : N;
+    F[k('elbow_y')] = elOk ? (hd.elbow.y - sh.y) / s : N;
+    F[k('fore_x')] = ok && elOk ? (hd.wrist.x - hd.elbow.x) / s : N;
+    F[k('wflex')] = ok && elOk
+      ? signedAngle({ x: hd.wrist.x - hd.elbow.x, y: hd.wrist.y - hd.elbow.y }, { x: hd.mcp9.x - hd.wrist.x, y: hd.mcp9.y - hd.wrist.y }) : N;
+    F[k('palm_open')] = hd.model ? dist(hd.pts[5], hd.pts[17]) / hd.pw : N;   // 보이는 손바닥 폭 (돌리면 작아짐)
+    for (let i = 0; i < 5; i++) F[k('curl' + i)] = hd.model ? hd.curls[i] : N;
+    F[k('curlm')] = hd.model ? mean(hd.curls.slice(1)) : N;
+    // 손끝-눈
+    let best = null;
+    for (const tp of hd.tips) for (const ey of [P.leye, P.reye]) {
+      const d = dist(tp, ey);
+      if (!best || d < best.d) best = { d, dx: tp.x - ey.x, dy: tp.y - ey.y };
+    }
+    F[k('eyetip_x')] = ok ? best.dx / fw : N;
+    F[k('eyetip_y')] = ok ? best.dy / fw : N;
+    F[k('eyetip_d')] = ok ? best.d / fw : N;
+    // 몸까지 거리 (머리·귀·가슴 중 가장 가까운 곳)
+    F[k('hit_d')] = ok ? Math.min(dist(hd.palm, P.nose), dist(hd.palm, P.lear), dist(hd.palm, P.rear), dist(hd.palm, chest)) / s : N;
+    const faceD = dist(hd.palm, eyeMid) / fw;
+    const eyeD = Math.min(dist(hd.palm, P.leye), dist(hd.palm, P.reye)) / fw;
+    let earD = Infinity;
+    for (const q of [hd.palm, ...hd.allTips]) earD = Math.min(earD, dist(q, P.lear), dist(q, P.rear));
+    earD /= fw;
+    const above = hd.palm.y < sh.y;
+    F[k('g_flutter')] = ok ? softBelow(Math.max(faceD, 1e-3), 1.6, TH.soft.gate) * (above ? 1 : 0) : N;
+    // 눈 가리기와 귀 막기는 손이 눈·귀 중 더 가까운 쪽에만 인정 (둘이 동시에 켜지지 않게)
+    const nearEye = Math.min(eyeD, faceD) <= earD;
+    F[k('g_eyecover')] = ok
+      ? Math.max(softBelow(Math.max(eyeD, 1e-3), 0.4, 0.2), softBelow(Math.max(faceD, 1e-3), 0.4, 0.2) * (hd.palmW / fw >= 0.6 ? 1 : 0))
+        * (eyesHidden ? 1 : 0.85) * (nearEye ? 1 : 0)
+      : N;
+    F[k('g_earcover')] = ok ? softBelow(Math.max(earD, 1e-3), 0.4, 0.2) * (above ? 1 : 0) * (nearEye ? 0 : 1) : N;
+  }
+  const hL = f.hands.L, hR = f.hands.R;
+  F.hands_d = hL.score >= 0.3 && hR.score >= 0.3 ? dist(hL.palm, hR.palm) / s : N;
+  // 전신 (실험)
+  const swRef = st.swHist.v.length >= 10 ? percentile(st.swHist.v, 0.9) : s;
+  F.whole_y = f.shLoose ? f.cy / sLong : N;
+  F.whole_rot = f.shLoose ? (P.ls.x - P.rs.x) / swRef : N;
+  F._fw = fw;
+  return F;
+}
+function visFor(I, f, F) {
+  const P = f.pts, sd = I.side;
+  switch (I.beh.vis) {
+    case 'trunk': return f.shOk ? f.shVis : (f.earW ? 0.6 : 0);
+    case 'head': return P.nose.v;
+    case 'hips': return f.shOk ? F.hips_vis : 0;
+    case 'hand': return f.hands[sd].score;
+    case 'handModel': return f.hands[sd].model ? f.hands[sd].score : 0;
+    case 'bothHands': return Math.min(f.hands.L.score, f.hands.R.score);
+    case 'loose': return f.shLoose ? Math.max(f.shVis, 0.5) : 0;
+    default: return 1;
+  }
+}
+const VIS_MIN = { trunk: [0.5, 0.6], head: [0.5, 0.7], hips: [0.3, 0.6], hand: [0.3, 0.5], handModel: [0.5, 0.5], bothHands: [0.3, 0.5], loose: [0.2, 0.5] };
+
+// ---------- 프레임을 기록에 넣기 ----------
+function ingestFrame(st, f, t) {
+  st.frames.push({ t, v: f.xy, b: [f.scxN, f.scyN, f.swN] });
+  while (st.frames.length && st.frames[0].t < t - TH.dlKeepS) st.frames.shift();
+  const P = f.pts, nose = P.nose, noseOk = nose.v >= TH.visibilityMin;
+  if (f.earW) { st.fwHist.t.push(t); st.fwHist.v.push(f.earW); trimFront(st.fwHist, t - TH.scaleWindowS); }
+  if (f.earW && f.eyeW) { st.ratioEye.t.push(t); st.ratioEye.v.push(f.earW / f.eyeW); trimFront(st.ratioEye, t - TH.refKeepS); }
+  if (f.shOk && f.swPx > 1) {
+    st.scale.t.push(t); st.scale.v.push(f.swPx); trimFront(st.scale, t - TH.scaleWindowS);
+    st.swHist.t.push(t); st.swHist.v.push(f.swPx); trimFront(st.swHist, t - TH.refKeepS);
+    if (f.earW) { st.ratioFw.t.push(t); st.ratioFw.v.push(f.swPx / f.earW); trimFront(st.ratioFw, t - TH.refKeepS); }
+    if (noseOk) {
+      st.offs.t.push(t); st.offs.x.push((f.cx - nose.x) / f.swPx); st.offs.y.push((f.cy - nose.y) / f.swPx);
+      trimFront(st.offs, t - TH.refKeepS);
+    }
+  }
+  let scale = null;
+  const lastSh = st.scale.t.length ? st.scale.t[st.scale.t.length - 1] : -1e9;
+  if (st.scale.v.length && t - lastSh <= TH.scaleHoldS) scale = median(st.scale.v);
+  else if (f.earW && st.ratioFw.v.length) scale = f.earW * median(st.ratioFw.v);
+  if (scale) { st.lastScale = scale; st.lastScaleT = t; }
+  else if (st.lastScale && t - st.lastScaleT <= TH.scaleCarryS) scale = st.lastScale;
+  if (!scale) return null;
+  let cx, cy;
+  if (f.shOk) { cx = f.cx; cy = f.cy; }
+  else if (noseOk && st.offs.x.length) { cx = nose.x + median(st.offs.x) * scale; cy = nose.y + median(st.offs.y) * scale; }
+  else if (f.shLoose) { cx = f.cx; cy = f.cy; }
+  else return null;
+
+  const sLong = st.swHist.v.length >= 10 ? median(st.swHist.v) : scale;
+  const F = computeFeatures(st, f, scale, cx, cy, sLong);
+  f.features = F;
+  for (const I of INSTANCES) {
+    const b = st.inst[I.id];
+    b.t.push(t); b.sig.push(I.chKeys.map(k => F[k])); b.aux.push(I.auxKeys.map(k => F[k]));
+    b.vis.push(visFor(I, f, F)); b.gate.push(I.gateKey ? F[I.gateKey] : Number.NaN);
+    b.score.push(0); b.sAmp.push(0); b.sReg.push(0); b.sInt.push(0); b.sCdev.push(0); b.ok.push(0);
+    trimFront(b, t - TH.keepS);
+  }
+  if (f.shOk) { st.center.t.push(t); st.center.x.push(f.cx / sLong); st.center.y.push(f.cy / sLong); trimFront(st.center, t - TH.keepS); }
+  return scale;
+}
+
+// ---------- 리듬형 분석 ----------
+function emptyAnalysis(reason) {
+  return { valid: false, reason, interval: 0, amplitude: 0, reg: 0, ampNeed: 0, axis: '—', cycles: 0, subtype: '',
+           int_ok: false, amp_ok: false, reg_ok: false, gate_ok: false, sInt: 0, sAmp: 0, sReg: 0, sGate: 0,
+           frameScore: 0, cdev: 0, sCdev: 0, cdev_ok: false };
+}
+function windowSlice(b, tNow, winS) {
+  let lo = b.t.length - 1;
+  while (lo > 0 && b.t[lo - 1] >= tNow - winS) lo--;
+  return lo;
+}
+function prepChannel(ts, raw, cfg) {
+  const u = resampleUniform(ts, fillGaps(raw), TH.acfHz);
+  return smoothN(highpass(detrend(u), Math.round(cfg.iMax * TH.acfHz / 2)), Math.floor(cfg.iMin * TH.acfHz * 0.1));
+}
+function winGateScore(kind, I, b, lo, ts) {
+  const col = c => b.sig.slice(lo).map(r => r[c]);
+  if (kind === 'clap') {                       // 손이 맞닿아야 함: 구간 최소 거리 ≤ 0.35 SW
+    const d = col(0).filter(Number.isFinite);
+    return d.length ? softBelow(Math.max(Math.min(...d), 1e-3), 0.35, 0.2) : 0;
+  }
+  if (kind === 'eyerub') {                     // 손끝이 눈 근처(≤ 0.5 FW)에 70% 이상
+    const d = b.aux.slice(lo).map(r => r[0]);
+    const fin = d.filter(Number.isFinite);
+    if (!fin.length) return 0;
+    // 손가락은 크게 굽혔다 폈다 하지 않아야 함 (굽힘 폭 ≤ 0.35 rad) — 얼굴 앞 팔랑이기와 구분
+    const cu = b.aux.slice(lo).map(r => r[1]).filter(Number.isFinite);
+    const still = cu.length > 3 ? softBelow(Math.max(pRange(cu), 1e-3), 0.35, 0.3) : 1;
+    return softAbove(Math.max(fin.filter(x => x <= 0.5).length / d.length, 1e-3), 0.7, 0.1) * still;
+  }
+  if (kind === 'hit') {                        // 닿음(≤ 0.2 SW) + 빠르게 다가감(≥ 2.0 SW/초)
+    const d = col(0);
+    if (d.filter(Number.isFinite).length < 4) return 0;
+    const u = smoothN(resampleUniform(ts, fillGaps(d), TH.acfHz), 1);
+    let vmax = 0;
+    for (let i = 1; i < u.length; i++) vmax = Math.max(vmax, -(u[i] - u[i - 1]) * TH.acfHz);
+    return softBelow(Math.max(Math.min(...u), 1e-3), 0.2, 0.25) * softAbove(Math.max(vmax, 1e-3), 2.0, 0.2);
+  }
+  if (kind === 'shrug') {                      // 어깨 상하 폭에 비해 귀(머리) 상하 폭이 작아야 함 (끄덕이기·앞뒤 흔들기와 구분)
+    const a = c => { const v = b.aux.slice(lo).map(r => r[c]); return v.filter(Number.isFinite).length >= 4 ? pRange(prepChannel(ts, v, I.beh)) : Number.NaN; };
+    const earA = a(0), shA = a(1);
+    if (!Number.isFinite(shA) || shA <= 1e-6) return 0;
+    return Number.isFinite(earA) ? softBelow(Math.max(earA / shA, 1e-3), 0.6, 0.3) : 1;
+  }
+  if (kind === 'notclap') {                    // 양손이 맞닿는 박수면 흔들기로 세지 않음
+    const d = b.aux.slice(lo).map(r => r[0]).filter(Number.isFinite);
+    return d.length ? 1 - softBelow(Math.max(Math.min(...d), 1e-3), 0.35, 0.2) : 1;
+  }
+  return 1;
+}
+function analyzeRhythm(st, I, tNow) {
+  const cfg = I.beh, b = st.inst[I.id], n = b.t.length;
+  if (n < 8) return emptyAnalysis('수집 중');
+  const lo = windowSlice(b, tNow, I.localWindowS);
+  const ts = b.t.slice(lo);
+  const span = ts[ts.length - 1] - ts[0];
+  if (ts.length < 8 || span < I.localWindowS * 0.8) return emptyAnalysis('수집 중');
+  const vis = b.vis.slice(lo);
+  const [vMin, vFrac] = VIS_MIN[cfg.vis] || [0.5, 0.6];
+  if (vis.filter(v => v >= vMin).length / vis.length < vFrac) return emptyAnalysis('인식 약함');
+
+  const fl = st.floor[I.id], rows = b.sig.slice(lo), C = rows[0].length;
+  const amps = new Array(C).fill(Number.NaN);
+  const res = [];
+  for (let c = 0; c < C; c++) {
+    const raw = rows.map(r => r[c]);
+    if (raw.filter(Number.isFinite).length / raw.length < TH.minChannelValid) { res.push(null); continue; }
+    const x = prepChannel(ts, raw, cfg);
+    const recentN = Math.min(x.length, Math.max(4, Math.round(cfg.iMax * 1.5 * TH.acfHz)));
+    const amplitude = pRange(x.slice(x.length - recentN));
+    amps[c] = amplitude;
+    const hist = fl.v.map(v => v[c]).filter(Number.isFinite);
+    const noise = hist.length >= 30 ? percentile(hist, 0.2) : 0;
+    const ampMin = cfg.ch[c][2];
+    const ampNeed = Math.min(2 * ampMin, Math.max(ampMin, TH.floorMult * noise));
+    const { reg, period } = periodicity(x, TH.acfHz, cfg.iMin, cfg.iMax);
+    const sAmp = softAbove(amplitude, ampNeed, TH.soft.amp);
+    const sReg = softAbove(Math.max(reg, 1e-6), TH.regMin, TH.soft.reg);
+    const sInt = period > 0 ? softAbove(period, cfg.iMin, TH.soft.int) * softBelow(period, cfg.iMax, TH.soft.int) : 0;
+    res.push({ c, x, amplitude, ampNeed, reg, period, sAmp, sReg, sInt, s: sAmp * sReg * sInt });
+  }
+  const valid = res.filter(Boolean);
+  if (!valid.length) return emptyAnalysis('인식 약함');
+  let best;
+  if (cfg.type === 'circle') {
+    // 머리 굴리기: 좌우·상하 둘 다 같은 박자로 반복 + 1/4박자 어긋나게 겹침(원 모양)
+    if (valid.length < 2) return emptyAnalysis('인식 약함');
+    const [a, c2] = valid;
+    const P = (a.period > 0 && c2.period > 0 && Math.abs(a.period - c2.period) / Math.max(a.period, c2.period) < 0.3) ? (a.period + c2.period) / 2 : 0;
+    let sCirc = 0;
+    if (P > 0) {
+      const q = Math.max(1, Math.round(P / 4 * TH.acfHz));
+      const circ = Math.max(Math.abs(corr(a.x.slice(0, -q), c2.x.slice(q))), Math.abs(corr(a.x.slice(q), c2.x.slice(0, -q))));
+      const zero = Math.abs(corr(a.x, c2.x));
+      sCirc = softAbove(Math.max(circ, 1e-3), 0.5, 0.15) * softBelow(Math.max(zero, 1e-3), 0.6, 0.3);
+    }
+    const pick = a.amplitude / a.ampNeed < c2.amplitude / c2.ampNeed ? a : c2;
+    best = { ...pick, sAmp: Math.min(a.sAmp, c2.sAmp), sReg: Math.min(a.sReg, c2.sReg), period: P,
+             sInt: P > 0 ? softAbove(P, cfg.iMin, TH.soft.int) * softBelow(P, cfg.iMax, TH.soft.int) : 0, extra: sCirc };
+    best.s = best.sAmp * best.sReg * best.sInt * sCirc;
+  } else if (cfg.needAll) {
+    // 모든 신호가 함께 반복해야 함 (등 젖히기 = 몸이 뒤로 + 고개도 뒤로)
+    if (valid.length < cfg.ch.length) return emptyAnalysis('인식 약함');
+    best = valid.reduce((a, b2) => (b2.s < a.s ? b2 : a));
+    best.extra = 1;
+  } else {
+    for (const r of valid) if (!best || r.s > best.s || (r.s === best.s && r.amplitude / r.ampNeed > best.amplitude / best.ampNeed)) best = r;
+    best.extra = 1;
+  }
+  if (best.reg < 0.3) { fl.t.push(tNow); fl.v.push(amps); trimFront(fl, tNow - TH.floorKeepS); }
+
+  // 위치 조건
+  let sGate = 1;
+  if (I.gateKey) {                              // 프레임 조건: 최근 1초 평균
+    const glo = windowSlice(b, tNow, 1.0);
+    const g = b.gate.slice(glo).filter(Number.isFinite);
+    sGate = g.length ? mean(g) : 0;
+  }
+  if (cfg.winGate) sGate *= winGateScore(cfg.winGate, I, b, lo, ts);
+  // 손가락: 같이 움직이면 '튕기기', 따로 움직이면 '꼼지락'
+  let subtype = '';
+  if (cfg.fingerType) {
+    const fx = res.slice(1, 5).filter(Boolean).map(r => r.x);
+    let cs = [], i, j;
+    for (i = 0; i < fx.length; i++) for (j = i + 1; j < fx.length; j++) cs.push(corr(fx[i], fx[j]));
+    subtype = cs.length ? (median(cs) >= 0.6 ? '튕기기' : '꼼지락') : '';
+  }
+  return {
+    valid: true, reason: '', interval: best.period, amplitude: best.amplitude, reg: best.reg, ampNeed: best.ampNeed,
+    axis: cfg.ch[best.c][1] + (cfg.type === 'circle' ? ' · 원' : ''), subtype,
+    cycles: best.period > 0 ? Math.floor(span / best.period) : 0,
+    int_ok: best.sInt >= 0.5, amp_ok: best.amplitude >= best.ampNeed, reg_ok: best.reg >= TH.regMin, gate_ok: sGate * best.extra >= 0.5,
+    sInt: best.sInt, sAmp: best.sAmp, sReg: best.sReg, sGate: sGate * best.extra,
+    frameScore: 0, cdev: 0, sCdev: 0, cdev_ok: false,
+  };
+}
+// ---------- 자세 유지형 분석 ----------
+function analyzeHold(st, I, tNow, dt) {
+  const b = st.inst[I.id], L = b.t.length - 1, hs = st.hold[I.id];
+  const g = b.gate[L], v = b.vis[L];
+  const [vMin] = VIS_MIN[I.beh.vis] || [0.3];
+  if (!Number.isFinite(g) || v < vMin) {
+    if (tNow - hs.lastOk > TH.holdGapS) hs.held = 0;
+    return { ...emptyAnalysis('인식 약함'), held: hs.held };
+  }
+  // 손이 멈춰 있어야 함 (최근 1초 손 위치 폭 ≤ 0.05 SW, 손가락 굽힘 폭 ≤ 0.35 rad) — 팔랑이기·때리기와 구분
+  const slo = windowSlice(b, tNow, 1.0);
+  const col = c => b.aux.slice(slo).map(r => r[c]).filter(Number.isFinite);
+  const hx = col(0), hy = col(1), cu = col(2);
+  const posR = Math.max(hx.length > 1 ? pRange(hx) : 0, hy.length > 1 ? pRange(hy) : 0);
+  const sStill = softBelow(Math.max(posR, 1e-3), 0.05, 0.3) * (cu.length > 3 ? softBelow(Math.max(pRange(cu), 1e-3), 0.35, 0.3) : 1);
+  const gEff = g * sStill;
+  if (gEff >= 0.5) { hs.held += dt; hs.lastOk = tNow; }
+  else if (tNow - hs.lastOk > TH.holdGapS) hs.held = 0;
+  const sHold = softAbove(Math.max(hs.held, 1e-3), TH.holdS, TH.soft.gate);
+  return { ...emptyAnalysis(''), valid: true, reason: '', axis: `유지 ${hs.held.toFixed(1)}s`, held: hs.held,
+           sAmp: sHold, sReg: sHold, sInt: sHold, sGate: gEff, gate_ok: gEff >= 0.5, amp_ok: hs.held >= TH.holdS,
+           reg_ok: true, int_ok: true };
+}
+
+// ---------- 중심편차 ----------
+function computeCenterDev(st, tNow, winS) {
+  const c = st.center;
+  let lo = c.t.length;
+  while (lo > 0 && c.t[lo - 1] >= tNow - winS) lo--;
+  const xs = c.x.slice(lo), ys = c.y.slice(lo);
+  const third = Math.floor(xs.length / 3);
+  if (third < 3) return 0;
+  const mx = [mean(xs.slice(0, third)), mean(xs.slice(third, 2 * third)), mean(xs.slice(2 * third))];
+  const my = [mean(ys.slice(0, third)), mean(ys.slice(third, 2 * third)), mean(ys.slice(2 * third))];
+  return Math.sqrt(variance(mx) + variance(my));
+}
+
+// ---------- 규칙모델: 프레임마다 행동별 순간 점수 ----------
+function evaluateRule(st, tNow, analyzed) {
+  const dt = st.lastEvalT == null ? 0 : Math.max(0, Math.min(TH.dtCapS, tNow - st.lastEvalT));
+  st.lastEvalT = tNow;
+  const due = tNow - st.lastAnalysisT >= 1 / TH.analysisHz;
+  if (analyzed && due) st.lastAnalysisT = tNow;
+  const out = { inst: {}, instant: 0, dominant: null };
+  for (const I of INSTANCES) {
+    const b = st.inst[I.id];
+    let a = st.lastA[I.id], fs = 0;
+    if (analyzed && b.t.length) {
+      if (I.beh.type === 'hold') a = analyzeHold(st, I, tNow, dt);
+      else if (due || !a) a = analyzeRhythm(st, I, tNow);
+      if (due || I.beh.type === 'hold' || a.cdev === 0) {
+        a.cdev = computeCenterDev(st, tNow, I.cdevWindowS);
+        a.sCdev = softBelow(Math.max(a.cdev, 1e-6), TH.centerDevMax, TH.soft.cdev);
+        a.cdev_ok = a.cdev <= TH.centerDevMax;
+      }
+      if (a.valid) fs = I.beh.type === 'hold' ? a.sAmp * a.sCdev : a.sAmp * a.sInt * a.sReg * a.sGate * a.sCdev;
+      if (!Number.isFinite(fs)) fs = 0;
+      a.frameScore = fs;
+      st.lastA[I.id] = a;
+      const L = b.t.length - 1;
+      b.score[L] = fs; b.ok[L] = a.valid ? 1 : 0;
+      b.sAmp[L] = a.valid ? a.sAmp : 0; b.sReg[L] = a.valid ? a.sReg : 0;
+      b.sInt[L] = a.valid ? a.sInt : 0; b.sCdev[L] = a.valid ? a.sCdev : 0;
+    } else a = null;
+    st.streak[I.id] = fs >= 0.5 ? st.streak[I.id] + dt : 0;
+    const reps = (a && a.valid && a.interval > 0 && st.streak[I.id] > 0) ? Math.floor(st.streak[I.id] / a.interval) + TH.minCycles : 0;
+    out.inst[I.id] = { analysis: a, instant: fs, reps };
+    if (fs > out.instant) { out.instant = fs; out.dominant = I.id; }
+  }
+  return out;
+}
+
+// 더 구체적인 행동이 확실하면(≥ 0.5) 같은 손의 일반 동작 점수를 30%로 낮춤
+//  예) 자기 때리기 중에는 손이 오가므로 '흔들기'도 높게 나오지만, 때리기로 보는 것이 맞음
+const SPECIFIC_OVER = {
+  hit: ['flap', 'wave', 'flutter'], clap: ['flap', 'wave'], flutter: ['finger', 'flap', 'wave', 'eye_rub'],
+  eye_rub: ['eye_cover', 'finger'], shrug: ['flap'],
+};
+const SUPPRESS = 0.3;
+// ---------- 규칙모델: 최근 2초 근거 (+ 터치 중 점수 낮추기) ----------
+function windowEvidence(st, tNow, touch) {
+  const beh = {}, ei = {};
+  let r = null, dominant = null;
+  for (const I of INSTANCES) {
+    const b = st.inst[I.id];
+    let lo = b.t.length;
+    while (lo > 0 && b.t[lo - 1] >= tNow - TH.windowS) lo--;
+    const n = b.t.length - lo;
+    if (n < 8 || b.t[b.t.length - 1] - b.t[lo] < 0.7 * TH.windowS) continue;
+    const cover = mean(b.ok.slice(lo));
+    if (cover < TH.partCoverMin) continue;
+    const m = arr => mean(arr.slice(lo));
+    const raw = m(b.score);
+    let fInst = 0;
+    if (I.beh.functional && touch) {
+      fInst = touch.f;
+      const a = st.lastA[I.id];
+      if (touch.tapInterval && a && a.valid && a.interval > 0 &&
+          Math.abs(a.interval - touch.tapInterval) / touch.tapInterval <= TH.tapMatchTol) fInst = 1;
+    }
+    const score = raw * (1 - TH.touchPenalty * fInst);
+    ei[I.id] = { score, rawScore: raw, functional: fInst, amp: m(b.sAmp), reg: m(b.sReg), int: m(b.sInt), cdev: m(b.sCdev), cover,
+                 side: I.side, inst: I.id, key: I.beh.key, suppressed: false, subtype: st.lastA[I.id] ? st.lastA[I.id].subtype : '' };
+  }
+  for (const [spec, gens] of Object.entries(SPECIFIC_OVER)) {
+    for (const e of Object.values(ei)) {
+      if (e.key !== spec || e.score < 0.5) continue;
+      for (const g of gens) for (const sd of (e.side ? [e.side] : ['L', 'R'])) {
+        const t = ei[`${g}_${sd}`];
+        if (t && !t.suppressed) { t.score *= SUPPRESS; t.suppressed = spec; }
+      }
+    }
+  }
+  for (const e of Object.values(ei)) if (!beh[e.key] || e.score > beh[e.key].score) beh[e.key] = e;
+  for (const [k, e] of Object.entries(beh)) if (r == null || e.score > r) { r = e.score; dominant = k; }
+  return { r, dominant, beh, touch };
+}
+
+// ---------- 확률 보정 ----------
+function applyCalibration(cal, x, feats) {
+  if (!cal || x == null) return x;
+  switch (cal.type) {
+    case 'platt': return sigmoid(cal.a * logit(x) + cal.b);
+    case 'temperature': return sigmoid(logit(x) / (cal.T || 1));
+    case 'isotonic': {
+      const xs = cal.x, ys = cal.y;
+      if (x <= xs[0]) return ys[0];
+      for (let i = 1; i < xs.length; i++) {
+        if (x <= xs[i]) { const u = (x - xs[i - 1]) / ((xs[i] - xs[i - 1]) || 1); return ys[i - 1] + (ys[i] - ys[i - 1]) * u; }
+      }
+      return ys[ys.length - 1];
+    }
+    case 'logistic': {
+      let z = cal.bias || 0;
+      for (const [key, coef] of Object.entries(cal.coef || {})) z += coef * (feats && Number.isFinite(feats[key]) ? feats[key] : 0);
+      return sigmoid(z);
+    }
+    default: return x;
+  }
+}
+// 보정 특징: r, amp, reg, int, cdev (logit), cover, touch, 그리고 행동 묶음 표시 g_<묶음>
+function ruleFeatures(ev) {
+  if (ev.r == null) return null;
+  const d = ev.beh[ev.dominant];
+  const feats = { r: logit(ev.r), amp: logit(d.amp), reg: logit(d.reg), int: logit(d.int), cdev: logit(d.cdev), cover: d.cover,
+                  touch: ev.touch ? ev.touch.f : 0 };
+  for (const g of GROUPS) feats['g_' + g] = BEH[ev.dominant].group === g ? 1 : 0;
+  return feats;
+}
+function ruleProbability(ev, cal) {
+  if (ev.r == null) return { p: null, calibrated: false, feats: null };
+  const feats = ruleFeatures(ev);
+  return { p: cal ? applyCalibration(cal, ev.r, feats) : ev.r, calibrated: !!cal, feats };
+}
+
+// ---------- 소프트 보팅 + 지속 시간 ----------
+function fuseTick(st, tNow, pRule, pDl, w, tau) {
+  let p = null, mode = 'none';
+  if (pRule != null && pDl != null) { p = w * pDl + (1 - w) * pRule; mode = 'ensemble'; }
+  else if (pDl != null) { p = pDl; mode = 'dl'; }
+  else if (pRule != null) { p = pRule; mode = 'rule'; }
+  let dt = 0;
+  if (st.lastTickT == null || tNow > st.lastTickT) {
+    dt = st.lastTickT == null ? 0 : Math.min(TH.strideS * 3, tNow - st.lastTickT);
+    st.lastTickT = tNow;
+  }
+  const x = p == null ? 0 : sigmoid((p - tau) / TH.durSoftness);
+  st.accDur = clamp(st.accDur + dt * (x - (1 - x) * TH.decayRate), 0, TH.durationS);
+  const D = st.accDur / TH.durationS;
+  const stage = D >= TH.alert.enterLevel ? 2 : (((p != null && p >= tau) || D >= 0.5) ? 1 : 0);
+  return { p, mode, D, stage };
+}
+
+// ---------- 학습모델 입력 ----------
+function resampleFrames(frames, tEnd, n, fps) {
+  const dt = 1 / fps, t0 = tEnd - (n - 1) * dt;
+  if (frames.length < 2 || frames[0].t > t0 + dt) return null;
+  const out = [];
+  let j = 0;
+  for (let i = 0; i < n; i++) {
+    const t = t0 + i * dt;
+    while (j < frames.length - 2 && frames[j + 1].t <= t) j++;
+    const a = frames[j], b = frames[j + 1];
+    if (b.t - a.t > TH.dlMaxGapS) return null;
+    const u = b.t > a.t ? Math.min(1, Math.max(0, (t - a.t) / (b.t - a.t))) : 0;
+    out.push({ v: a.v.map((x, q) => x + (b.v[q] - x) * u), b: a.b.map((x, q) => x + (b.b[q] - x) * u) });
+  }
+  return out;
+}
+// 학습 때 쓴 관절(joints)만 골라 어깨 너비로 나눈 뒤 속도로 변환 → 26채널 (+3 = 29)
+function buildFeatures(raw, T, C, norm, byShoulder, joints) {
+  if (C !== joints.length * 2 && C !== joints.length * 2 + 3) throw new Error(`입력 채널 수(${C})가 관절 수(${joints.length})와 맞지 않습니다`);
+  const pos = raw.map(fr => {
+    const k = byShoulder && fr.b[2] > 1e-6 ? 1 / fr.b[2] : 1;
+    return joints.flatMap(j => [fr.v[2 * j] * k, fr.v[2 * j + 1] * k]);
+  });
+  const data = new Float32Array(T * C);
+  for (let k = 1; k <= T; k++) {
+    const row = pos[k].map((x, q) => x - pos[k - 1][q]);
+    if (C === joints.length * 2 + 3) row.push(...raw[k].b.map((x, q) => x - raw[k - 1].b[q]));
+    for (let c = 0; c < C; c++) {
+      let v = row[c];
+      if (norm) v = (v - norm.mean[c]) / (norm.std[c] || 1);
+      data[(k - 1) * C + c] = v;
+    }
+  }
+  return data;
+}
+function findMeanStd(meta, C) {
+  let mu = null, sd = null;
+  const walk = (o) => {
+    if (!o || typeof o !== 'object') return;
+    for (const [key, val] of Object.entries(o)) {
+      const isArr = Array.isArray(val) && val.length === C && val.every(x => typeof x === 'number');
+      const kl = key.toLowerCase();
+      if (isArr && !mu && (kl.includes('mean') || kl === 'mu')) mu = val;
+      else if (isArr && !sd && (kl.includes('std') || kl === 'sigma' || kl.includes('scale'))) sd = val;
+      else if (val && typeof val === 'object' && !Array.isArray(val)) walk(val);
+    }
+  };
+  walk(meta);
+  return (mu && sd) ? { mean: mu, std: sd } : null;
+}
+
+// ---------- 알림 ----------
+function createAlertState() {
+  return { inEpisode: false, episodes: [], total: 0, sent: 0, lastSentT: -1e9, firedThisEpisode: false, belowSince: null };
+}
+function updateAlert(as, D, tNow, mode) {
+  const A = TH.alert;
+  let newEpisode = false, fire = false;
+  if (!as.inEpisode && D >= A.enterLevel) {
+    as.inEpisode = true; as.firedThisEpisode = false; newEpisode = true;
+    as.episodes.push(tNow); as.total++;
+  } else if (as.inEpisode) {
+    if (D < A.exitLevel) {
+      if (as.belowSince == null) as.belowSince = tNow;
+      if (tNow - as.belowSince >= A.mergeGapS) as.inEpisode = false;
+    } else as.belowSince = null;
+  }
+  if (!as.inEpisode) as.belowSince = null;
+  while (as.episodes.length && as.episodes[0] < tNow - A.countWindowS) as.episodes.shift();
+  const recent = as.episodes.length;
+  if (newEpisode) {
+    if (mode === 'count3') fire = recent >= A.countNeed && recent % A.countNeed === 0;
+    else fire = tNow - as.lastSentT >= A.cooldownS;
+  }
+  if (fire) { as.sent++; as.lastSentT = tNow; as.firedThisEpisode = true; }
+  return { fire, newEpisode, recent, repeated: recent >= A.countNeed };
+}
+// ===CORE-END===
+
+// ============================================================
+//  화면 / 실행
+// ============================================================
+const GV = { skeleton: '#34c6ff', joint: '#d6f0ff', box: '#34c6ff', face: '#ffd36b', hand: '#7ff0ff', handWeak: '#6c7f94' };
+const GROUP_COLOR = { '전신': '#b48cff', '머리': '#ffd36b', '어깨': '#ff9f5a', '손·손가락': '#34c6ff', '감각': '#ff7ad9', '전신(실험)': '#8fa3b8' };
+const POSE_BONES = [
+  [0, 1], [1, 2], [2, 3], [3, 7], [0, 4], [4, 5], [5, 6], [6, 8], [9, 10],
+  [11, 12], [11, 13], [13, 15], [15, 17], [15, 19], [15, 21], [17, 19], [12, 14], [14, 16], [16, 18], [16, 20], [16, 22], [18, 20],
+  [11, 23], [12, 24], [23, 24], [23, 25], [24, 26], [25, 27], [26, 28], [27, 29], [28, 30], [29, 31], [30, 32], [27, 31], [28, 32],
+];
+const HAND_BONES = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [5, 9], [9, 10], [10, 11], [11, 12],
+  [9, 13], [13, 14], [14, 15], [15, 16], [13, 17], [0, 17], [17, 18], [18, 19], [19, 20]];
+const MODEL_URL = {
+  lite:  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/latest/pose_landmarker_lite.task",
+  full:  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/latest/pose_landmarker_full.task",
+  heavy: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_heavy/float16/latest/pose_landmarker_heavy.task",
+};
+const HAND_MODEL_URL = "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task";
+const STAGE_TXT = ['안정', '주의', '위험'];
+const STAGE_CLS = ['ok', 'warn', 'alarm'];
+const MODE_TXT = { ensemble: '앙상블', rule: '규칙 단독', dl: '학습 단독', none: '판단 불가' };
+const SIDE_TXT = { L: '왼', R: '오른' };
+
+let poseLandmarker = null, poseModelName = null, handLandmarker = null;
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const overlayCtx = overlay.getContext('2d');
+const timelineCv = document.getElementById('timeline');
+const timelineCtx = timelineCv.getContext('2d');
+const partCv = document.getElementById('part-graph');
+const partCtx = partCv.getContext('2d');
+const soundChk = document.getElementById('sound-toggle');
+const overlayChk = document.getElementById('overlay-toggle');
+
+let st = createState();
+let alertSt = createAlertState();
+let alertMode = TH.alert.mode;
+let lastAl = { repeated: false, recent: 0 };
+let running = false, stream = null, lastVideoTime = -1, sessionStart = 0;
+let lastFrameT = 0, warnTotal = 0, alarmTotal = 0, streak = 0, maxStreak = 0;
+let lastFrame = null, lastScale = null, curFps = 0;
+let tickState = null, lastTickAt = -1;
+const partTrace = [];
+const PART_TRACE_S = 6.0;
+const timelineBuf = [];
+const fpsTimes = []; let lastFpsUpdate = 0;
+let lastOutUpdate = 0;
+let recBuf = [], tickBuf = [], eventBuf = [], runIdTag = '';
+let lastPoseTs = 0;
+
+const CAL = { rule: null, dl: null, source: '' };
+let ensembleW = TH.ensembleW;
+let decisionTau = TH.decision;
+
+let tf = null;
+const dl = { models: [], names: [], norm: null, meta: null, T: 60, C: null, byShoulder: true, joints: JOINTS13,
+             busy: false, lastRaw: null, lastT: -1, error: '' };
+
+// ---------- 행동별 UI ----------
+function buildPartUI() {
+  document.getElementById('part-legend').innerHTML = GROUPS.map(g =>
+    `<span><i style="background:${GROUP_COLOR[g]}"></i>${g}</span>`).join('');
+  document.getElementById('part-gauges').innerHTML = GROUPS.map(g => `
+    <div class="beh-group">
+      <div class="beh-group-title" style="color:${GROUP_COLOR[g]}">${g}</div>
+      ${BEHAVIORS.filter(b => b.group === g).map(b => `
+        <div class="gauge small" id="gauge-beh-${b.key}">
+          <div class="gauge-head"><span class="lbl">${b.label}${b.experimental ? ' <span class="cal-tag">실험</span>' : ''}</span><span class="tag" id="beh-tag-${b.key}">—</span></div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="bar-beh-${b.key}"></div>
+            <div class="progress-text" id="bar-beh-${b.key}-text">—</div>
+          </div>
+        </div>`).join('')}
+    </div>`).join('');
+  document.getElementById('crit-parts').innerHTML = GROUPS.map(g => `
+    <div class="crit-block">
+      <div class="ct">${g}</div>
+      ${BEHAVIORS.filter(b => b.group === g).map(b => `
+        <div class="crit-row"><span class="crit-name">${b.label}</span><span class="crit-value" id="crit-${b.key}">—</span></div>
+        <div class="crit-note" style="margin:0 0 4px" id="crit-${b.key}-note">${b.type === 'hold'
+          ? `유지 ${TH.holdS}s · 손 멈춤`
+          : `박자 ${b.iMin}~${b.iMax}s · ${(b.ch || []).map(c => `${c[1]} ≥${c[2]}`).join(' / ')}`}</div>`).join('')}
+    </div>`).join('');
+  setText('mincyc-v', `${TH.minCycles}회 연속`);
+  setText('timeline-window-label', TH.timelineWindowS.toFixed(0));
+
+  const ws = document.getElementById('w-slider'), ts = document.getElementById('tau-slider');
+  ws.value = ensembleW; ts.value = decisionTau;
+  ws.addEventListener('input', () => { ensembleW = parseFloat(ws.value); syncSliders(); });
+  ts.addEventListener('input', () => { decisionTau = parseFloat(ts.value); syncSliders(); });
+  syncSliders();
+
+  const am = document.getElementById('alert-mode');
+  am.value = alertMode;
+  const note = () => {
+    const A = TH.alert;
+    setText('alert-mode-note', alertMode === 'count3'
+      ? `위험이 ${A.countWindowS / 60}분 안에 ${A.countNeed}번 발생할 때마다 알림 1회.`
+      : `위험이 발생하면 바로 알림 (${A.cooldownS}초 간격). ${A.countWindowS / 60}분 안에 ${A.countNeed}번 이상이면 '반복 발생'으로 강조.`);
+  };
+  am.addEventListener('change', () => { alertMode = am.value; note(); });
+  note();
+
+  document.getElementById('footer-note').innerHTML =
+    `입력: 포즈 33관절 + 손 21관절×2 · 행동 ${BEHAVIORS.length}종 · 리듬형 ${TH.minCycles}회 이상 / 자세 유지형 ${TH.holdS}s 이상 · ` +
+    `앙상블 p ≥ τ가 ${TH.durationS}s 이어지면 위험 · 터치 중 손 행동 점수 ×(1 − ${TH.touchPenalty}f)<br>` +
+    `본 모니터링은 자동 검출 결과이며 임상 판단의 보조 자료로만 사용되어야 합니다. 영상은 브라우저 외부로 전송되지 않습니다.`;
+}
+function syncSliders() {
+  setText('w-val', ensembleW.toFixed(2));
+  setText('tau-val', decisionTau.toFixed(2));
+  document.getElementById('w-slider').value = ensembleW;
+  document.getElementById('tau-slider').value = decisionTau;
+  document.getElementById('th-ens').style.left = (decisionTau * 100) + '%';
+  document.getElementById('th-dur').style.left = '50%';
+  refreshCalStatus();
+}
+
+// ---------- 카메라 / 포즈 / 손 ----------
+async function initLandmarkers() {
+  const name = document.getElementById('model-select').value;
+  const wantHands = document.getElementById('hand-select').value === 'on';
+  const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm");
+  if (!poseLandmarker || poseModelName !== name) {
+    if (poseLandmarker) { try { poseLandmarker.close(); } catch (e) {} poseLandmarker = null; }
+    setText('status-text', '포즈 모델 로딩 중...');
+    poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: MODEL_URL[name], delegate: "GPU" },
+      runningMode: "VIDEO", numPoses: 1,
+      minPoseDetectionConfidence: 0.5, minPosePresenceConfidence: 0.5, minTrackingConfidence: 0.5,
+    });
+    poseModelName = name;
+  }
+  if (wantHands && !handLandmarker) {
+    setText('status-text', '손 모델 로딩 중...');
+    handLandmarker = await HandLandmarker.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: HAND_MODEL_URL, delegate: "GPU" },
+      runningMode: "VIDEO", numHands: 2,
+      minHandDetectionConfidence: 0.5, minHandPresenceConfidence: 0.5, minTrackingConfidence: 0.5,
+    });
+  }
+  if (!wantHands && handLandmarker) { try { handLandmarker.close(); } catch (e) {} handLandmarker = null; }
+  setText('status-text', '대기 중');
+}
+async function listCameras() {
+  const sel = document.getElementById('camera-select');
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d => d.kind === 'videoinput');
+    const cur = sel.value;
+    sel.innerHTML = cams.map((c, i) => `<option value="${c.deviceId}">${c.label || `카메라 ${i + 1}`}</option>`).join('');
+    if (cur) sel.value = cur;
+    sel.disabled = cams.length === 0;
+  } catch (e) { console.warn('camera list failed', e); }
+}
+async function startCamera() {
+  const sel = document.getElementById('camera-select');
+  // 손가락 정확도를 위해 해상도·속도를 높게 요청 (1280×720, 30fps)
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { deviceId: sel.value ? { exact: sel.value } : undefined,
+             width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, min: 20 } },
+    audio: false,
+  });
+  video.srcObject = stream;
+  await video.play();
+  overlay.width = video.videoWidth;
+  overlay.height = video.videoHeight;
+}
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  video.srcObject = null;
+}
+
+// ---------- 태블릿 터치 (화면을 누르거나, 키보드 T를 누르고 있으면) ----------
+function nowT() { return (performance.now() - sessionStart) / 1000; }
+function isControl(el) { return !!(el && el.closest && el.closest('.gv-header, .analyst-panel, button, select, input')); }
+window.addEventListener('pointerdown', (e) => { if (running && !isControl(e.target)) { touchDown(st, nowT()); flashTouch(); } });
+window.addEventListener('pointerup', (e) => { if (running) touchUp(st, nowT()); });
+window.addEventListener('pointercancel', () => { if (running) touchUp(st, nowT()); });
+let tKeyDown = false;
+window.addEventListener('keydown', (e) => { if ((e.key === 't' || e.key === 'T') && !tKeyDown && running) { tKeyDown = true; touchDown(st, nowT()); flashTouch(); } });
+window.addEventListener('keyup', (e) => { if ((e.key === 't' || e.key === 'T') && tKeyDown) { tKeyDown = false; if (running) touchUp(st, nowT()); } });
+document.getElementById('game-btn').addEventListener('click', (e) => {
+  st.touch.game = !st.touch.game;
+  e.currentTarget.classList.toggle('on', st.touch.game);
+  e.currentTarget.textContent = st.touch.game ? '게임 중 ●' : '게임 중';
+});
+function flashTouch() { const el = document.getElementById('touch-dot'); el.classList.add('on'); setTimeout(() => el.classList.remove('on'), 180); }
+
+// ---------- 학습모델 ----------
+async function ensureTf() {
+  if (tf) return tf;
+  await new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js';
+    s.onload = res; s.onerror = () => rej(new Error('TensorFlow.js를 불러오지 못했습니다'));
+    document.head.appendChild(s);
+  });
+  tf = window.tf;
+  return tf;
+}
+function readDlInputOptions(o) {
+  if (!o || typeof o !== 'object') return;
+  const j = o.joints || o.JOINTS || o.landmarks;
+  if (Array.isArray(j) && j.length && j.every(x => Number.isInteger(x) && x >= 0 && x < 33)) dl.joints = j;
+  if (typeof o.scale_by_shoulder === 'boolean') dl.byShoulder = o.scale_by_shoulder;
+  else if (typeof o.normalize === 'string') dl.byShoulder = o.normalize.toLowerCase().includes('shoulder');
+}
+async function loadDlFiles(fileList) {
+  const files = [...fileList];
+  const bins = files.filter(f => f.name.toLowerCase().endsWith('.bin'));
+  const jsons = files.filter(f => f.name.toLowerCase().endsWith('.json'));
+  const modelJsons = [];
+  dl.error = '';
+  for (const f of jsons) {
+    let obj = null;
+    try { obj = JSON.parse(await f.text()); } catch (e) { continue; }
+    if (obj && (obj.modelTopology || obj.weightsManifest)) modelJsons.push({ file: f, obj });
+    else { dl.meta = obj; readDlInputOptions(obj); }
+  }
+  if (!modelJsons.length) throw new Error('model.json 파일이 없습니다 (TensorFlow.js 형식 필요)');
+  await ensureTf();
+  for (const { file, obj } of modelJsons) {
+    const need = new Set((obj.weightsManifest || []).flatMap(g => g.paths));
+    const myBins = bins.filter(b => need.has(b.name));
+    if (myBins.length !== need.size) throw new Error(`${file.name}: 가중치 파일(.bin)이 빠졌습니다`);
+    let model;
+    try { model = await tf.loadLayersModel(tf.io.browserFiles([file, ...myBins])); }
+    catch (e) { model = await tf.loadGraphModel(tf.io.browserFiles([file, ...myBins])); }
+    const shape = model.inputs[0].shape;
+    const T = shape[1] || (dl.meta && (dl.meta.window || dl.meta.WINDOW)) || Math.round(TH.windowS * TH.fps);
+    const C = shape[2];
+    if (dl.C && (dl.C !== C || dl.T !== T)) throw new Error('불러온 모델들의 입력 모양이 서로 다릅니다');
+    if (C !== dl.joints.length * 2 && C !== dl.joints.length * 2 + 3) throw new Error(`모델 입력(${C}채널)과 관절 목록(${dl.joints.length}개)이 맞지 않습니다`);
+    dl.T = T; dl.C = C;
+    dl.models.push(model); dl.names.push(file.name);
+  }
+  dl.norm = dl.meta ? findMeanStd(dl.meta, dl.C) : null;
+}
+document.getElementById('dl-btn').addEventListener('click', () => document.getElementById('dl-files').click());
+document.getElementById('dl-files').addEventListener('change', async (e) => {
+  if (!e.target.files.length) return;
+  setText('op-dl', '불러오는 중…');
+  try { await loadDlFiles(e.target.files); }
+  catch (err) { dl.error = err.message; console.error(err); }
+  e.target.value = '';
+  refreshDlStatus();
+});
+function refreshDlStatus() {
+  let txt;
+  if (dl.error) txt = '오류: ' + dl.error;
+  else if (!dl.models.length) txt = '미연결 · 규칙모델 단독';
+  else txt = `${dl.models.length}개 평균 · ${dl.T}f × ${dl.C}ch · 관절 ${dl.joints.length}개 · 표준화 ${dl.norm ? 'O' : 'X'} · ÷어깨 ${dl.byShoulder ? 'O' : 'X'}`;
+  setText('op-dl', txt);
+  document.getElementById('dl-btn').classList.toggle('on', dl.models.length > 0);
+}
+
+// ---------- 앙상블 설정 ----------
+function validCal(c) {
+  if (!c || typeof c !== 'object') return null;
+  if (c.type === 'platt' && Number.isFinite(c.a) && Number.isFinite(c.b)) return c;
+  if (c.type === 'temperature' && Number.isFinite(c.T) && c.T > 0) return c;
+  if (c.type === 'isotonic' && Array.isArray(c.x) && Array.isArray(c.y) && c.x.length === c.y.length && c.x.length >= 2) return c;
+  if (c.type === 'logistic' && c.coef && typeof c.coef === 'object') return c;
+  throw new Error(`알 수 없는 보정 형식: ${JSON.stringify(c).slice(0, 60)}`);
+}
+document.getElementById('cfg-btn').addEventListener('click', () => document.getElementById('cfg-file').click());
+document.getElementById('cfg-file').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    const o = JSON.parse(await f.text());
+    CAL.rule = validCal(o.rule_calibration);
+    CAL.dl = validCal(o.dl_calibration);
+    CAL.source = o.source || f.name;
+    if (Number.isFinite(o.w)) ensembleW = clamp(o.w, 0, 1);
+    if (Number.isFinite(o.decision)) decisionTau = clamp(o.decision, 0.05, 0.95);
+    if (Number.isFinite(o.touch_penalty)) TH.touchPenalty = clamp(o.touch_penalty, 0, 1);
+    if (o.dl_input) readDlInputOptions(o.dl_input);
+    syncSliders(); refreshDlStatus();
+  } catch (err) {
+    console.error(err);
+    setText('op-cal', '설정 오류: ' + err.message);
+  }
+  e.target.value = '';
+});
+function refreshCalStatus() {
+  const r = CAL.rule ? `규칙 ${CAL.rule.type}` : '규칙 미보정';
+  const d = CAL.dl ? `학습 ${CAL.dl.type}` : '학습 보정 없음';
+  setText('op-cal', `${r} · ${d} · w=${ensembleW.toFixed(2)} · τ=${decisionTau.toFixed(2)}`);
+  const rt = document.getElementById('rule-cal-tag');
+  rt.textContent = CAL.rule ? '보정됨' : '미보정'; rt.className = 'cal-tag ' + (CAL.rule ? 'ok' : 'warn');
+  const dt = document.getElementById('dl-cal-tag');
+  dt.textContent = CAL.dl ? '보정됨' : '보정 없음'; dt.className = 'cal-tag ' + (CAL.dl ? 'ok' : '');
+  const n = document.getElementById('out-note');
+  if (CAL.rule) { n.textContent = `보정 출처: ${CAL.source}`; n.className = 'out-note ok'; }
+  else { n.textContent = '규칙모델 확률이 아직 보정되지 않았습니다. 지금 값은 설계 점수이며 확률로 해석할 수 없습니다.'; n.className = 'out-note'; }
+}
+
+// ---------- 학습모델 실행 ----------
+async function runDl(tNow) {
+  if (!st.frames.length) return null;
+  const lastT = st.frames[st.frames.length - 1].t;
+  if (tNow - lastT > TH.dlMaxGapS) return null;
+  const raw = resampleFrames(st.frames, lastT, dl.T + 1, TH.fps);
+  if (!raw) return null;
+  dl.busy = true;
+  try {
+    const data = buildFeatures(raw, dl.T, dl.C, dl.norm, dl.byShoulder, dl.joints);
+    const x = tf.tensor3d(data, [1, dl.T, dl.C]);
+    let sum = 0;
+    for (const m of dl.models) {
+      const y = m.predict(x);
+      const out = await (Array.isArray(y) ? y[0] : y).data();
+      let p = out.length >= 2 ? out[out.length - 1] : out[0];
+      if (p < 0 || p > 1) p = 1 / (1 + Math.exp(-p));
+      sum += p;
+      tf.dispose(y);
+    }
+    x.dispose();
+    const p = sum / dl.models.length;
+    dl.lastRaw = p; dl.lastT = tNow;
+    return p;
+  } catch (err) {
+    dl.error = err.message; console.error(err);
+    return null;
+  } finally { dl.busy = false; refreshDlStatus(); }
+}
+
+// ---------- 판정 (0.5초마다) ----------
+function onTick(tNow) {
+  const touch = touchContext(st, tNow);
+  const ev = windowEvidence(st, tNow, touch);
+  const pr = ruleProbability(ev, CAL.rule);
+  const finish = (pDlRaw) => {
+    const pDl = pDlRaw == null ? null : applyCalibration(CAL.dl, pDlRaw, { p: logit(pDlRaw) });
+    const f = fuseTick(st, tNow, pr.p, pDl, ensembleW, decisionTau);
+    tickState = { t: tNow, ev, touch, pRuleRaw: ev.r, pRule: pr.p, ruleCal: pr.calibrated, feats: pr.feats, pDlRaw, pDl, ...f };
+    const al = updateAlert(alertSt, f.D, tNow, alertMode);
+    lastAl = al;
+    const domLabel = ev.dominant ? BEH[ev.dominant].label : null;
+    if (al.fire) {
+      playBeep();
+      eventBuf.push({ t_sec: +tNow.toFixed(2), type: 'alert', mode: alertMode, p: f.p == null ? null : +f.p.toFixed(3),
+                      p_rule: pr.p == null ? null : +pr.p.toFixed(3), p_dl: pDl == null ? null : +pDl.toFixed(3),
+                      D: +f.D.toFixed(3), w: ensembleW, tau: decisionTau, behavior: ev.dominant, behavior_label: domLabel,
+                      side: ev.dominant ? ev.beh[ev.dominant].side : null, touch_f: +touch.f.toFixed(2),
+                      episodes_recent: al.recent, alerts_sent: alertSt.sent });
+    } else if (al.newEpisode) {
+      eventBuf.push({ t_sec: +tNow.toFixed(2), type: 'episode', mode: alertMode, D: +f.D.toFixed(3),
+                      behavior: ev.dominant, behavior_label: domLabel, episodes_recent: al.recent });
+    }
+    // 기능적 행동(터치 때문에 점수가 낮아진 경우)도 따로 기록
+    const fn = Object.values(ev.beh).filter(e => e.functional > 0 && e.rawScore >= 0.5);
+    if (fn.length) eventBuf.push({ t_sec: +tNow.toFixed(2), type: 'functional', touch_f: +touch.f.toFixed(2), taps: touch.taps,
+      tap_interval: touch.tapInterval, behaviors: fn.map(e => ({ key: e.key, side: e.side, raw: +e.rawScore.toFixed(3), after: +e.score.toFixed(3) })) });
+    // 2초 판정 기록 (보정·가중치를 정할 때 라벨과 시간으로 맞춤)
+    const row = {
+      t_sec: +tNow.toFixed(2), r: ev.r == null ? '' : +ev.r.toFixed(4), dominant: ev.dominant || '',
+      dominant_side: ev.dominant && ev.beh[ev.dominant].side ? ev.beh[ev.dominant].side : '',
+      p_rule: pr.p == null ? '' : +pr.p.toFixed(4), rule_cal: pr.calibrated ? 1 : 0,
+      p_dl_raw: pDlRaw == null ? '' : +pDlRaw.toFixed(4), p_dl: pDl == null ? '' : +pDl.toFixed(4),
+      p_ens: f.p == null ? '' : +f.p.toFixed(4), D: +f.D.toFixed(4), stage: f.stage, mode: f.mode,
+      w: ensembleW, tau: decisionTau, touch_f: +touch.f.toFixed(3), taps: touch.taps, game: touch.game ? 1 : 0, fps: curFps,
+    };
+    for (const b of BEHAVIORS) {
+      const e = ev.beh[b.key];
+      row[`${b.key}_score`] = e ? +e.score.toFixed(4) : '';
+      row[`${b.key}_raw`] = e ? +e.rawScore.toFixed(4) : '';
+      row[`${b.key}_side`] = e && e.side ? e.side : '';
+      row[`${b.key}_amp`] = e ? +e.amp.toFixed(4) : '';
+      row[`${b.key}_reg`] = e ? +e.reg.toFixed(4) : '';
+      row[`${b.key}_int`] = e ? +e.int.toFixed(4) : '';
+      row[`${b.key}_cdev`] = e ? +e.cdev.toFixed(4) : '';
+    }
+    tickBuf.push(row);
+    timelineBuf.push({ t: tNow, s: f.p, r: pr.p, d: pDl, D: f.D, alarm: alertSt.inEpisode });
+    while (timelineBuf.length && timelineBuf[0].t < tNow - TH.timelineWindowS) timelineBuf.shift();
+  };
+  if (dl.models.length && !dl.busy) runDl(tNow).then(finish);
+  else if (dl.models.length) finish(tNow - dl.lastT <= TH.strideS * 3 ? dl.lastRaw : null);
+  else finish(null);
+}
+
+// ---------- 메인 루프 ----------
+async function processFrame() {
+  if (!running) return;
+  if (video.currentTime !== lastVideoTime && video.readyState >= 2) {
+    lastVideoTime = video.currentTime;
+    const tNow = nowT();
+    let ts = performance.now();
+    if (ts <= lastPoseTs) ts = lastPoseTs + 1;
+    lastPoseTs = ts;
+    const result = poseLandmarker.detectForVideo(video, ts);
+    const handRes = handLandmarker ? handLandmarker.detectForVideo(video, ts) : null;
+    overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+
+    let frame = null, scale = null;
+    const w = overlay.width, h = overlay.height;
+    if (result.landmarks && result.landmarks.length > 0) {
+      const lms = result.landmarks[0];
+      const world = result.worldLandmarks && result.worldLandmarks[0] ? result.worldLandmarks[0] : null;
+      frame = extractFrame(lms, world, handRes, w, h);
+      scale = ingestFrame(st, frame, tNow);
+      if (overlayChk.checked) { draw3DBox(lms, w, h); drawSkeleton(frame); drawHands(frame); }
+    }
+    lastFrame = frame; if (scale) lastScale = scale;
+
+    const rule = evaluateRule(st, tNow, scale != null);
+    if (lastTickAt < 0 || tNow - lastTickAt >= TH.strideS) { lastTickAt = tNow; onTick(tNow); }
+    if (frame && overlayChk.checked) drawBehaviorLabel(frame);
+
+    const gmax = {};
+    for (const g of GROUPS) gmax[g] = null;
+    for (const I of INSTANCES) {
+      const pr = rule.inst[I.id];
+      if (pr.analysis) gmax[I.beh.group] = Math.max(gmax[I.beh.group] || 0, pr.instant);
+    }
+    partTrace.push({ t: tNow, ...gmax });
+    while (partTrace.length && partTrace[0].t < tNow - PART_TRACE_S) partTrace.shift();
+    drawPartGraph(tNow);
+
+    updateUI(rule, tNow);
+
+    const nowMs = performance.now();
+    fpsTimes.push(nowMs);
+    while (fpsTimes.length && fpsTimes[0] < nowMs - 1000) fpsTimes.shift();
+    if (nowMs - lastFpsUpdate > 250) {
+      lastFpsUpdate = nowMs; curFps = fpsTimes.length;
+      setText('fps-text', `${curFps} fps` + (curFps < TH.lowFps ? ' · 손가락 정확도 낮음' : ''));
+      document.getElementById('fps-text').style.color = curFps < TH.lowFps ? 'var(--amber)' : '';
+    }
+  }
+  requestAnimationFrame(processFrame);
+}
+
+// ---------- 화면 갱신 ----------
+function setText(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+function fmtHMS(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const p = n => String(n).padStart(2, '0');
+  return `${p(Math.floor(sec / 3600))}:${p(Math.floor((sec % 3600) / 60))}:${p(sec % 60)}`;
+}
+const f3 = v => v == null ? '—' : v.toFixed(3);
+function setGauge(id, value, text, cls) {
+  const g = document.getElementById('gauge-' + id);
+  const bar = document.getElementById('bar-' + id);
+  if (bar) bar.style.width = (clamp(value || 0, 0, 1) * 100) + '%';
+  setText('bar-' + id + '-text', text);
+  if (g) { g.classList.toggle('alarm', cls === 'alarm'); g.classList.toggle('warn', cls === 'warn'); }
+}
+function behName(key, e) {
+  const b = BEH[key];
+  return `${e && e.side ? SIDE_TXT[e.side] + ' ' : ''}${b.label}${e && e.subtype ? ` (${e.subtype})` : ''}`;
+}
+
+function updateUI(rule, tNow) {
+  const T = tickState;
+  const stage = T ? T.stage : 0, stageCls = STAGE_CLS[stage];
+
+  setGauge('ens', T && T.p != null ? T.p : 0, T && T.p != null ? T.p.toFixed(2) : '—', stageCls);
+  setText('ens-tag', T ? (T.mode === 'ensemble' ? `w=${ensembleW.toFixed(2)}` : MODE_TXT[T.mode]) : '대기');
+  const D = T ? T.D : 0;
+  setGauge('dur', D, `${(D * TH.durationS).toFixed(1)}s / ${TH.durationS.toFixed(1)}s`, D >= 0.999 ? 'alarm' : (D >= 0.5 ? 'warn' : ''));
+  const gr = document.getElementById('gauge-rule');
+  gr.classList.toggle('na', !T || T.pRule == null);
+  if (T && T.pRule != null) setGauge('rule', T.pRule, T.pRule.toFixed(2), '');
+  else setText('bar-rule-text', '판단 불가');
+  setText('rule-tag', T && T.ev.dominant && T.pRuleRaw > 0.05 ? BEH[T.ev.dominant].label : (CAL.rule ? '보정' : '미보정'));
+  const gdl = document.getElementById('gauge-dl');
+  gdl.classList.toggle('na', !T || T.pDl == null);
+  if (T && T.pDl != null) { setGauge('dl', T.pDl, T.pDl.toFixed(2), ''); setText('dl-tag', CAL.dl ? '보정' : 'DL'); }
+  else { setText('bar-dl-text', dl.models.length ? '수집 중' : '—'); setText('dl-tag', dl.models.length ? 'WARMUP' : '미연결'); }
+  const chip = document.getElementById('stage-chip');
+  chip.textContent = STAGE_TXT[stage]; chip.className = 'stage-chip ' + stageCls;
+
+  // 터치
+  const tc = T ? T.touch : null;
+  setText('op-touch', tc ? (tc.game ? '게임 중 (손 행동 제외)' : `f=${tc.f.toFixed(2)} · 탭 ${tc.taps}회` + (tc.tapInterval ? ` · 간격 ${tc.tapInterval.toFixed(2)}s` : '')) : '—');
+
+  // 행동별
+  const lowFps = curFps > 0 && curFps < TH.lowFps;
+  for (const b of BEHAVIORS) {
+    const e = T ? T.ev.beh[b.key] : null;
+    const insts = INSTANCES.filter(I => I.beh.key === b.key);
+    const anyA = insts.map(I => rule.inst[I.id].analysis).find(a => a);
+    const reps = Math.max(0, ...insts.map(I => rule.inst[I.id].reps));
+    if (e) {
+      const extra = [e.side ? SIDE_TXT[e.side] : '', e.subtype || '', reps ? `${reps}회` : '', e.functional > 0 ? `터치 −${Math.round(TH.touchPenalty * e.functional * 100)}%` : '', e.suppressed ? `${BEH[e.suppressed].label} 우선` : '']
+        .filter(Boolean).join(' · ');
+      setGauge('beh-' + b.key, e.score, e.score.toFixed(2) + (extra ? ` · ${extra}` : ''),
+               e.score >= 0.75 ? 'alarm' : (e.score >= 0.5 ? 'warn' : ''));
+    } else setGauge('beh-' + b.key, 0, anyA && !anyA.valid ? anyA.reason : '—', '');
+    const best = insts.map(I => rule.inst[I.id]).filter(r => r.analysis && r.analysis.valid).sort((x, y) => y.instant - x.instant)[0];
+    let tag = best && best.instant >= 0.3 ? best.analysis.axis : (anyA && !anyA.valid ? anyA.reason : '');
+    if (lowFps && (b.key === 'finger' || b.key === 'flutter')) tag = '정확도 낮음';
+    setText(`beh-tag-${b.key}`, tag || '—');
+  }
+
+  if (document.body.classList.contains('analyst-on')) {
+    setText('scale-v', lastScale ? `${lastScale.toFixed(0)} px` : '—');
+    const ck = ok => ok ? '✓' : '✗';
+    for (const b of BEHAVIORS) {
+      const insts = INSTANCES.filter(I => I.beh.key === b.key);
+      const best = insts.map(I => ({ I, r: rule.inst[I.id] })).filter(x => x.r.analysis)
+                        .sort((x, y) => y.r.instant - x.r.instant)[0];
+      let txt = '—';
+      if (best) {
+        const a = best.r.analysis, sd = best.I.side ? SIDE_TXT[best.I.side] + ' · ' : '';
+        if (!a.valid) txt = sd + a.reason;
+        else if (b.type === 'hold') txt = `${sd}${a.axis} · 위치${ck(a.gate_ok)} 중심${ck(a.cdev_ok)} · ${a.frameScore.toFixed(2)}`;
+        else txt = `${sd}${a.axis} · ${a.interval > 0 ? a.interval.toFixed(2) + 's ' + a.cycles + '회' : '—'} · ` +
+                   `박자${ck(a.int_ok)} 진폭${ck(a.amp_ok)} 규칙${ck(a.reg_ok)} 중심${ck(a.cdev_ok)}` +
+                   (b.gate || b.winGate || b.type === 'circle' ? ` 위치${ck(a.gate_ok)}` : '') + ` · ${a.frameScore.toFixed(2)}`;
+      }
+      setText(`crit-${b.key}`, txt);
+    }
+  }
+
+  // 알림 배너
+  const showBanner = alertSt.inEpisode && (alertMode === 'immediate' || alertSt.firedThisEpisode);
+  const banner = document.getElementById('alert-banner');
+  banner.classList.toggle('show', showBanner);
+  banner.classList.toggle('repeat', showBanner && lastAl.repeated);
+  if (showBanner && T) {
+    setText('alert-title', lastAl.repeated
+      ? `상동행동이 반복되고 있습니다 (최근 ${TH.alert.countWindowS / 60}분 ${lastAl.recent}회)`
+      : '상동행동입니다. 안정을 취해주세요.');
+    const top = Object.entries(T.ev.beh).filter(([, e]) => e.score >= 0.5).sort((x, y) => y[1].score - x[1].score).slice(0, 3)
+                      .map(([k, e]) => behName(k, e));
+    setText('alert-subtitle', `확률 ${T.p == null ? '—' : T.p.toFixed(2)} (규칙 ${T.pRule == null ? '—' : T.pRule.toFixed(2)} · ` +
+      `학습 ${T.pDl == null ? '—' : T.pDl.toFixed(2)}) · ${TH.durationS}초 이상 이어짐` + (top.length ? ` · ${top.join(', ')}` : ''));
+  }
+
+  const dot = document.getElementById('status-dot');
+  if (stage === 2) { dot.className = 'status-dot alarm'; setText('status-text', '위험'); }
+  else if (stage === 1) { dot.className = 'status-dot warn'; setText('status-text', '주의 · 반복 동작'); }
+  else { dot.className = 'status-dot active'; setText('status-text', '모니터링 중'); }
+
+  const act = document.getElementById('op-activity');
+  if (stage === 2) { act.textContent = T && T.ev.dominant ? behName(T.ev.dominant, T.ev.beh[T.ev.dominant]) : '상동행동 위험'; act.className = 'op-state-val alarm'; }
+  else if (stage === 1) { act.textContent = T && T.ev.dominant ? behName(T.ev.dominant, T.ev.beh[T.ev.dominant]) : '반복 동작 관찰'; act.className = 'op-state-val warn'; }
+  else if (!lastFrame) { act.textContent = '대상 미검출'; act.className = 'op-state-val na'; }
+  else { act.textContent = '정상 범위'; act.className = 'op-state-val ok'; }
+  setText('op-pose', describePose(lastFrame, lastScale));
+  setText('op-recog', describeRecog(lastFrame));
+
+  let dt = 0;
+  if (lastFrameT > 0) dt = Math.max(0, Math.min(0.25, tNow - lastFrameT));
+  lastFrameT = tNow;
+  if (stage >= 1) { warnTotal += dt; streak += dt; } else streak = 0;
+  if (stage === 2) alarmTotal += dt;
+  maxStreak = Math.max(maxStreak, streak);
+  setText('sess-time', fmtHMS(tNow));
+  setText('sess-warn-total', fmtHMS(warnTotal));
+  setText('sess-alarm-total', fmtHMS(alarmTotal));
+  setText('episode-count', `${alertSt.total} / ${lastAl.recent}`);
+  setText('alarm-count', alertSt.sent);
+  setText('peak-streak', fmtHMS(maxStreak));
+
+  if (T && tNow - lastOutUpdate >= 0.25) {
+    lastOutUpdate = tNow;
+    setText('out-rule-r', f3(T.pRuleRaw));
+    setText('out-rule', f3(T.pRule));
+    setText('out-rule-part', T.ev.dominant && T.pRuleRaw > 0.05 ? behName(T.ev.dominant, T.ev.beh[T.ev.dominant]) : '—');
+    setText('out-dl-raw', f3(T.pDlRaw));
+    setText('out-dl', f3(T.pDl));
+    setText('out-ens', f3(T.p));
+    setText('out-dur', `${T.D.toFixed(3)} (${(T.D * TH.durationS).toFixed(1)}s)`);
+    setText('out-ens-stage', `${STAGE_TXT[T.stage]} · ${MODE_TXT[T.mode]}`);
+    const top5 = Object.entries(T.ev.beh).sort((x, y) => y[1].score - x[1].score).slice(0, 5);
+    document.getElementById('out-json').textContent = JSON.stringify({
+      t_sec: +T.t.toFixed(1),
+      rule_model: {
+        evidence_r: T.pRuleRaw == null ? null : +T.pRuleRaw.toFixed(3),
+        probability: T.pRule == null ? null : +T.pRule.toFixed(3),
+        calibrated: T.ruleCal, dominant: T.ev.dominant,
+        top_behaviors: Object.fromEntries(top5.map(([k, e]) => [k, { score: +e.score.toFixed(3), raw: +e.rawScore.toFixed(3), side: e.side,
+          subtype: e.subtype || undefined, touch_f: e.functional || undefined, suppressed_by: e.suppressed || undefined }])),
+      },
+      touch: T.touch ? { f: +T.touch.f.toFixed(2), taps: T.touch.taps, game: T.touch.game } : null,
+      dl_model: { raw: T.pDlRaw == null ? null : +T.pDlRaw.toFixed(3), probability: T.pDl == null ? null : +T.pDl.toFixed(3), calibrated: !!CAL.dl },
+      ensemble: { p: T.p == null ? null : +T.p.toFixed(3), w: ensembleW, tau: decisionTau,
+                  duration_D: +T.D.toFixed(3), stage: STAGE_TXT[T.stage], mode: T.mode },
+    }, null, 2);
+  }
+
+  drawTimeline();
+
+  // 프레임 기록: 포즈 33개(x, y, 보임) + 손 21개 × 양손(x, y, z, 신뢰도)
+  const row = {
+    t_sec: +tNow.toFixed(3), stage, p_ens: T && T.p != null ? +T.p.toFixed(4) : '',
+    p_rule: T && T.pRule != null ? +T.pRule.toFixed(4) : '', p_dl: T && T.pDl != null ? +T.pDl.toFixed(4) : '',
+    D: T ? +T.D.toFixed(4) : '', in_episode: alertSt.inEpisode ? 1 : 0, scale_px: lastScale ? +lastScale.toFixed(1) : '',
+    touch_down: st.touch.spans.some(s => s[1] == null) ? 1 : 0,
+  };
+  for (const I of INSTANCES) {
+    const pr = rule.inst[I.id], a = pr.analysis;
+    row[`${I.id}_instant`] = a ? +pr.instant.toFixed(4) : '';
+    row[`${I.id}_interval`] = a && a.valid && a.interval ? +a.interval.toFixed(3) : '';
+  }
+  for (let i = 0; i < 33; i++) {
+    const j = lastFrame ? lastFrame.raw[i] : null;
+    row[`p${i}_x`] = j ? +j.x.toFixed(5) : ''; row[`p${i}_y`] = j ? +j.y.toFixed(5) : ''; row[`p${i}_v`] = j ? +j.v.toFixed(3) : '';
+  }
+  for (const sd of ['L', 'R']) {
+    const hd = lastFrame ? lastFrame.handRaw[sd] : null;
+    row[`h${sd}_score`] = hd ? +hd.score.toFixed(3) : '';
+    for (let i = 0; i < 21; i++) {
+      const p = hd ? hd.norm[i] : null;
+      row[`h${sd}${i}_x`] = p ? +p.x.toFixed(5) : ''; row[`h${sd}${i}_y`] = p ? +p.y.toFixed(5) : ''; row[`h${sd}${i}_z`] = p ? +p.z.toFixed(5) : '';
+    }
+  }
+  recBuf.push(row);
+}
+
+function describePose(f, scale) {
+  if (!f) return '대상 미검출';
+  if (!scale) return '상체 확인 중…';
+  const P = f.pts;
+  if (!f.shOk) return f.shLoose ? '몸을 돌림 · 어깨 인식 약함' : '가까이 앉음 · 어깨 화면 밖 (얼굴 기준)';
+  const up = 0.15 * scale;
+  const lUp = f.hands.L.score >= 0.3 && f.hands.L.palm.y < P.ls.y - up;
+  const rUp = f.hands.R.score >= 0.3 && f.hands.R.palm.y < P.rs.y - up;
+  const arms = (lUp && rUp) ? '양손 어깨 위' : (lUp || rUp) ? '한 손 어깨 위' : '손 내림';
+  const hips = P.lh.v >= TH.visibilityMin && P.rh.v >= TH.visibilityMin ? '엉덩이까지 보임' : '상반신만 보임';
+  return `${hips} · ${arms}`;
+}
+function describeRecog(f) {
+  if (!f) return '—';
+  const hs = sd => f.hands[sd].model ? `손 ${f.hands[sd].score.toFixed(2)}` : (f.hands[sd].score >= 0.3 ? '포즈로 대신' : '안 보임');
+  const ears = (f.pts.lear.v >= TH.visibilityMin ? 1 : 0) + (f.pts.rear.v >= TH.visibilityMin ? 1 : 0);
+  return `L ${hs('L')} · R ${hs('R')} · 귀 ${ears}/2${handLandmarker ? '' : ' · 손 모델 꺼짐'}`;
+}
+
+// ---------- 그래프 ----------
+function fitCanvas(cv, ctx) {
+  const W = cv.clientWidth, H = cv.clientHeight, dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  return [W, H];
+}
+function drawTimeline() {
+  const [W, H] = fitCanvas(timelineCv, timelineCtx);
+  const ctx = timelineCtx, padL = 32, plotW = W - padL;
+  const yOf = v => H - v * (H - 4) - 2;
+  ctx.font = '12px "Share Tech Mono", ui-monospace, monospace';
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+  for (const tv of [0, 0.5, 1]) {
+    ctx.strokeStyle = 'rgba(52,198,255,0.10)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL, yOf(tv)); ctx.lineTo(W, yOf(tv)); ctx.stroke();
+    ctx.fillStyle = '#4f7a9e'; ctx.fillText(tv.toFixed(1), padL - 4, yOf(tv));
+  }
+  if (timelineBuf.length < 2) return;
+  const tEnd = timelineBuf[timelineBuf.length - 1].t;
+  const tStart = Math.max(0, tEnd - TH.timelineWindowS);
+  const xOf = t => padL + ((t - tStart) / (tEnd - tStart || 1)) * plotW;
+  ctx.fillStyle = 'rgba(255,70,48,0.16)';
+  let run = null;
+  timelineBuf.forEach((p, i) => {
+    if (p.alarm && run === null) run = p.t;
+    if ((!p.alarm || i === timelineBuf.length - 1) && run !== null) {
+      const e = p.alarm ? p.t : timelineBuf[i - 1].t;
+      ctx.fillRect(xOf(run), 0, xOf(e) - xOf(run), H); run = null;
+    }
+  });
+  ctx.setLineDash([4, 3]); ctx.lineWidth = 1; ctx.strokeStyle = '#ff5a3c';
+  ctx.beginPath(); ctx.moveTo(padL, yOf(decisionTau)); ctx.lineTo(W, yOf(decisionTau)); ctx.stroke();
+  ctx.setLineDash([]);
+  const line = (key, color, width, dash) => {
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash(dash || []);
+    ctx.shadowColor = color; ctx.shadowBlur = 4;
+    ctx.beginPath(); let pen = false;
+    for (const p of timelineBuf) {
+      const v = p[key];
+      if (v == null) { pen = false; continue; }
+      if (!pen) { ctx.moveTo(xOf(p.t), yOf(v)); pen = true; } else ctx.lineTo(xOf(p.t), yOf(v));
+    }
+    ctx.stroke(); ctx.shadowBlur = 0; ctx.setLineDash([]);
+  };
+  line('D', '#ffb020', 1.2, [2, 3]);
+  line('r', '#34c6ff', 1.3);
+  line('d', '#b48cff', 1.3, [5, 3]);
+  line('s', '#eaf6ff', 2.2);
+}
+function drawPartGraph(tNow) {
+  const [W, H] = fitCanvas(partCv, partCtx);
+  const ctx = partCtx;
+  ctx.strokeStyle = 'rgba(52,198,255,0.09)'; ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(0, H * i / 4); ctx.lineTo(W, H * i / 4); ctx.stroke(); }
+  if (partTrace.length < 2) {
+    ctx.fillStyle = '#4f7a9e'; ctx.font = '13px "Share Tech Mono", ui-monospace, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('행동 묶음별 순간 점수 대기', W / 2, H / 2);
+    return;
+  }
+  const t0 = tNow - PART_TRACE_S;
+  const xOf = t => ((t - t0) / PART_TRACE_S) * W;
+  const yOf = v => H - 4 - v * (H - 8);
+  for (const g of GROUPS) {
+    const color = GROUP_COLOR[g];
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.shadowColor = color; ctx.shadowBlur = 6;
+    ctx.beginPath(); let pen = false;
+    for (const s of partTrace) {
+      const v = s[g];
+      if (v == null) { pen = false; continue; }
+      if (!pen) { ctx.moveTo(xOf(s.t), yOf(v)); pen = true; } else ctx.lineTo(xOf(s.t), yOf(v));
+    }
+    ctx.stroke(); ctx.shadowBlur = 0;
+  }
+}
+
+// ---------- 영상 위 표시 ----------
+function drawSkeleton(f) {
+  const c = overlayCtx, VIS = 0.3, pts = Object.values(POSE).map(i => i);
+  const names = Object.keys(POSE);
+  const byIdx = i => f.pts[names[i]];
+  c.save();
+  c.lineCap = 'round'; c.lineJoin = 'round'; c.shadowBlur = 6;
+  for (const [a, b] of POSE_BONES) {
+    const pa = byIdx(a), pb = byIdx(b);
+    const ok = pa.v > VIS && pb.v > VIS;
+    if (!ok && (a > 24 || b > 24)) continue;                      // 다리는 보일 때만
+    const face = a <= 10 && b <= 10, handPt = a >= 15 && a <= 22 && b >= 15 && b <= 22;
+    if (handPt && (f.hands.L.model || f.hands.R.model)) continue;  // 손 모델이 있으면 손은 그쪽으로 그림
+    c.setLineDash(ok ? [] : [3, 4]); c.globalAlpha = ok ? 1 : 0.35;
+    c.strokeStyle = face ? GV.face : GV.skeleton; c.shadowColor = c.strokeStyle; c.lineWidth = face ? 1.4 : 2.4;
+    c.beginPath(); c.moveTo(pa.x, pa.y); c.lineTo(pb.x, pb.y); c.stroke();
+  }
+  c.setLineDash([]);
+  for (let i = 0; i < 33; i++) {
+    const p = byIdx(i);
+    if (p.v <= VIS && i > 24) continue;
+    c.globalAlpha = p.v > VIS ? 1 : 0.35;
+    c.fillStyle = i <= 10 ? GV.face : GV.joint; c.shadowColor = c.fillStyle;
+    c.beginPath(); c.arc(p.x, p.y, i <= 10 ? 2.6 : 3.4, 0, Math.PI * 2); c.fill();
+  }
+  c.restore();
+}
+// 손 21개 관절 (정확도 확인용) — 손가락 끝은 크게, 손바닥 가운데 표시
+function drawHands(f) {
+  const c = overlayCtx;
+  for (const sd of ['L', 'R']) {
+    const hd = f.hands[sd];
+    if (!hd.model) continue;
+    const p = hd.pts, col = hd.score >= 0.8 ? GV.hand : GV.handWeak;
+    c.save(); c.strokeStyle = col; c.fillStyle = col; c.shadowColor = col; c.shadowBlur = 6; c.lineWidth = 1.8;
+    for (const [a, b] of HAND_BONES) { c.beginPath(); c.moveTo(p[a].x, p[a].y); c.lineTo(p[b].x, p[b].y); c.stroke(); }
+    p.forEach((q, i) => { c.beginPath(); c.arc(q.x, q.y, [4, 8, 12, 16, 20].includes(i) ? 3.4 : 2.2, 0, Math.PI * 2); c.fill(); });
+    c.globalAlpha = 0.6; c.beginPath(); c.arc(hd.palm.x, hd.palm.y, 5, 0, Math.PI * 2); c.stroke();
+    c.restore();
+  }
+}
+function draw3DBox(lms, w, h) {
+  const pts = [];
+  for (let i = 0; i < 25; i++) { const lm = lms[i]; if (lm && visOf(lm) > 0.35) pts.push([lm.x * w, lm.y * h]); }
+  if (pts.length < 3) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of pts) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+  const padX = (maxX - minX) * 0.18 + 18, padY = (maxY - minY) * 0.10 + 22;
+  minX -= padX; maxX += padX; minY -= padY; maxY += padY;
+  const bw = maxX - minX, bh = maxY - minY;
+  if (bw < 20 || bh < 20) return;
+  const t = performance.now() / 1000;
+  const depth = (Math.min(bw, bh) * 0.22) * (0.92 + 0.08 * Math.sin(t * 1.2));
+  const dx = depth * 0.62, dy = -depth * 0.5;
+  const f = [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]];
+  const b = f.map(([x, y]) => [x + dx, y + dy]);
+  const c = overlayCtx;
+  c.save(); c.strokeStyle = GV.box; c.shadowColor = GV.box;
+  c.globalAlpha = 0.3; c.shadowBlur = 4; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(b[0][0], b[0][1]); for (let i = 1; i < 4; i++) c.lineTo(b[i][0], b[i][1]); c.closePath(); c.stroke();
+  c.globalAlpha = 0.4; c.beginPath();
+  for (let i = 0; i < 4; i++) { c.moveTo(f[i][0], f[i][1]); c.lineTo(b[i][0], b[i][1]); } c.stroke();
+  c.globalAlpha = 0.85; c.shadowBlur = 8; c.lineWidth = 1.6;
+  const corner = Math.min(bw, bh) * 0.16;
+  const seg = (p, qx, qy) => { c.beginPath(); c.moveTo(p[0], p[1]); c.lineTo(qx, qy); c.stroke(); };
+  seg(f[0], f[0][0] + corner, f[0][1]); seg(f[0], f[0][0], f[0][1] + corner);
+  seg(f[1], f[1][0] - corner, f[1][1]); seg(f[1], f[1][0], f[1][1] + corner);
+  seg(f[2], f[2][0] - corner, f[2][1]); seg(f[2], f[2][0], f[2][1] - corner);
+  seg(f[3], f[3][0] + corner, f[3][1]); seg(f[3], f[3][0], f[3][1] - corner);
+  c.restore();
+}
+// 지금 가장 높은 행동을 해당 부위 옆에 표시 (캔버스가 거울 반전이라 글자는 되돌려 그림)
+function drawBehaviorLabel(f) {
+  const T = tickState;
+  if (!T || !T.ev.dominant) return;
+  const e = T.ev.beh[T.ev.dominant];
+  if (e.score < 0.3) return;
+  const b = BEH[T.ev.dominant], P = f.pts;
+  let at;
+  if (b.group === '머리') at = P.nose;
+  else if (b.group === '전신' || b.group === '어깨' || b.group === '전신(실험)') at = { x: f.cx, y: f.cy };
+  else if (b.key === 'clap') at = mid(f.hands.L.palm, f.hands.R.palm);
+  else at = f.hands[e.side || 'L'].palm;
+  const c = overlayCtx, color = e.score >= 0.5 ? '#ff5a3c' : GROUP_COLOR[b.group];
+  c.save(); c.translate(at.x, at.y);
+  c.strokeStyle = color; c.lineWidth = 2; c.shadowColor = color; c.shadowBlur = 10;
+  c.beginPath(); c.arc(0, 0, 22, 0, Math.PI * 2); c.stroke();
+  c.scale(-1, 1);
+  const text = `${behName(T.ev.dominant, e)} ${e.score.toFixed(2)}`;
+  c.font = '600 14px "IBM Plex Sans KR", ui-monospace, monospace';
+  const bw = c.measureText(text).width + 16, bh = 24, bx = 28, by = -36;
+  c.shadowBlur = 0; c.fillStyle = 'rgba(2, 8, 12, 0.85)'; c.fillRect(bx, by, bw, bh);
+  c.strokeStyle = color; c.lineWidth = 1.2; c.strokeRect(bx, by, bw, bh);
+  c.fillStyle = '#e8fbff'; c.textBaseline = 'middle'; c.fillText(text, bx + 8, by + bh / 2);
+  c.restore();
+}
+
+// ---------- 소리 ----------
+let audioCtx = null, lastBeepTime = 0;
+function playBeep() {
+  if (!soundChk.checked) return;
+  const now = performance.now();
+  if (now - lastBeepTime < 1000) return;
+  lastBeepTime = now;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  } catch (e) { return; }
+  const t0 = audioCtx.currentTime;
+  for (const [delay, freq] of [[0, 880], [0.18, 660], [0.36, 880]]) {
+    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.frequency.value = freq; osc.type = 'sine';
+    gain.gain.setValueAtTime(0, t0 + delay);
+    gain.gain.linearRampToValueAtTime(0.25, t0 + delay + 0.01);
+    gain.gain.linearRampToValueAtTime(0, t0 + delay + 0.15);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t0 + delay); osc.stop(t0 + delay + 0.16);
+  }
+}
+
+// ---------- 다운로드 ----------
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function toCsv(rows) {
+  const cols = Object.keys(rows[0]);
+  return [cols.join(','), ...rows.map(r => cols.map(k => r[k]).join(','))].join('\n');
+}
+function downloadRecords() {
+  const tag = runIdTag || 'session';
+  if (recBuf.length) triggerDownload(new Blob([toCsv(recBuf)], { type: 'text/csv;charset=utf-8' }), `frames_${tag}.csv`);
+  if (tickBuf.length) setTimeout(() => triggerDownload(new Blob([toCsv(tickBuf)], { type: 'text/csv;charset=utf-8' }), `windows_${tag}.csv`), 300);
+  if (eventBuf.length) setTimeout(() => triggerDownload(new Blob([eventBuf.map(e => JSON.stringify(e)).join('\n')],
+    { type: 'application/x-ndjson;charset=utf-8' }), `events_${tag}.jsonl`), 600);
+}
+
+// ---------- 시작 / 정지 ----------
+async function handleStart() {
+  document.getElementById('pre-start').classList.add('hidden');
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('stop-btn').disabled = false;
+  document.getElementById('model-select').disabled = true;
+  document.getElementById('hand-select').disabled = true;
+  try {
+    await initLandmarkers();
+    await startCamera();
+    await listCameras();
+  } catch (err) {
+    console.error(err);
+    setText('status-text', '카메라/모델 오류');
+    document.getElementById('start-btn').disabled = false;
+    document.getElementById('stop-btn').disabled = true;
+    document.getElementById('model-select').disabled = false;
+    document.getElementById('hand-select').disabled = false;
+    return;
+  }
+  const game = st.touch.game;
+  st = createState(); st.touch.game = game;
+  alertSt = createAlertState(); lastAl = { repeated: false, recent: 0 };
+  timelineBuf.length = 0; partTrace.length = 0;
+  recBuf = []; tickBuf = []; eventBuf = [];
+  tickState = null; lastTickAt = -1;
+  warnTotal = 0; alarmTotal = 0; streak = 0; maxStreak = 0; lastFrameT = 0; lastOutUpdate = 0;
+  lastFrame = null; lastScale = null;
+  dl.lastT = -1; dl.lastRaw = null; dl.busy = false;
+  sessionStart = performance.now();
+  fpsTimes.length = 0; lastFpsUpdate = 0;
+  running = true;
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  runIdTag = `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  document.getElementById('csv-btn').disabled = true;
+  refreshDlStatus();
+  processFrame();
+}
+function handleStop() {
+  running = false;
+  stopCamera();
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('stop-btn').disabled = true;
+  document.getElementById('model-select').disabled = false;
+  document.getElementById('hand-select').disabled = false;
+  setText('status-text', '정지됨');
+  document.getElementById('status-dot').className = 'status-dot';
+  document.getElementById('alert-banner').classList.remove('show');
+  document.getElementById('csv-btn').disabled = recBuf.length === 0;
+}
+
+document.getElementById('start-btn').addEventListener('click', handleStart);
+document.getElementById('pre-start-btn').addEventListener('click', handleStart);
+document.getElementById('stop-btn').addEventListener('click', handleStop);
+document.getElementById('csv-btn').addEventListener('click', downloadRecords);
+document.getElementById('analyst-btn').addEventListener('click', (e) => {
+  document.body.classList.toggle('analyst-on');
+  e.currentTarget.classList.toggle('on', document.body.classList.contains('analyst-on'));
+});
+
+buildPartUI();
+refreshDlStatus();
+listCameras();
+drawPartGraph(0);
+drawTimeline();
+window.addEventListener('resize', () => { try { drawPartGraph(performance.now() / 1000); drawTimeline(); } catch (e) {} });
+
+</script>
+
+</body>
+</html>
