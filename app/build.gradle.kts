@@ -26,7 +26,7 @@ android {
         val serverUrl = org.jetbrains.kotlin.konan.properties.Properties().apply {
             val file = rootProject.file("local.properties")
             if (file.exists()) load(file.inputStream())
-        }.getProperty("aion.server.url") ?: "http://192.168.0.10:8000"
+        }.getProperty("aion.server.url") ?: "https://server-7g4j.onrender.com"
 
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
 
