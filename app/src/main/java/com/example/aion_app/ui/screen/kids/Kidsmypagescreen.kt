@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.rememberAsyncImagePainter
-import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.AionTextValue
@@ -35,6 +34,7 @@ import com.example.aion_app.ui.theme.GreyNormal
 import com.example.aion_app.ui.theme.Light
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.White
+import com.example.aion_app.ui.home.childPhotoRes
 
 // ============================================================
 // 아동용 마이페이지 — 시안 1p ("내 정보")
@@ -89,7 +89,7 @@ fun KidsMyPageScreen(
     ) {
         Spacer(Modifier.height(28.dp))
 
-        KidsProfileAvatar(imageUri = profileImageUri, size = 108.dp)
+        KidsProfileAvatar(imageUri = profileImageUri, size = 108.dp, childName = userName)
 
         Spacer(Modifier.height(20.dp))
 
@@ -174,12 +174,14 @@ private fun KidsMenuItem(text: String, onClick: () -> Unit) {
 internal fun KidsProfileAvatar(
     imageUri: Uri?,
     size: Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // 직접 고른 사진이 없을 때 교사앱과 같은 임시 사진을 고르는 데 쓴다
+    childName: String? = null
 ) {
     val painter: Painter = if (imageUri != null) {
         rememberAsyncImagePainter(model = imageUri)
     } else {
-        painterResource(id = R.drawable.mypage_profile_default)
+        painterResource(id = childPhotoRes(childName))
     }
 
     Image(

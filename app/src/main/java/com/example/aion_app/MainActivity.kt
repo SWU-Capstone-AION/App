@@ -26,6 +26,9 @@ import androidx.lifecycle.lifecycleScope
 import com.example.aion_app.data.alert.AlertRepository
 import kotlinx.coroutines.launch
 
+import android.view.MotionEvent
+import com.example.aion_app.monitor.rule.TouchTracker
+
 // ============================================
 // 기기 판별 기준
 // ============================================
@@ -118,6 +121,20 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         AlertBus.isAppForeground = false
+    }
+
+    /**
+     * 화면 터치 시각을 규칙모델 v3 에 알린다 (기능적 행동 판단).
+     * 태블릿 화면을 두드리는 동안의 손·팔 반복은 목적 있는 행동이라 상동행동 점수를 낮춘다.
+     * Compose 화면의 터치도 모두 여기를 지나간다. 터치 처리 자체는 그대로 넘긴다.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> TouchTracker.onDown(ev.eventTime)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> TouchTracker.onUp(ev.eventTime)
+            MotionEvent.ACTION_CANCEL -> TouchTracker.onCancel(ev.eventTime)
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     /** 알림에 실려 온 알림 정보를 팝업으로 넘긴다. */

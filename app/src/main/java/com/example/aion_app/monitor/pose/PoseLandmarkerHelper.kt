@@ -10,27 +10,41 @@ import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
+import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
+import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * MediaPipe PoseLandmarker(LIVE_STREAM) 래퍼.
  * CameraX 의 ImageProxy 를 받아 회전/미러 보정 후 비동기 검출을 돌리고,
  * 결과를 [onResult] 로 넘긴다. GPU delegate 실패 시 CPU 로 자동 폴백.
+ *
+ * 규칙모델 v3 를 위해 손 모델(HandLandmarker, 손마다 21개 관절)도 같은 프레임에 돌린다.
+ *  - [enableHands] = true 일 때만 켠다. assets/hand_landmarker.task 가 없거나 false 면 손 모델은 꺼지고
+ *    ResultBundle.hands 는 null (규칙모델은 포즈의 손 관절 3개로 대신한다)
+ *  - 손 결과는 따로 도착하므로, 포즈 결과가 나올 때 '가장 최근 손 결과'(100ms 안)를 같이 넘긴다
  */
 class PoseLandmarkerHelper(
     context: Context,
     private val onResult: (ResultBundle) -> Unit,
     private val onError: (String) -> Unit,
+    // 미니게임처럼 손가락이 필요 없는 곳은 기본값(false)으로 둬서 계산을 아낀다
+    enableHands: Boolean = false,
 ) {
     data class ResultBundle(
         val result: PoseLandmarkerResult,
         val inputImageWidth: Int,
         val inputImageHeight: Int,
         val inferenceTimeMs: Long,
+        /** 같은 시점(±100ms)의 손 모델 결과. 손 모델이 꺼져 있으면 null */
+        val hands: HandLandmarkerResult? = null,
     )
 
     private var poseLandmarker: PoseLandmarker? = null
+    private var handLandmarker: HandLandmarker? = null
+    private val latestHands = AtomicReference<HandLandmarkerResult?>(null)
 
     // 마지막으로 detectAsync 에 넣은 타임스탬프.
     //
@@ -41,6 +55,9 @@ class PoseLandmarkerHelper(
 
     var delegateName: String = "-"
         private set
+
+    /** 손 모델이 켜져 있는지 (화면 표시용) */
+    val handsEnabled: Boolean get() = handLandmarker != null
 
     init {
         try {
@@ -53,6 +70,17 @@ class PoseLandmarkerHelper(
                 onError("GPU delegate 실패 → CPU 전환")
             } catch (e2: Throwable) {
                 onError("모델 로드 실패: ${e2.message}")
+            }
+        }
+        if (enableHands) {
+            val hasAsset = runCatching { context.assets.list("")?.contains(HAND_MODEL_ASSET) == true }.getOrDefault(false)
+            if (!hasAsset) {
+                onError("손 모델 없음(assets/$HAND_MODEL_ASSET) → 포즈 손 관절로 대신")
+            } else {
+                handLandmarker = runCatching { createHands(context, Delegate.GPU) }
+                    .recoverCatching { createHands(context, Delegate.CPU) }
+                    .onFailure { onError("손 모델 로드 실패: ${it.message}") }
+                    .getOrNull()
             }
         }
     }
@@ -71,11 +99,31 @@ class PoseLandmarkerHelper(
             .setMinTrackingConfidence(0.5f)
             .setResultListener { result: PoseLandmarkerResult, input: MPImage ->
                 val inference = SystemClock.uptimeMillis() - result.timestampMs()
-                onResult(ResultBundle(result, input.width, input.height, inference))
+                // 같은 시점(±100ms)의 손 결과만 붙인다. 오래된 손 결과는 버린다.
+                val hands = latestHands.get()?.takeIf { kotlin.math.abs(it.timestampMs() - result.timestampMs()) <= 100 }
+                onResult(ResultBundle(result, input.width, input.height, inference, hands))
             }
             .setErrorListener { e -> onError(e.message ?: "pose error") }
             .build()
         return PoseLandmarker.createFromOptions(context, options)
+    }
+
+    private fun createHands(context: Context, delegate: Delegate): HandLandmarker {
+        val base = BaseOptions.builder()
+            .setModelAssetPath(HAND_MODEL_ASSET)
+            .setDelegate(delegate)
+            .build()
+        val options = HandLandmarker.HandLandmarkerOptions.builder()
+            .setBaseOptions(base)
+            .setRunningMode(RunningMode.LIVE_STREAM)
+            .setNumHands(2)
+            .setMinHandDetectionConfidence(0.5f)
+            .setMinHandPresenceConfidence(0.5f)
+            .setMinTrackingConfidence(0.5f)
+            .setResultListener { result: HandLandmarkerResult, _: MPImage -> latestHands.set(result) }
+            .setErrorListener { e -> onError(e.message ?: "hand error") }
+            .build()
+        return HandLandmarker.createFromOptions(context, options)
     }
 
     /**
@@ -115,7 +163,10 @@ class PoseLandmarkerHelper(
             val timestamp = if (now <= lastTimestampMs) lastTimestampMs + 1 else now
             lastTimestampMs = timestamp
 
-            landmarker.detectAsync(BitmapImageBuilder(rotated).build(), timestamp)
+            val image = BitmapImageBuilder(rotated).build()
+            // 손을 먼저 넣어야 포즈 결과가 나올 때 같은 프레임의 손 결과가 있을 가능성이 높다
+            handLandmarker?.let { runCatching { it.detectAsync(image, timestamp) } }
+            landmarker.detectAsync(image, timestamp)
         } catch (t: Throwable) {
             // 프레임 하나 실패로 앱이 죽지 않도록 삼킨다. 다음 프레임에서 다시 시도된다.
             onError("프레임 처리 실패: ${t.message}")
@@ -128,10 +179,17 @@ class PoseLandmarkerHelper(
     fun close() {
         poseLandmarker?.close()
         poseLandmarker = null
+        handLandmarker?.close()
+        handLandmarker = null
+        latestHands.set(null)
         lastTimestampMs = 0L
     }
 
     companion object {
         const val MODEL_ASSET = "pose_landmarker_full.task"
+
+        /** 손 모델 파일. 없으면 손 모델 없이 돌아간다.
+         *  받는 곳: https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task */
+        const val HAND_MODEL_ASSET = "hand_landmarker.task"
     }
 }

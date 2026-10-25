@@ -23,6 +23,10 @@ import com.example.aion_app.monitor.net.DetectionSender
 import com.example.aion_app.monitor.pose.MinigameGate
 import com.example.aion_app.monitor.pose.PoseIndex
 import com.example.aion_app.monitor.pose.StereotypyDetector
+import com.example.aion_app.monitor.rule.RuleModelV3
+import com.example.aion_app.monitor.rule.RuleV3Android
+import com.example.aion_app.monitor.rule.SoftVoting
+import com.example.aion_app.monitor.rule.TouchTracker
 import com.example.aion_app.watch.WatchHeartRate
 import com.example.aion_app.watch.WifiHrReceiver
 
@@ -43,6 +47,9 @@ import com.example.aion_app.watch.WifiHrReceiver
 //      PoseCameraView 는 IMAGE_ANALYSIS 유즈케이스만 바인딩하므로(setEnabledUseCases)
 //      PreviewView 는 화면에 아무것도 그리지 않는다. 크기는 형식상 필요할 뿐이다.
 //   3. StereotypyDetector 결과의 anyAlarm 을 StereotypySignal 에 쓴다.
+//      규칙모델 v3(포즈 33 + 손 21×2, 행동 17종)도 같이 돌려서 학습모델과 소프트 보팅한 결과를
+//      StereotypySignal.ruleV3 / ensemble 에 쓴다. RuleModelV3.USE_FOR_ALARM = true 면
+//      아동 화면 알람(detected)도 v3 결과(위험 단계)로 정한다.
 //   4. 판정 점수를 서버로 보낸다(DetectionSender). 위험 판정과 교사폰 알림은 서버가 한다.
 //
 // ⚠ 카메라는 한 번에 한 곳만 쓸 수 있다.
@@ -90,6 +97,10 @@ fun StereotypyDetectionHost(
         onDispose { mlDetector?.close() }
     }
 
+    // 규칙모델 v3 + 소프트 보팅. assets/ensemble_config.json 이 있으면 보정값·가중치를 읽는다.
+    val ruleV3 = remember { RuleModelV3() }
+    val voting = remember { SoftVoting().also { RuleV3Android.loadConfig(context, it) } }
+
     // 아동 화면에 있는 동안 워치 심박을 Wi-Fi로도 받는다 (갤럭시 탭은 워치와 페어링이 안 됨)
     // 화면이 꺼지면 카메라 감지가 멈추고 삼성 배터리 절약이 앱을 얼려 심박도 못 받으므로 화면을 켜 둔다
     val view = LocalView.current
@@ -114,6 +125,10 @@ fun StereotypyDetectionHost(
         onDispose {
             detector.reset()
             mlDetector?.reset()
+            ruleV3.reset()
+            voting.reset()
+            StereotypySignal.ruleV3 = null
+            StereotypySignal.ensemble = null
             StereotypySignal.detected = false
             StereotypySignal.mlScore = null
             StereotypySignal.mlAlarm = false
@@ -126,6 +141,8 @@ fun StereotypyDetectionHost(
     if (active) {
         PoseCameraView(
             modifier = modifier.size(1.dp),
+            // 손 모델(손마다 21개 관절) — 손가락 꼼지락·팔랑이기·눈 비비기 감지에 필요
+            enableHands = true,
             onResult = { bundle ->
                 // 미니게임 중에는 판정을 멈춘다 (잡초 뽑기의 팔 상하 반복이 조건에 걸림)
                 detector.setPaused(MinigameGate.active)
@@ -149,7 +166,7 @@ fun StereotypyDetectionHost(
                     leftWrist = point(PoseIndex.LEFT_WRIST),
                     rightWrist = point(PoseIndex.RIGHT_WRIST),
                 )
-                StereotypySignal.detected = state.anyAlarm
+                // 알람(detected)은 아래에서 v3 까지 계산한 뒤 정한다
 
                 // 학습모델 판정 (0.5초마다 점수 갱신)
                 // 미니게임 중에는 규칙모델처럼 멈추고, 다시 시작할 때 처음부터 2초를 모은다.
@@ -168,6 +185,36 @@ fun StereotypyDetectionHost(
                         }
                     }
                 }
+
+                // 규칙모델 v3 (포즈 33 + 손 21×2, 행동 17종) + 소프트 보팅
+                // 미니게임 중에는 다른 모델처럼 멈추고 처음부터 다시 모은다.
+                if (MinigameGate.active) {
+                    ruleV3.reset()
+                    voting.reset()
+                    StereotypySignal.ruleV3 = null
+                    StereotypySignal.ensemble = null
+                } else {
+                    val ts = bundle.result.timestampMs()
+                    val v3 = ruleV3.update(
+                        timestampMs = ts,
+                        pose = RuleV3Android.poseOf(bundle.result),
+                        world = RuleV3Android.worldOf(bundle.result),
+                        hands = RuleV3Android.handsOf(bundle.hands),
+                        imageWidth = bundle.inputImageWidth,
+                        imageHeight = bundle.inputImageHeight,
+                        // 포즈 타임스탬프와 터치 시각은 둘 다 SystemClock.uptimeMillis 기준
+                        touch = { TouchTracker.context(ts) },
+                    )
+                    v3.tick?.let { tick ->
+                        // 학습모델 점수는 위에서 0.5초마다 갱신된 값을 그대로 쓴다 (없으면 규칙모델 단독)
+                        val fused = voting.fuse(tick, StereotypySignal.mlScore?.toDouble())
+                        StereotypySignal.ruleV3 = tick
+                        StereotypySignal.ensemble = fused
+                        RuleV3Android.log(tick, fused)
+                    }
+                }
+                StereotypySignal.detected =
+                    if (RuleModelV3.USE_FOR_ALARM) StereotypySignal.ensemble?.stage == 2 else state.anyAlarm
 
                 // 반복 동작 중인 심박은 개인 기준선에 넣지 않는다
                 WatchHeartRate.onVision(state.score)

@@ -20,12 +20,14 @@ import java.util.concurrent.Executors
 /**
  * 전면 카메라 프리뷰 + MediaPipe 포즈 검출.
  * ImageAnalysis 프레임을 PoseLandmarkerHelper 로 흘려보내고, 결과는 [onResult] 로 콜백.
+ * [enableHands] = true 면 손 모델(손마다 21개 관절)도 같이 돌린다 (규칙모델 v3 손가락 행동용).
  */
 @Composable
 fun PoseCameraView(
     modifier: Modifier = Modifier,
     onResult: (PoseLandmarkerHelper.ResultBundle) -> Unit,
     onError: (String) -> Unit,
+    enableHands: Boolean = false,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -39,6 +41,7 @@ fun PoseCameraView(
             context = context,
             onResult = { currentOnResult(it) },
             onError = { currentOnError(it) },
+            enableHands = enableHands,
         )
     }
     val controller = remember {

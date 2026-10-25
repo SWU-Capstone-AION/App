@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -29,17 +30,31 @@ import java.util.Locale
 //   예: "GREEN:2026-09-14,PINK:2026-09-15"
 //   주머니에서 구슬을 누르면 이 날짜가 보인다.
 //
-// ⚠ 아이 계정별로 나뉘지 않는다. 한 태블릿을 여러 아이가 돌려 쓰면 구슬이 섞인다.
-//   지금은 아동 1명 = 태블릿 1대 전제라 그대로 두었다.
-//   나중에 나눠야 하면 키 앞에 uid 를 붙이면 된다. (marble_history_{uid})
+// 아이 계정별로 따로 저장한다
+//   저장 이름 뒤에 로그인한 아이의 uid 를 붙인다. (marble_history_{uid})
+//   그래서 한 태블릿에서 김지우 · 이주미 · 전소미가 번갈아 로그인해도
+//   각자 자기 구슬만 보인다.
+//   로그인 정보가 없을 때(테스트 화면 등)는 "guest" 칸을 쓴다.
 private val Context.rewardDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "kids_reward"
 )
 
-class RewardStore(context: Context) {
+class RewardStore(
+    context: Context,
+    // 지금 로그인한 아이. 기본값으로 Firebase 로그인 정보를 읽는다
+    uid: String = FirebaseAuth.getInstance().currentUser?.uid ?: "guest"
+) {
 
     // Activity 가 아니라 Application 컨텍스트를 들고 있어야 화면이 사라져도 누수가 없다
     private val appContext = context.applicationContext
+
+    // ----------------------------------------------------
+    // 저장 이름 — 아이마다 따로
+    // ----------------------------------------------------
+    private val keyUnopened = intPreferencesKey("unopened_boxes_$uid")
+    private val keyHistory = stringPreferencesKey("marble_history_$uid")
+    private val keyBreathDate = stringPreferencesKey("breath_date_$uid")
+    private val keyBreathCount = intPreferencesKey("breath_count_$uid")
 
     companion object {
         // ----------------------------------------------------
@@ -58,45 +73,26 @@ class RewardStore(context: Context) {
         /** 안 연 상자가 쌓이지 않도록 하는 상한 */
         const val MAX_UNOPENED_BOXES = 3
 
-        private val KEY_UNOPENED = intPreferencesKey("unopened_boxes")
-        private val KEY_HISTORY = stringPreferencesKey("marble_history")
-        private val KEY_BREATH_DATE = stringPreferencesKey("breath_date")
-        private val KEY_BREATH_COUNT = intPreferencesKey("breath_count")
-
-        /** 예전 저장 방식(색깔별 개수)의 키. 지금은 읽기만 한다 */
-        private fun legacyCountKey(marble: Marble) = intPreferencesKey("marble_${marble.name}")
-
         /** 오늘 날짜를 "2026-09-14" 모양 글자로 */
         private fun today(): String =
             SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
 
-        /**
-         * 저장된 값을 구슬 목록으로 읽는다 (얻은 순서대로).
-         *
-         * 새 형식이 없으면 예전 형식(색깔별 개수)에서 만들어 준다.
-         * 그래야 이미 테스트로 모아둔 구슬이 사라지지 않는다.
-         * 다만 예전 형식에는 순서가 없어서 색 순서대로 놓인다.
-         */
-        private fun Preferences.readHistory(): List<MarbleRecord> {
-            val raw = this[KEY_HISTORY]
-            if (raw != null) {
-                return raw.split(",")
-                    .filter { it.isNotBlank() }
-                    .mapNotNull { entry ->
-                        // "GREEN:2026-09-14" 또는 날짜 없이 "GREEN" (더 예전 형식)
-                        val name = entry.substringBefore(":")
-                        val date = entry.substringAfter(":", "").ifBlank { null }
-                        Marble.fromName(name)?.let { MarbleRecord(it, date) }
-                    }
-            }
-            return Marble.entries.flatMap { marble ->
-                List(this[legacyCountKey(marble)] ?: 0) { MarbleRecord(marble, null) }
-            }
-        }
-
         /** 저장용 글자로 바꾼다 */
         private fun List<MarbleRecord>.toRaw(): String =
             joinToString(",") { "${it.marble.name}:${it.date ?: ""}" }
+    }
+
+    /** 저장된 값을 구슬 목록으로 읽는다 (얻은 순서대로) */
+    private fun Preferences.readHistory(): List<MarbleRecord> {
+        val raw = this[keyHistory] ?: return emptyList()
+        return raw.split(",")
+            .filter { it.isNotBlank() }
+            .mapNotNull { entry ->
+                // "GREEN:2026-09-14" 또는 날짜 없이 "GREEN"
+                val name = entry.substringBefore(":")
+                val date = entry.substringAfter(":", "").ifBlank { null }
+                Marble.fromName(name)?.let { MarbleRecord(it, date) }
+            }
     }
 
     /**
@@ -104,7 +100,7 @@ class RewardStore(context: Context) {
      * 0 보다 크면 홈에 상자 팝업이 뜬다. 하나 열면 하나 줄어든다.
      */
     val unopenedBoxes: Flow<Int> =
-        appContext.rewardDataStore.data.map { it[KEY_UNOPENED] ?: 0 }
+        appContext.rewardDataStore.data.map { it[keyUnopened] ?: 0 }
 
     /** 얻은 순서대로 늘어놓은 구슬 목록 (색 + 얻은 날짜) */
     val marbleHistory: Flow<List<MarbleRecord>> =
@@ -126,25 +122,25 @@ class RewardStore(context: Context) {
         appContext.rewardDataStore.edit { prefs ->
             // 1) 호흡 가이드면 오늘 몇 번 받았는지 먼저 본다
             if (source == RewardSource.BREATHING) {
-                val savedDate = prefs[KEY_BREATH_DATE] ?: ""
+                val savedDate = prefs[keyBreathDate] ?: ""
                 val todayStr = today()
 
                 // 날짜가 바뀌었으면 0 부터 다시 센다
                 val countToday =
-                    if (savedDate == todayStr) prefs[KEY_BREATH_COUNT] ?: 0 else 0
+                    if (savedDate == todayStr) prefs[keyBreathCount] ?: 0 else 0
 
                 if (countToday >= BREATH_DAILY_LIMIT) {
                     return@edit   // 상한을 넘었으면 상자를 주지 않는다
                 }
 
-                prefs[KEY_BREATH_DATE] = todayStr
-                prefs[KEY_BREATH_COUNT] = countToday + 1
+                prefs[keyBreathDate] = todayStr
+                prefs[keyBreathCount] = countToday + 1
             }
 
             // 2) 상자 1개 추가 (상한까지만)
-            val current = prefs[KEY_UNOPENED] ?: 0
+            val current = prefs[keyUnopened] ?: 0
             if (current < MAX_UNOPENED_BOXES) {
-                prefs[KEY_UNOPENED] = current + 1
+                prefs[keyUnopened] = current + 1
             }
             granted = true
         }
@@ -162,19 +158,22 @@ class RewardStore(context: Context) {
         val marble = Marble.random()
 
         appContext.rewardDataStore.edit { prefs ->
-            prefs[KEY_UNOPENED] = ((prefs[KEY_UNOPENED] ?: 0) - 1).coerceAtLeast(0)
+            prefs[keyUnopened] = ((prefs[keyUnopened] ?: 0) - 1).coerceAtLeast(0)
 
-            // 예전 형식이 남아 있으면 여기서 새 형식으로 옮겨진다
             val updated = prefs.readHistory() + MarbleRecord(marble, today())
-            prefs[KEY_HISTORY] = updated.toRaw()
-            Marble.entries.forEach { prefs.remove(legacyCountKey(it)) }
+            prefs[keyHistory] = updated.toRaw()
         }
 
         return marble
     }
 
-    /** 테스트용 — 모은 구슬과 상자를 전부 지운다 */
+    /** 테스트용 — 지금 로그인한 아이의 구슬과 상자만 지운다 */
     suspend fun clearAll() {
-        appContext.rewardDataStore.edit { it.clear() }
+        appContext.rewardDataStore.edit { prefs ->
+            prefs.remove(keyUnopened)
+            prefs.remove(keyHistory)
+            prefs.remove(keyBreathDate)
+            prefs.remove(keyBreathCount)
+        }
     }
 }
