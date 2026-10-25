@@ -73,7 +73,8 @@ fun KidsMyInfoScreen(
             KidsProfileAvatar(
                 imageUri = profileImageUri,
                 size = 68.dp,
-                modifier = Modifier.padding(end = KidsInfoValueInset)
+                modifier = Modifier.padding(end = KidsInfoValueInset),
+                childName = userName
             )
         }
         KidsInfoDivider()

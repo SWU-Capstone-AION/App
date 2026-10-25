@@ -169,7 +169,7 @@ fun KidsMyInfoEditScreen(
                     .size(68.dp)
                     .clickable { showImageSourceSheet = true }
             ) {
-                KidsProfileAvatar(imageUri = profileImageUri, size = 68.dp)
+                KidsProfileAvatar(imageUri = profileImageUri, size = 68.dp, childName = initialName)
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
