@@ -3,6 +3,8 @@ package com.example.aion_app.monitor
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.example.aion_app.monitor.rule.RuleModelV3
+import com.example.aion_app.monitor.rule.SoftVoting
 
 // ============================================================
 // 상동행동 감지 결과를 화면들에 전달하는 통로
@@ -26,4 +28,14 @@ object StereotypySignal {
 
     // 학습모델 알람 (0.5 이상 2번 연속이면 켜짐, 0.35 아래면 꺼짐 — model_meta.json 값)
     var mlAlarm by mutableStateOf(false)
+
+    // ---------- 규칙모델 v3 + 소프트 보팅 (0.5초마다 갱신) ----------
+    // 쓰는 곳: StereotypyDetectionHost
+    // RuleModelV3.USE_FOR_ALARM = true 일 때만 detected 를 이 결과(위험 단계)로 정한다.
+
+    // 규칙모델 v3 의 최근 2초 판정 (행동별 점수, 가장 높은 행동, 터치 정도)
+    var ruleV3 by mutableStateOf<RuleModelV3.Tick?>(null)
+
+    // 규칙 확률 + 학습 확률 가중 평균 → 4초 지속 → 단계(0 안정 / 1 주의 / 2 위험)
+    var ensemble by mutableStateOf<SoftVoting.Result?>(null)
 }
