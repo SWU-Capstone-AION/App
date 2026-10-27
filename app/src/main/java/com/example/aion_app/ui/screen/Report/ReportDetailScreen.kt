@@ -629,20 +629,54 @@ private fun InsightCard(insight: AiInsight) {
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
-        Text(
-            text = insight.title,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextPrimary
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = insight.description,
-            fontSize = 12.sp,
-            color = GrayText,
-            lineHeight = 18.sp
-        )
+        if (insight.behaviors.isEmpty()) {
+            InsightTitle(insight.title)
+            Spacer(modifier = Modifier.height(6.dp))
+            InsightDescription(insight.description)
+        } else {
+            BehaviorRanking(insight)
+        }
     }
+}
+
+/**
+ * 행동 카드: 행동유형+건수를 많은 순으로 모두 그린다 (같은 건수는 가나다순으로 이미 정렬돼 옴).
+ * '가장 많이 감지된 행동이에요.' 는 최다 건수 줄 바로 아래 — 최다가 여럿이면 그 마지막 줄 아래에 둔다.
+ */
+@Composable
+private fun BehaviorRanking(insight: AiInsight) {
+    val rows = insight.behaviors
+    val topCount = rows.first().count
+    val topEnd = rows.indexOfLast { it.count == topCount }
+
+    rows.forEachIndexed { index, row ->
+        if (index > 0) Spacer(modifier = Modifier.height(if (index == topEnd + 1) 12.dp else 4.dp))
+        InsightTitle("${row.name} ${row.count}건")
+        if (index == topEnd) {
+            Spacer(modifier = Modifier.height(6.dp))
+            InsightDescription(insight.description)
+        }
+    }
+}
+
+@Composable
+private fun InsightTitle(text: String) {
+    Text(
+        text = text,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Bold,
+        color = TextPrimary
+    )
+}
+
+@Composable
+private fun InsightDescription(text: String) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        color = GrayText,
+        lineHeight = 18.sp
+    )
 }
 
 // 기록이 없어서 분석 문장을 만들 수 없을 때

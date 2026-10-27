@@ -87,7 +87,7 @@ data class PeakDto(
     val percentAboveAverage: Double? = null,
 )
 
-/** 가장 많이 감지된 행동. label 은 서버가 만든 한글 이름 */
+/** 감지된 행동 1종. label 은 서버가 만든 한글 이름 */
 data class BehaviorDto(
     val type: String? = null,
     val label: String? = null,
@@ -101,6 +101,8 @@ data class DailyReportDto(
     val hourly: List<HourlyDto>? = null,
     val peakHour: PeakDto? = null,
     val topBehavior: BehaviorDto? = null,
+    // 감지된 행동 전부 (건수 많은 순 → 같으면 가나다순). 예전 서버는 안 보내서 null
+    val behaviors: List<BehaviorDto>? = null,
 )
 
 data class WeeklyReportDto(
@@ -111,6 +113,8 @@ data class WeeklyReportDto(
     val heatmap: List<HeatmapCellDto>? = null,
     val peakCell: PeakDto? = null,
     val topBehavior: BehaviorDto? = null,
+    // 감지된 행동 전부 (건수 많은 순 → 같으면 가나다순). 예전 서버는 안 보내서 null
+    val behaviors: List<BehaviorDto>? = null,
 )
 
 data class MonthlyReportDto(
@@ -122,4 +126,6 @@ data class MonthlyReportDto(
     val weekdays: List<WeekdayDto>? = null,
     val peakWeekday: PeakDto? = null,
     val topBehavior: BehaviorDto? = null,
+    // 감지된 행동 전부 (건수 많은 순 → 같으면 가나다순). 예전 서버는 안 보내서 null
+    val behaviors: List<BehaviorDto>? = null,
 )
