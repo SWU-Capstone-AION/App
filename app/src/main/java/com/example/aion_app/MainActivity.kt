@@ -26,6 +26,9 @@ import androidx.lifecycle.lifecycleScope
 import com.example.aion_app.data.alert.AlertRepository
 import kotlinx.coroutines.launch
 
+import android.view.MotionEvent
+import com.example.aion_app.monitor.rule.RuleV3TouchBus
+
 // ============================================
 // 기기 판별 기준
 // ============================================
@@ -65,6 +68,16 @@ class MainActivity : ComponentActivity() {
                 AionNavHost()
             }
         }
+    }
+
+    /**
+     * 모든 화면 터치를 상동행동 규칙모델 v3 에도 알린다 (기능적 행동 제외 규칙).
+     * 태블릿을 두드리는 동안의 손·팔 반복은 상동행동으로 세지 않기 위함이다.
+     * 기록만 하고 터치는 원래대로 화면에 전달한다.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        RuleV3TouchBus.onMotionEvent(ev)
+        return super.dispatchTouchEvent(ev)
     }
 
     /**

@@ -4,4 +4,8 @@
     <cache-path
         name="camera_images"
         path="images/" />
+    <!-- 상동행동 규칙모델 v3 판정 기록 CSV (모니터링 화면 '기록 저장') -->
+    <external-files-path
+        name="rule_v3_records"
+        path="records/" />
 </paths>

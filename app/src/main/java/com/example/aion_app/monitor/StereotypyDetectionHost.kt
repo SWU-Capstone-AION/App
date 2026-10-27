@@ -17,12 +17,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.example.aion_app.monitor.camera.PoseCameraView
+import com.example.aion_app.monitor.camera.PoseHandCameraView
 import com.example.aion_app.monitor.ml.StereotypyMlDetector
 import com.example.aion_app.monitor.net.DetectionSender
 import com.example.aion_app.monitor.pose.MinigameGate
-import com.example.aion_app.monitor.pose.PoseIndex
-import com.example.aion_app.monitor.pose.StereotypyDetector
+import com.example.aion_app.monitor.rule.RuleV3ConfigLoader
+import com.example.aion_app.monitor.rule.RuleV3Engine
+import com.example.aion_app.monitor.rule.RuleV3TouchBus
 import com.example.aion_app.watch.WatchHeartRate
 import com.example.aion_app.watch.WifiHrReceiver
 
@@ -39,11 +40,12 @@ import com.example.aion_app.watch.WifiHrReceiver
 //
 // 동작
 //   1. 카메라 권한을 요청한다. 거부해도 화면은 정상 동작하고 감지만 꺼진다.
-//   2. PoseCameraView 를 1dp 크기로 붙인다.
-//      PoseCameraView 는 IMAGE_ANALYSIS 유즈케이스만 바인딩하므로(setEnabledUseCases)
-//      PreviewView 는 화면에 아무것도 그리지 않는다. 크기는 형식상 필요할 뿐이다.
-//   3. StereotypyDetector 결과의 anyAlarm 을 StereotypySignal 에 쓴다.
+//   2. PoseHandCameraView 를 1dp 크기로 붙인다 (포즈 33 + 손 21×2).
+//      크기는 형식상 필요할 뿐 화면에는 보이지 않는다.
+//   3. 규칙모델 v3(RuleV3Engine) 가 행동 17가지를 따로 보고, 학습모델 점수와 합쳐서(앙상블)
+//      4초 이어지면 '위험'. 그 상태를 StereotypySignal 에 쓴다.
 //   4. 판정 점수를 서버로 보낸다(DetectionSender). 위험 판정과 교사폰 알림은 서버가 한다.
+//   5. 화면 터치는 MainActivity → RuleV3TouchBus 로 들어와서 손·팔 행동 점수를 낮춘다 (기능적 행동).
 //
 // ⚠ 카메라는 한 번에 한 곳만 쓸 수 있다.
 //   미니게임 / 모니터링 화면은 직접 카메라를 잡으므로 enabled 조건에서 빠져 있다.
@@ -81,7 +83,8 @@ fun StereotypyDetectionHost(
         if (enabled && !hasCameraPermission) launcher.launch(Manifest.permission.CAMERA)
     }
 
-    val detector = remember { StereotypyDetector() }
+    // 규칙모델 v3. assets/rule_v3_config.json 이 있으면 보정값·가중치를 읽는다.
+    val engine = remember { RuleV3Engine().also { RuleV3ConfigLoader.applyFromAssets(context, it) } }
 
     // 학습모델(TFLite). assets 에 model_1.tflite / model_meta.json 이 없으면 null 이 되고
     // 규칙모델만으로 그대로 동작한다.
@@ -111,10 +114,13 @@ fun StereotypyDetectionHost(
     // 감지 구간을 벗어나면(모니터링 / 미니게임 / 교사 화면) 판정 상태를 초기화한다.
     // 다시 들어왔을 때 이전 판정이 남아 팝업이 바로 뜨는 걸 막는다.
     DisposableEffect(active) {
+        if (active) RuleV3TouchBus.engine = engine
         onDispose {
-            detector.reset()
+            if (RuleV3TouchBus.engine === engine) RuleV3TouchBus.engine = null
+            engine.reset()
             mlDetector?.reset()
             StereotypySignal.detected = false
+            StereotypySignal.behavior = null
             StereotypySignal.mlScore = null
             StereotypySignal.mlAlarm = false
             // 감지가 꺼졌다는 걸 서버에도 알린다. 안 보내면 교사앱 게이지가
@@ -124,57 +130,47 @@ fun StereotypyDetectionHost(
     }
 
     if (active) {
-        PoseCameraView(
+        PoseHandCameraView(
             modifier = modifier.size(1.dp),
             onResult = { bundle ->
                 // 미니게임 중에는 판정을 멈춘다 (잡초 뽑기의 팔 상하 반복이 조건에 걸림)
-                detector.setPaused(MinigameGate.active)
-
-                val lm = bundle.result.landmarks().firstOrNull()
-                fun point(i: Int): StereotypyDetector.Wrist? = lm?.getOrNull(i)?.let {
-                    StereotypyDetector.Wrist(
-                        xNorm = it.x().toDouble(),
-                        yNorm = it.y().toDouble(),
-                        visibility = it.visibility().orElse(1f).toDouble(),
-                    )
+                // 게임 화면은 카메라를 직접 잡아서 보통 여기까지 오지 않지만, 혹시 겹칠 때를 대비한다.
+                if (MinigameGate.active) {
+                    engine.reset()
+                    mlDetector?.reset()
+                    StereotypySignal.detected = false
+                    StereotypySignal.behavior = null
+                    StereotypySignal.mlScore = null
+                    StereotypySignal.mlAlarm = false
+                    return@PoseHandCameraView
                 }
 
-                val state = detector.update(
-                    timestampMs = bundle.result.timestampMs(),
-                    nose = point(PoseIndex.NOSE),
-                    leftShoulder = point(PoseIndex.LEFT_SHOULDER),
-                    rightShoulder = point(PoseIndex.RIGHT_SHOULDER),
-                    leftHip = point(PoseIndex.LEFT_HIP),
-                    rightHip = point(PoseIndex.RIGHT_HIP),
-                    leftWrist = point(PoseIndex.LEFT_WRIST),
-                    rightWrist = point(PoseIndex.RIGHT_WRIST),
-                )
-                StereotypySignal.detected = state.anyAlarm
-
-                // 학습모델 판정 (0.5초마다 점수 갱신)
-                // 미니게임 중에는 규칙모델처럼 멈추고, 다시 시작할 때 처음부터 2초를 모은다.
-                // ⚠ 지금은 점수를 StereotypySignal 에 올리기만 한다.
-                //   규칙모델·심박과 어떻게 합칠지(알람·서버 전송)는 팀에서 정한 뒤 연결할 것.
+                // 학습모델 판정 (0.5초마다 점수 갱신). 규칙모델과 같은 원본(반전 안 한) 관절을 넣는다.
+                var dlScore: Double? = null
                 if (mlDetector != null) {
-                    if (MinigameGate.active) {
-                        mlDetector.reset()
-                        StereotypySignal.mlScore = null
-                        StereotypySignal.mlAlarm = false
-                    } else {
-                        val ml = mlDetector.update(bundle.result.timestampMs(), lm)
-                        if (ml.updated) {
-                            StereotypySignal.mlScore = ml.score
-                            StereotypySignal.mlAlarm = ml.alarm
-                        }
+                    val ml = mlDetector.update(bundle.timestampMs, bundle.pose.landmarks().firstOrNull())
+                    if (ml.updated) {
+                        StereotypySignal.mlScore = ml.score
+                        StereotypySignal.mlAlarm = ml.alarm
                     }
+                    dlScore = ml.score?.toDouble()
                 }
 
-                // 반복 동작 중인 심박은 개인 기준선에 넣지 않는다
-                WatchHeartRate.onVision(state.score)
+                // 규칙모델 v3 + 앙상블 + 지속 시간
+                val out = engine.process(bundle.timestampMs, bundle.toFrameInput(), dlScore)
+                val tick = out.tick ?: return@PoseHandCameraView
+                StereotypySignal.detected = tick.inEpisode
 
-                // 점수를 서버로 보낸다. 내부에서 3초에 한 번만 실제 전송한다.
-                // 위험 판정과 교사폰 FCM 알림은 서버가 담당한다.
-                DetectionSender.send(state)
+                if (out.ticked) {
+                    StereotypySignal.behavior = if ((tick.pRuleRaw ?: 0.0) > 0.05) tick.dominantName else null
+
+                    // 반복 동작 중인 심박은 개인 기준선에 넣지 않는다
+                    WatchHeartRate.onVision(tick.d)
+
+                    // 점수를 서버로 보낸다. 내부에서 3초에 한 번만 실제 전송한다.
+                    // 위험 판정과 교사폰 FCM 알림은 서버가 담당한다.
+                    DetectionSender.send(tick)
+                }
             },
             onError = { /* 모델 로드 실패 등. 아동 화면에는 노출하지 않는다 */ },
         )
