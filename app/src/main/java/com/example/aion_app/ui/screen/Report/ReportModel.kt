@@ -51,7 +51,15 @@ data class ReportStudent(
 data class AiInsight(
     val tag: String,         // "취약 시간대", "감지 성과", "취약 요일"
     val title: String,       // "12~13시 집중 발생"
-    val description: String  // 본문 설명
+    val description: String, // 본문 설명
+    // 감지 성과 카드만 씀: 행동별 건수 (많은 순 → 같으면 가나다순).
+    // 비어 있지 않으면 title 대신 이 목록을 그리고, 최다 건수 줄들 바로 아래에 description 을 둔다.
+    val behaviors: List<BehaviorCount> = emptyList()
+)
+
+data class BehaviorCount(
+    val name: String,   // "팔 흔들기"
+    val count: Int
 )
 
 /**
@@ -296,7 +304,10 @@ fun previewDailyReport(): DailyReport = DailyReport(
     ),
     insights = listOf(
         AiInsight("취약 시간대", "14~15시 집중 발생", "14~15시 사이의 위험점수가 다른 시간대보다 평균적으로 13% 높았습니다."),
-        AiInsight("감지 성과", "몸 흔들기 7건", "가장 많이 감지된 행동이에요.")
+        AiInsight(
+            "감지 성과", "몸 흔들기 7건", "가장 많이 감지된 행동이에요.",
+            behaviors = listOf(BehaviorCount("몸 흔들기", 7), BehaviorCount("손·팔 흔들기", 3))
+        )
     )
 )
 
@@ -340,6 +351,12 @@ fun previewMonthlyReport(): MonthlyReport = MonthlyReport(
     },
     insights = listOf(
         AiInsight("취약 요일", "수요일 집중 발생", "수요일의 위험 감지가 다른 요일보다 116% 많았습니다."),
-        AiInsight("감지 성과", "팔 흔들기 44건", "가장 많이 감지된 행동이에요.")
+        AiInsight(
+            "감지 성과", "손·팔 흔들기 12건", "가장 많이 감지된 행동이에요.",
+            behaviors = listOf(
+                BehaviorCount("몸 앞뒤 흔들기", 12), BehaviorCount("손·팔 흔들기", 12),
+                BehaviorCount("박수", 7), BehaviorCount("귀 막기", 3)
+            )
+        )
     )
 )

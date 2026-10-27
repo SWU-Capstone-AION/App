@@ -67,20 +67,22 @@ object DetectionSender {
      *         예전 점수(가장 오래 반복한 부위 ÷ 3.9초)와 뜻이 같아서 서버는 그대로 쓰면 된다.
      * part  = 지속 시간을 쌓은 행동의 부위 (left_arm / right_arm / head / body). TickState.part 참고.
      *         지속 시간이 0 이면 빼고 보낸다 (예전과 같음).
+     * behaviorType = 지속 시간을 쌓은 행동 종류 (body_rock, flap ... 17종). TickState.behavior 참고.
+     *         서버 리포트의 '감지 성과'가 이 값으로 집계된다.
      *
      * 위험이 시작되는 판정은 3초 제한 없이 바로 보낸다.
      * 3초 제한만 있으면 1.0 이 잠깐 머물다 내려갈 때 서버가 1.0 을 한 번도 못 받을 수 있다.
      */
     fun send(tick: TickState) {
-        send(tick.d, force = tick.alert.newEpisode, part = tick.part)
+        send(tick.d, force = tick.alert.newEpisode, part = tick.part, behaviorType = tick.behavior)
     }
 
     /**
      * 점수를 직접 넘기는 버전.
      * force = true 면 3초 제한을 무시하고 바로 보낸다 (감지 종료 시 0점 전송용).
-     * part = null 이면 part 필드를 아예 빼고 보낸다.
+     * part / behaviorType = null 이면 그 필드를 아예 빼고 보낸다.
      */
-    fun send(score: Double, force: Boolean = false, part: String? = null) {
+    fun send(score: Double, force: Boolean = false, part: String? = null, behaviorType: String? = null) {
         val now = System.currentTimeMillis()
         if (!force && now - lastSentAt < MIN_INTERVAL_MS) return
         lastSentAt = now
@@ -100,6 +102,7 @@ object DetectionSender {
             put("occurredAt", occurredAt)
             put("score", score.coerceIn(0.0, 1.0))
             if (part != null) put("part", part)
+            if (behaviorType != null) put("behaviorType", behaviorType)
             if (hr != null) {
                 put("heartRate", hr.heartRate)
                 put("heartRateAt", iso.format(Date(hr.heartRateAt)))

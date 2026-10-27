@@ -2,7 +2,9 @@ package com.example.aion_app.data.report
 
 import android.util.Log
 import com.example.aion_app.data.network.ApiClient
+import com.example.aion_app.monitor.rule.BEH
 import com.example.aion_app.ui.screen.report.AiInsight
+import com.example.aion_app.ui.screen.report.BehaviorCount
 import com.example.aion_app.ui.screen.report.ChartBar
 import com.example.aion_app.ui.screen.report.DailyReport
 import com.example.aion_app.ui.screen.report.HeatCell
@@ -11,7 +13,9 @@ import com.example.aion_app.ui.screen.report.ReportDates
 import com.example.aion_app.ui.screen.report.RiskLevel
 import com.example.aion_app.ui.screen.report.WeeklyReport
 import com.example.aion_app.ui.screen.report.buildMonthCalendar
+import java.text.Collator
 import java.util.Calendar
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -81,7 +85,7 @@ private fun DailyReportDto.toDailyReport(day: Calendar): DailyReport {
                 )
             )
         }
-        topBehavior.toInsight()?.let { add(it) }
+        behaviorInsight(behaviors, topBehavior)?.let { add(it) }
     }
 
     return DailyReport(
@@ -101,7 +105,7 @@ private fun WeeklyReportDto.toWeeklyReport(monday: Calendar): WeeklyReport {
     }
 
     val insights = buildList {
-        topBehavior.toInsight()?.let { add(it) }
+        behaviorInsight(behaviors, topBehavior)?.let { add(it) }
 
         val dayName = peakCell?.weekday?.let { WEEKDAY_NAMES.getOrNull(it) }
         val hour = peakCell?.hour
@@ -175,7 +179,7 @@ private fun MonthlyReportDto.toMonthlyReport(month: Calendar): MonthlyReport {
                 )
             )
         }
-        topBehavior.toInsight()?.let { add(it) }
+        behaviorInsight(behaviors, topBehavior)?.let { add(it) }
     }
 
     return MonthlyReport(
@@ -214,15 +218,32 @@ private fun scoreAboveText(where: String, percent: Int?, compared: String): Stri
     else
         "${where}가 ${compared}보다 높았습니다."
 
-/** 서버가 한글 이름(label)을 주므로 그대로 쓰고, 없을 때만 코드값을 바꾼다. */
-private fun BehaviorDto?.toInsight(): AiInsight? {
-    if (this == null) return null
-    val name = label?.takeIf { it.isNotBlank() } ?: type.toBehaviorName() ?: return null
+private val KOREAN = Collator.getInstance(Locale.KOREAN)
+
+/**
+ * 감지 성과 카드. 감지된 행동을 전부 보여준다.
+ * 정렬: 건수 많은 순 → 건수가 같으면 이름 가나다순 (서버도 같은 순서로 주지만 한 번 더 맞춘다).
+ * 이름이 같은 행동(예전 left_arm·right_arm → 팔 흔들기)은 한 줄로 합친다.
+ * behaviors 를 안 주는 예전 서버면 topBehavior 1개만 쓴다.
+ */
+private fun behaviorInsight(behaviors: List<BehaviorDto>?, top: BehaviorDto?): AiInsight? {
+    val source = behaviors?.takeIf { it.isNotEmpty() } ?: listOfNotNull(top)
+    val rows = source
+        .mapNotNull { b ->
+            val name = b.label?.takeIf { it.isNotBlank() } ?: b.type.toBehaviorName() ?: return@mapNotNull null
+            name to (b.count ?: 0)
+        }
+        .groupBy({ it.first }, { it.second })
+        .map { (name, counts) -> BehaviorCount(name, counts.sum()) }
+        .filter { it.count > 0 }
+        .sortedWith(compareByDescending<BehaviorCount> { it.count }.thenBy(KOREAN) { it.name })
+    if (rows.isEmpty()) return null
 
     return AiInsight(
         tag = "감지 성과",
-        title = if (count != null && count > 0) "$name ${count}건" else "$name 행동",
-        description = "가장 많이 감지된 행동이에요."
+        title = "${rows[0].name} ${rows[0].count}건",
+        description = "가장 많이 감지된 행동이에요.",
+        behaviors = rows
     )
 }
 
@@ -232,5 +253,5 @@ private fun String?.toBehaviorName(): String? = when (this) {
     "head", "head_shaking", "head_banging" -> "머리 흔들기"
     "body", "rocking", "body_rocking" -> "몸 흔들기"
     "hand_biting" -> "손 물기"
-    else -> this
+    else -> BEH[this]?.label ?: this   // 규칙모델 v3 행동 코드 (body_rock, flap ...)
 }

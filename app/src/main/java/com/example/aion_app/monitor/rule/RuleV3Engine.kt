@@ -129,6 +129,11 @@ class TickState(
      * 지속 시간이 0 이면 null.
      */
     val part: String? = null,
+    /**
+     * 서버로 보내는 행동 종류 (BEHAVIORS 의 key: body_rock, flap ...). 리포트 '감지 성과' 집계용.
+     * part 와 같은 '지속 시간을 쌓은 행동'이고, 지속 시간이 0 이면 null.
+     */
+    val behavior: String? = null,
 ) {
     /** 가장 높은 행동 이름 (예: "왼 손·팔 퍼덕이기 (튕기기)") */
     val dominantName: String?
@@ -258,6 +263,7 @@ class RuleV3Engine(
 
     /** 지속 시간을 쌓고 있는 행동의 서버 부위 (지속 시간이 0 이 되면 지움) */
     private var driverPart: String? = null
+    private var driverBehavior: String? = null
 
     private var sessionStartMs = 0L
     private var lastTickAt = -1.0
@@ -280,7 +286,7 @@ class RuleV3Engine(
         for (s in listOf(scale, fwHist, ratioFw, ratioEye, swHist)) { s.t.clear(); s.v.clear() }
         for (s in listOf(center, offs)) { s.t.clear(); s.x.clear(); s.y.clear() }
         lastEvalT = null; lastAnalysisT = -1e9; lastScale = null; lastScaleT = -1e9
-        accDur = 0.0; lastTickT = null; driverPart = null
+        accDur = 0.0; lastTickT = null; driverPart = null; driverBehavior = null
         alertSt = AlertState()
         sessionStartMs = 0L; lastTickAt = -1.0; tickState = null
         timeline.clear()
@@ -908,13 +914,14 @@ class RuleV3Engine(
         val al = updateAlert(f.d, tNow)
         // 지속 시간이 쌓이는 동안의 1위 행동을 기억한다 (규칙모델 근거가 있을 때만)
         val dom = ev.dominant
-        if (f.d <= 0.0) driverPart = null
-        else if (dom != null && f.d > prevD && (ev.r ?: 0.0) >= PART_MIN_SCORE) driverPart = serverPart(dom, ev)
-        else if (driverPart == null && dom != null && (ev.r ?: 0.0) >= PART_MIN_SCORE) driverPart = serverPart(dom, ev)
+        if (f.d <= 0.0) { driverPart = null; driverBehavior = null }
+        else if (dom != null && f.d > prevD && (ev.r ?: 0.0) >= PART_MIN_SCORE) { driverPart = serverPart(dom, ev); driverBehavior = dom }
+        else if (driverPart == null && dom != null && (ev.r ?: 0.0) >= PART_MIN_SCORE) { driverPart = serverPart(dom, ev); driverBehavior = dom }
         val ts = TickState(
             t = tNow, ev = ev, touch = touch, pRuleRaw = ev.r, pRule = pRule, ruleCalibrated = ruleCal != null,
             pDlRaw = pDlRaw, pDl = pDl, p = f.p, mode = f.mode, d = f.d, stage = f.stage,
             alert = al, inEpisode = alertSt.inEpisode, part = if (f.d > 0.0) driverPart else null,
+            behavior = if (f.d > 0.0) driverBehavior else null,
         )
         timeline.add(TimelinePoint(tNow, f.p, pRule, pDl, f.d, alertSt.inEpisode))
         while (timeline.isNotEmpty() && timeline[0].t < tNow - RuleV3.TIMELINE_WINDOW_S) timeline.removeAt(0)
