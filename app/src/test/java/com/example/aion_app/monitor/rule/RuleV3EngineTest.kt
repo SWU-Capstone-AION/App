@@ -103,6 +103,42 @@ class RuleV3EngineTest {
     }
 
     @Test
+    fun part_follows_the_behavior_that_built_up_duration() {
+        // 왼팔 퍼덕 → 위험이 될 때와, 멈춘 뒤 지속 시간이 줄어드는 동안 모두 left_arm
+        val engine = RuleV3Engine()
+        val parts = HashSet<String?>()
+        var sawAlarmWithOne = false
+        for (i in 0 until 16 * 30) {
+            val t = i / 30.0
+            val ph = t - 3.0
+            val mv = if (ph in 0.0..5.0) sin(2 * PI * ph / 0.5) else 0.0
+            val o = engine.process(100_000 + Math.round(t * 1000), frame(leftWristDy = mv), 0.2)
+            val tick = o.tick ?: continue
+            if (o.ticked && tick.d > 0) parts.add(tick.part)
+            if (tick.alert.newEpisode && tick.d >= 1.0) sawAlarmWithOne = true
+        }
+        assertEquals(setOf<String?>("left_arm"), parts)
+        assertTrue(sawAlarmWithOne)
+    }
+
+    @Test
+    fun server_part_mapping() {
+        fun ev(key: String, side: String?, inst: Map<String, Double> = emptyMap()): Evidence {
+            fun e(k: String, sd: String?, raw: Double) = BehEvidence(raw, raw, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, sd, k, k.substringBefore("_"), subtype = "")
+            return Evidence(0.9, key, mapOf(key to e(key, side, 0.9)), null, inst.mapValues { (k, v) -> e(k, k.substringAfterLast("_"), v) })
+        }
+        assertEquals("left_arm", serverPart("flap", ev("flap", SIDE_L)))
+        assertEquals("right_arm", serverPart("eye_cover", ev("eye_cover", SIDE_R)))
+        assertEquals("head", serverPart("head_nod", ev("head_nod", null)))
+        assertEquals("body", serverPart("body_rock", ev("body_rock", null)))
+        assertEquals("body", serverPart("shrug", ev("shrug", null)))
+        assertEquals("body", serverPart("jump", ev("jump", null)))
+        // 박수(양손): 손·팔 점수가 높은 쪽 팔
+        assertEquals("left_arm", serverPart("clap", ev("clap", null, mapOf("flap_L" to 0.4, "wave_R" to 0.2))))
+        assertEquals("right_arm", serverPart("clap", ev("clap", null, mapOf("flap_L" to 0.1, "wave_R" to 0.3))))
+    }
+
+    @Test
     fun tapping_the_screen_lowers_hand_scores() {
         val engine = RuleV3Engine()
         val start = 100_000L

@@ -3,9 +3,6 @@ package com.example.aion_app.monitor.net
 import android.util.Log
 import com.example.aion_app.BuildConfig
 import com.example.aion_app.monitor.pose.StereotypyDetector
-import com.example.aion_app.monitor.rule.BEH
-import com.example.aion_app.monitor.rule.SIDE_L
-import com.example.aion_app.monitor.rule.SIDE_R
 import com.example.aion_app.monitor.rule.TickState
 import com.example.aion_app.watch.HrRecordLog
 import com.example.aion_app.watch.WatchHeartRate
@@ -66,28 +63,16 @@ object DetectionSender {
     /**
      * 규칙모델 v3 판정(0.5초마다)을 보낸다.
      *
-     * score = 지속 시간 D (0~1). 1.0 = 앙상블 확률 ≥ τ 가 4초 이어진 시점 = 앱 알람.
+     * score = 지속 시간 D (0~1). 1.0 = 앱이 '위험'을 띄우는 순간.
      *         예전 점수(가장 오래 반복한 부위 ÷ 3.9초)와 뜻이 같아서 서버는 그대로 쓰면 된다.
-     * part  = 가장 높은 행동을 서버가 아는 4개 부위로 바꾼 값.
-     *         손 행동은 그 손(왼/오른 팔), 머리 행동은 head, 몸통·어깨는 body.
-     *         박수처럼 양손을 함께 쓰는 행동은 part 를 빼고 보낸다.
-     *         v3 는 영상을 반전하지 않고 검출하므로 L = 아동 본인의 왼쪽이다.
+     * part  = 지속 시간을 쌓은 행동의 부위 (left_arm / right_arm / head / body). TickState.part 참고.
+     *         지속 시간이 0 이면 빼고 보낸다 (예전과 같음).
+     *
+     * 위험이 시작되는 판정은 3초 제한 없이 바로 보낸다.
+     * 3초 제한만 있으면 1.0 이 잠깐 머물다 내려갈 때 서버가 1.0 을 한 번도 못 받을 수 있다.
      */
     fun send(tick: TickState) {
-        val dom = tick.ev.dominant
-        val part = if (tick.d > 0.0 && dom != null) {
-            val side = tick.ev.beh[dom]?.side
-            when {
-                side == SIDE_L -> "left_arm"
-                side == SIDE_R -> "right_arm"
-                else -> when (BEH[dom]?.group) {
-                    "머리" -> "head"
-                    "전신", "어깨", "전신(실험)" -> "body"
-                    else -> null
-                }
-            }
-        } else null
-        send(tick.d, part = part)
+        send(tick.d, force = tick.alert.newEpisode, part = tick.part)
     }
 
     /**
