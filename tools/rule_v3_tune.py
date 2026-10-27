@@ -138,8 +138,9 @@ def episodes_of(rows):
     return eps
 
 
-def replay(rows, w, tau, dur_s, decay, rcal, dcal):
-    """fuseTick + updateAlert 그대로. 위험이 새로 시작된 시각들을 돌려준다"""
+def replay(rows, w, tau, dur_s, decay, rcal, dcal, confident=None):
+    """fuseTick + updateAlert 그대로. 위험이 새로 시작된 시각들을 돌려준다
+    confident: 한 모델이 이 값 이상이면 그 점수를 그대로 씀 (v3.5, None = 안 씀)"""
     acc, last_t = 0.0, None
     in_ep, below = False, None
     alarms, ds = [], []
@@ -148,6 +149,11 @@ def replay(rows, w, tau, dur_s, decay, rcal, dcal):
         pd = apply_cal(dcal, r["dl"])
         if pr is not None and pd is not None:
             p = w * pd + (1 - w) * pr
+            if confident is not None:
+                if pr >= confident and pr > p:
+                    p = pr
+                if pd >= confident and pd > p:
+                    p = pd
         elif pd is not None:
             p = pd
         else:
@@ -171,7 +177,7 @@ def replay(rows, w, tau, dur_s, decay, rcal, dcal):
     return alarms, ds
 
 
-def evaluate(sessions, w, tau, dur_s, decay, rcal, dcal):
+def evaluate(sessions, w, tau, dur_s, decay, rcal, dcal, confident=None):
     n_ep = hit = 0
     delays = []
     false_alarms = 0
@@ -179,7 +185,7 @@ def evaluate(sessions, w, tau, dur_s, decay, rcal, dcal):
     near = 0.0
     for _, rows in sessions:
         eps = episodes_of(rows)
-        alarms, ds = replay(rows, w, tau, dur_s, decay, rcal, dcal)
+        alarms, ds = replay(rows, w, tau, dur_s, decay, rcal, dcal, confident)
         # 평소 구간(라벨 끝 + 10초 이후)에서 지속 시간이 얼마나 차올랐나 = 오탐에 얼마나 가까웠나
         for r, d in zip(rows, ds):
             if not r["label"] and not any(a <= r["t"] <= b + 10 for a, b in eps):
@@ -219,6 +225,8 @@ def main():
                     help="평소 10분에 허용하는 오탐(위험) 횟수 (기본 1)")
     ap.add_argument("--no-cal", action="store_true", help="보정 없이 원래 점수로만 계산")
     ap.add_argument("--decay", type=float, default=0.75, help="반복이 끊길 때 줄어드는 속도 (기본 0.75)")
+    ap.add_argument("--confident", type=float, default=0.85,
+                    help="한 모델이 이 값 이상이면 그 점수를 그대로 씀 (기본 0.85, 0 이면 안 씀)")
     ap.add_argument("--out", default="app/src/main/assets/rule_v3_config.json", help="저장할 설정 파일")
     args = ap.parse_args()
 
@@ -257,7 +265,8 @@ def main():
     ws = frange(0.0, 1.0, 0.1) if has_dl else [0.0]
     taus = frange(0.30, 0.70, 0.05)
     durs = [1.5, 2.0, 2.5, 3.0, 4.0]
-    results = [evaluate(sessions, w, t, d, args.decay, rcal, dcal) for w in ws for t in taus for d in durs]
+    conf = args.confident if args.confident and args.confident > 0 else None
+    results = [evaluate(sessions, w, t, d, args.decay, rcal, dcal, conf) for w in ws for t in taus for d in durs]
 
     # 3) 고르기
     #   ① 오탐이 허용치 이하   ② 적중률이 높은 것   ③ 오탐 횟수가 적은 것
@@ -278,14 +287,16 @@ def main():
               f"{r['false']}회 ({r['false_per10min']:.2f})          | 평소 최고 {r['near'] * 100:.0f}%")
 
     # 지금 앱 기본값과 비교
-    for name, (w, t, d, dec) in {"보통(기준서)": (0.5, 0.5, 4.0, 1.5), "민감(현재 기본)": (0.3, 0.45, 2.5, 0.75)}.items():
-        r = evaluate(sessions, w, t, d, dec, None, None)
+    for name, (w, t, d, dec, cf) in {"보통(기준서)": (0.5, 0.5, 4.0, 1.5, None),
+                                      "민감(현재 기본)": (0.3, 0.45, 2.5, 0.75, 0.85)}.items():
+        r = evaluate(sessions, w, t, d, dec, None, None, cf)
         delay = f"{r['delay']:.1f}초" if r["delay"] is not None else "-"
         print(f"  비교 {name}: 적중 {r['recall'] * 100:.1f}% · 걸린 시간 {delay} · 오탐 {r['false']}회 ({r['false_per10min']:.2f}/10분) · 평소 최고 {r['near'] * 100:.0f}%")
 
     best = pool[0]
     cfg = {
         "w": best["w"], "decision": best["tau"], "duration_s": best["dur"], "decay_rate": args.decay,
+        "confident": conf,
         "_note": f"rule_v3_tune.py 결과 · 기록 {len(sessions)}개 · 적중 {best['recall'] * 100:.1f}% · "
                  f"오탐 {best['false_per10min']:.2f}/10분",
     }

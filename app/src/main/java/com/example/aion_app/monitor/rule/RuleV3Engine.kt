@@ -101,7 +101,11 @@ sealed class Calibration {
 
 class AlertResult(val fire: Boolean, val newEpisode: Boolean, val recent: Int, val repeated: Boolean)
 
-enum class FuseMode(val label: String) { ENSEMBLE("앙상블"), RULE("규칙 단독"), DL("학습 단독"), NONE("판단 불가") }
+enum class FuseMode(val label: String) {
+    ENSEMBLE("앙상블"), RULE("규칙 단독"), DL("학습 단독"), NONE("판단 불가"),
+    /** 한 모델이 확실해서(≥ confident) 그 점수를 그대로 쓴 경우 */
+    RULE_CONFIDENT("규칙 확신"), DL_CONFIDENT("학습 확신"),
+}
 
 /** 0.5초마다 나오는 판정 */
 class TickState(
@@ -156,6 +160,7 @@ class RuleV3Output(
     val ensembleW: Double,
     val tau: Double,
     val sensitivity: Sensitivity?,
+    val confidentLevel: Double? = null,
 )
 
 fun behaviorName(key: String, e: BehEvidence?): String {
@@ -172,6 +177,8 @@ class RuleV3Engine(
     var durationS: Double = DEFAULT_SENSITIVITY.durationS,
     /** 반복이 끊겼을 때 지속 시간이 줄어드는 속도 */
     var decayRate: Double = DEFAULT_SENSITIVITY.decayRate,
+    /** 한 모델이 이 값 이상이면 그 점수를 그대로 쓴다 (null = 안 씀) */
+    var confidentLevel: Double? = DEFAULT_SENSITIVITY.confident,
     var ruleCal: Calibration? = null,
     var dlCal: Calibration? = null,
     var touchPenalty: Double = RuleV3.TOUCH_PENALTY,
@@ -187,6 +194,7 @@ class RuleV3Engine(
         val frac = accDur / durationS
         sensitivity = s
         ensembleW = s.ensembleW; decisionTau = s.tau; durationS = s.durationS; decayRate = s.decayRate
+        confidentLevel = s.confident
         accDur = frac * durationS
     }
 
@@ -857,10 +865,19 @@ class RuleV3Engine(
     private fun fuseTick(tNow: Double, pRule: Double?, pDl: Double?, w: Double, tau: Double): Fused {
         val p: Double?
         val mode: FuseMode
-        if (pRule != null && pDl != null) { p = w * pDl + (1 - w) * pRule; mode = FuseMode.ENSEMBLE }
-        else if (pDl != null) { p = pDl; mode = FuseMode.DL }
-        else if (pRule != null) { p = pRule; mode = FuseMode.RULE }
-        else { p = null; mode = FuseMode.NONE }
+        var pp: Double?
+        var mm: FuseMode
+        if (pRule != null && pDl != null) { pp = w * pDl + (1 - w) * pRule; mm = FuseMode.ENSEMBLE }
+        else if (pDl != null) { pp = pDl; mm = FuseMode.DL }
+        else if (pRule != null) { pp = pRule; mm = FuseMode.RULE }
+        else { pp = null; mm = FuseMode.NONE }
+        // 한 모델이 아주 확실하면 그 점수를 쓴다 (다른 모델이 낮아서 평균이 τ 아래로 깎이는 것을 막음)
+        val conf = confidentLevel
+        if (conf != null && pp != null && mm == FuseMode.ENSEMBLE) {
+            if (pRule != null && pRule >= conf && pRule > pp) { pp = pRule; mm = FuseMode.RULE_CONFIDENT }
+            if (pDl != null && pDl >= conf && pDl > pp) { pp = pDl; mm = FuseMode.DL_CONFIDENT }
+        }
+        p = pp; mode = mm
         var dt = 0.0
         val lt = lastTickT
         if (lt == null || tNow > lt) {
@@ -956,6 +973,7 @@ class RuleV3Engine(
             t = tNow, frame = frame, rule = rule, tick = tickState, ticked = ticked,
             alertsSent = alertSt.sent, episodesTotal = alertSt.total, timeline = ArrayList(timeline),
             durationS = durationS, ensembleW = ensembleW, tau = decisionTau, sensitivity = sensitivity,
+            confidentLevel = confidentLevel,
         )
     }
 }

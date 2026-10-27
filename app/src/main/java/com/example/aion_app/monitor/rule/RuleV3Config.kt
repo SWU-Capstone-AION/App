@@ -21,7 +21,7 @@ object RuleV3 {
      * 바꿀 때마다 docs/RULE_MODEL_VERSIONS.md 에 무엇이 바뀌었는지 한 줄 남긴다.
      *   작은 수정 → 3.n 의 n 을 올림,  크게 바뀌면 → 4.0
      */
-    const val MODEL_VERSION = "3.4"
+    const val MODEL_VERSION = "3.5"
 
     const val FPS = 30
     const val WINDOW_S = 2.0              // 판정 구간 (학습모델과 같음)
@@ -290,14 +290,20 @@ val SPECIFIC_OVER: List<Pair<String, List<String>>> = listOf(
  *  tau        : 앙상블 확률이 이 값 이상이면 '반복 중'으로 보고 지속 시간을 쌓는다
  *  durationS  : 지속 시간이 이만큼 차면 '위험'
  *  decayRate  : 반복이 끊겼을 때 지속 시간이 줄어드는 속도 (1 = 쌓이는 속도와 같음)
+ *  confident  : 한 모델이 아주 확실하면(이 값 이상) 다른 모델이 낮아도 그 점수로 지속 시간을 쌓는다.
+ *               회전처럼 학습모델만 잡는 동작, 손가락처럼 규칙모델만 잡는 동작을 놓치지 않기 위함
  *
  * NORMAL 은 HTML 원본·기준서 값이다 (라벨 기준 4초).
  * 학습모델이 아직 보정되지 않아 점수가 낮게 나오므로, 실기기 시험에서는 SENSITIVE 를 기본으로 쓴다.
  */
-enum class Sensitivity(val label: String, val ensembleW: Double, val tau: Double, val durationS: Double, val decayRate: Double) {
+enum class Sensitivity(
+    val label: String, val ensembleW: Double, val tau: Double, val durationS: Double, val decayRate: Double,
+    /** 한 모델이 이 값 이상이면 앙상블 대신 그 모델 점수를 쓴다 (null = 안 씀). v3.5 */
+    val confident: Double? = null,
+) {
     NORMAL("보통 (기준서)", 0.5, 0.5, 4.0, 1.5),
-    SENSITIVE("민감", 0.3, 0.45, 2.5, 0.75),
-    VERY_SENSITIVE("매우 민감", 0.2, 0.4, 1.5, 0.5),
+    SENSITIVE("민감", 0.3, 0.45, 2.5, 0.75, confident = 0.85),
+    VERY_SENSITIVE("매우 민감", 0.2, 0.4, 1.5, 0.5, confident = 0.85),
 }
 
 val DEFAULT_SENSITIVITY = Sensitivity.SENSITIVE

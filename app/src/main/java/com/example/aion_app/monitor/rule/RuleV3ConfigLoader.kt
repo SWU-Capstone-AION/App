@@ -12,6 +12,7 @@ import org.json.JSONObject
  *   "sensitivity": "SENSITIVE",  NORMAL / SENSITIVE / VERY_SENSITIVE (먼저 적용, 아래 값이 있으면 덮어씀)
  *   "duration_s": 2.5,        위험까지 필요한 지속 시간(초)
  *   "decay_rate": 0.75,       반복이 끊겼을 때 지속 시간이 줄어드는 속도
+ *   "confident": 0.85,        한 모델이 이 값 이상이면 그 점수를 그대로 씀 (null 이면 안 씀)
  *   "w": 0.5,                 앙상블 가중치 (학습모델 쪽)
  *   "decision": 0.5,          판단 기준 τ
  *   "touch_penalty": 0.8,     터치 중 점수 낮추는 정도
@@ -34,7 +35,8 @@ object RuleV3ConfigLoader {
             engine.ruleCal = parseCal(o.optJSONObject("rule_calibration"))
             engine.dlCal = parseCal(o.optJSONObject("dl_calibration"))
             if (o.has("sensitivity")) engine.applySensitivity(Sensitivity.valueOf(o.getString("sensitivity")))
-            if (listOf("duration_s", "decay_rate", "w", "decision").any { o.has(it) }) engine.sensitivity = null
+            if (listOf("duration_s", "decay_rate", "w", "decision", "confident").any { o.has(it) }) engine.sensitivity = null
+            if (o.has("confident")) engine.confidentLevel = if (o.isNull("confident")) null else clamp(o.getDouble("confident"), 0.5, 1.0)
             if (o.has("duration_s")) engine.durationS = clamp(o.getDouble("duration_s"), 0.5, 10.0)
             if (o.has("decay_rate")) engine.decayRate = clamp(o.getDouble("decay_rate"), 0.0, 5.0)
             if (o.has("w")) engine.ensembleW = clamp(o.getDouble("w"), 0.0, 1.0)

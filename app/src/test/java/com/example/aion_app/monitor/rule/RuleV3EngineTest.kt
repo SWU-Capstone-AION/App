@@ -157,6 +157,23 @@ class RuleV3EngineTest {
     }
 
     @Test
+    fun a_confident_learning_model_builds_duration_alone() {
+        // 회전처럼 규칙모델은 못 잡고(가만히 있는 자세) 학습모델만 0.95 → 민감(v3.5)에서는 위험까지 가야 한다
+        fun run(engine: RuleV3Engine): Int {
+            var stage = 0
+            for (i in 0 until 10 * 30) {
+                val t = i / 30.0
+                val tick = engine.process(100_000 + Math.round(t * 1000), frame(), 0.95).tick
+                stage = maxOf(stage, tick?.stage ?: 0)
+            }
+            return stage
+        }
+        assertEquals(2, run(RuleV3Engine()))
+        // 보통(기준서)은 예전과 같이 평균만 쓴다 → 0.5 × 0.95 + 0.5 × 0 = 0.475 < 0.5 → 위험 아님
+        assertTrue(run(RuleV3Engine().also { it.applySensitivity(Sensitivity.NORMAL) }) < 2)
+    }
+
+    @Test
     fun tapping_the_screen_lowers_hand_scores() {
         val engine = RuleV3Engine()
         val start = 100_000L
