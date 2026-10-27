@@ -32,18 +32,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.compose.runtime.key
 import com.example.aion_app.monitor.audio.AlarmSound
-import com.example.aion_app.monitor.camera.PoseCameraView
+import com.example.aion_app.monitor.camera.PoseHandCameraView
+import com.example.aion_app.monitor.ml.StereotypyMlDetector
+import com.example.aion_app.monitor.net.DetectionSender
 import com.example.aion_app.monitor.pose.MinigameGate
-import com.example.aion_app.monitor.pose.PoseIndex
-import com.example.aion_app.monitor.pose.PoseLandmarkerHelper
-import com.example.aion_app.monitor.pose.StereotypyDetector
+import com.example.aion_app.monitor.pose.PoseHandLandmarkerHelper
+import com.example.aion_app.monitor.rule.RuleV3ConfigLoader
+import com.example.aion_app.monitor.rule.RuleV3Engine
+import com.example.aion_app.monitor.rule.RuleV3Output
+import com.example.aion_app.monitor.rule.RuleV3TouchBus
+import com.example.aion_app.monitor.rule.RuleV3Recorder
+import com.example.aion_app.monitor.ui.RecordUi
+import java.io.File
+import com.example.aion_app.monitor.rule.Sensitivity
+import com.example.aion_app.monitor.rule.DEFAULT_SENSITIVITY
+import com.example.aion_app.monitor.ui.AlarmBanner
+import com.example.aion_app.monitor.ui.RuleV3Dashboard
+import com.example.aion_app.monitor.ui.RuleV3Overlay
 import com.example.aion_app.watch.WatchHeartRate
 import com.example.aion_app.watch.WifiHrReceiver
-import com.example.aion_app.monitor.ui.AlarmBanner
-import com.example.aion_app.monitor.ui.Dashboard
-import com.example.aion_app.monitor.ui.PoseOverlay
-import com.example.aion_app.monitor.net.DetectionSender
 
 // ============================================================
 // 상동행동 모니터링(인식) 화면
@@ -51,7 +60,8 @@ import com.example.aion_app.monitor.net.DetectionSender
 // 아동용 홈(KidsHomeScreen) 좌상단 '모니터링' 버튼으로 들어온다.
 //
 // 이 화면은 '인식 결과를 보여주는 화면'만 담당한다.
-//   카메라 프리뷰 + 스켈레톤 오버레이 + 판정 대시보드(HUD)
+//   카메라 프리뷰 + 관절 33개·손 오버레이 + 규칙모델 v3 대시보드(HUD)
+//   (1024_aion_monitor_v3_33pose_hands.html 대시보드의 앱 버전)
 //
 // 아동이 평소에 보는 화면(구체 / 진정 팝업 / 호흡)은 KidsHomeScreen 하나로 합쳤다.
 // 예전에는 여기서도 ChildScreen 으로 같은 화면을 한 번 더 그려서 아동 홈이 두 개였는데,
@@ -92,90 +102,127 @@ fun StereotypyMonitorScreen(
         if (!hasCameraPermission) launcher.launch(Manifest.permission.CAMERA)
     }
 
-    var bundle by remember { mutableStateOf<PoseLandmarkerHelper.ResultBundle?>(null) }
+    var bundle by remember { mutableStateOf<PoseHandLandmarkerHelper.ResultBundle?>(null) }
     var fps by remember { mutableIntStateOf(0) }
     var status by remember { mutableStateOf("") }
     val fpsTimes = remember { ArrayDeque<Long>() }
-    val detector = remember { StereotypyDetector() }
-    var detState by remember { mutableStateOf<StereotypyDetector.State?>(null) }
+    val engine = remember { RuleV3Engine().also { RuleV3ConfigLoader.applyFromAssets(context, it) } }
+    var out by remember { mutableStateOf<RuleV3Output?>(null) }
     var running by remember { mutableStateOf(true) }
+    var gameActive by remember { mutableStateOf(false) }
+    var handsOn by remember { mutableStateOf(true) }
     val alarmSound = remember { AlarmSound() }
-    val lastAlarmCount = remember { intArrayOf(0) }
+
+    // 판정 기록 (CSV). 라벨 버튼으로 '지금 상동행동 중'을 표시한다
+    val recorder = remember { RuleV3Recorder() }
+    var recording by remember { mutableStateOf(false) }
+    var labelOn by remember { mutableStateOf(false) }
+    var recordRows by remember { mutableIntStateOf(0) }
+    var savedFile by remember { mutableStateOf<File?>(null) }
+
+    // 학습모델(TFLite). 없으면 규칙모델 단독
+    val mlDetector = remember { StereotypyMlDetector.createOrNull(context) }
+    DisposableEffect(Unit) {
+        RuleV3TouchBus.engine = engine
+        onDispose {
+            if (RuleV3TouchBus.engine === engine) RuleV3TouchBus.engine = null
+            RuleV3TouchBus.clearExcluded()
+            mlDetector?.close()
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
         if (hasCameraPermission) {
-            PoseCameraView(
-                modifier = Modifier.fillMaxSize(),
-                onResult = { b ->
-                    bundle = b
-                    val now = SystemClock.uptimeMillis()
-                    fpsTimes.addLast(now)
-                    while (fpsTimes.isNotEmpty() && fpsTimes.first() < now - 1000) {
-                        fpsTimes.removeFirst()
-                    }
-                    fps = fpsTimes.size
+            // 손 모델을 켜고 끌 때는 카메라·검출기를 새로 만든다
+            key(handsOn) {
+                PoseHandCameraView(
+                    modifier = Modifier.fillMaxSize(),
+                    withHands = handsOn,
+                    onResult = { b ->
+                        bundle = b
+                        val now = SystemClock.uptimeMillis()
+                        fpsTimes.addLast(now)
+                        while (fpsTimes.isNotEmpty() && fpsTimes.first() < now - 1000) fpsTimes.removeFirst()
+                        fps = fpsTimes.size
 
-                    // 미니게임 중에는 판정을 멈춘다.
-                    // 잡초 뽑기의 팔 상하 반복이 상동행동 조건에 그대로 걸려 알림이 나가기 때문.
-                    detector.setPaused(MinigameGate.active)
+                        // 미니게임 중에는 판정을 멈춘다 (잡초 뽑기의 팔 상하 반복이 조건에 걸림)
+                        if (!running || MinigameGate.active) return@PoseHandCameraView
 
-                    if (running) {
-                        val lm = b.result.landmarks().firstOrNull()
-                        fun w(i: Int): StereotypyDetector.Wrist? = lm?.getOrNull(i)?.let {
-                            StereotypyDetector.Wrist(
-                                xNorm = it.x().toDouble(),
-                                yNorm = it.y().toDouble(),
-                                visibility = it.visibility().orElse(1f).toDouble(),
-                            )
+                        val dl = mlDetector?.update(b.timestampMs, b.pose.landmarks().firstOrNull())?.score?.toDouble()
+                        val o = engine.process(b.timestampMs, b.toFrameInput(), dl)
+                        out = o
+                        val tick = o.tick ?: return@PoseHandCameraView
+                        if (o.ticked) {
+                            recorder.add(o, fps)
+                            if (recorder.recording) recordRows = recorder.rowCount
+                            WatchHeartRate.onVision(tick.d)
+                            DetectionSender.send(tick)
+                            if (tick.alert.fire) alarmSound.beep()
                         }
-                        val st = detector.update(
-                            timestampMs = b.result.timestampMs(),
-                            nose = w(PoseIndex.NOSE),
-                            leftShoulder = w(PoseIndex.LEFT_SHOULDER),
-                            rightShoulder = w(PoseIndex.RIGHT_SHOULDER),
-                            leftHip = w(PoseIndex.LEFT_HIP),
-                            rightHip = w(PoseIndex.RIGHT_HIP),
-                            leftWrist = w(PoseIndex.LEFT_WRIST),
-                            rightWrist = w(PoseIndex.RIGHT_WRIST),
-                        )
-                        detState = st
-                        WatchHeartRate.onVision(st.score)
-                        DetectionSender.send(st)
-                        if (st.alarmCount > lastAlarmCount[0]) {
-                            lastAlarmCount[0] = st.alarmCount
-                            alarmSound.beep()
-                        }
-                    }
-                },
-                onError = { status = it },
-            )
+                    },
+                    onError = { status = it },
+                )
+            }
 
-            PoseOverlay(
-                result = bundle?.result,
+            RuleV3Overlay(
+                frame = out?.frame,
                 imageWidth = bundle?.inputImageWidth ?: 0,
                 imageHeight = bundle?.inputImageHeight ?: 0,
                 modifier = Modifier.fillMaxSize(),
             )
 
             // 대시보드 상단 '뒤로'로 아동 홈에 돌아간다.
-            Dashboard(
-                state = detState,
+            RuleV3Dashboard(
+                out = out,
                 fps = fps,
                 inferenceMs = bundle?.inferenceTimeMs,
                 running = running,
+                gameActive = gameActive,
+                handsOn = handsOn,
                 onStart = {
-                    detector.reset()
-                    detState = null
-                    lastAlarmCount[0] = 0
+                    engine.reset()
+                    mlDetector?.reset()
+                    out = null
                     running = true
                 },
                 onStop = { running = false },
+                onToggleGame = {
+                    gameActive = !gameActive
+                    engine.setGameActive(gameActive)
+                },
+                onToggleHands = { handsOn = !handsOn },
+                onCycleSensitivity = {
+                    // 보통 → 민감 → 매우 민감 → 보통 … (이 화면에서만 바뀜. 아동 화면 뒤 감지는 기본값 '민감')
+                    val all = Sensitivity.entries
+                    val cur = engine.sensitivity
+                    engine.applySensitivity(if (cur == null) DEFAULT_SENSITIVITY else all[(cur.ordinal + 1) % all.size])
+                },
+                record = RecordUi(
+                    recording = recording,
+                    label = labelOn,
+                    rows = recordRows,
+                    savedPath = savedFile?.let { "Android/data/${context.packageName}/files/records/${it.name}" },
+                    onToggleRecord = {
+                        if (recorder.recording) recorder.stop() else { recorder.start(); savedFile = null; recordRows = 0 }
+                        recording = recorder.recording
+                    },
+                    onToggleLabel = {
+                        labelOn = !labelOn
+                        recorder.label = if (labelOn) 1 else 0
+                    },
+                    onSave = {
+                        recorder.stop(); recording = false
+                        savedFile = recorder.save(context)
+                        status = savedFile?.let { "저장됨: ${it.name}" } ?: "저장할 기록이 없습니다"
+                    },
+                    onShare = { savedFile?.let { RuleV3Recorder.share(context, it) } },
+                ),
                 onBack = onBack,
                 modifier = Modifier.fillMaxSize(),
             )
 
             AlarmBanner(
-                show = running && detState?.anyAlarm == true,
+                show = running && out?.tick?.inEpisode == true,
                 modifier = Modifier.align(Alignment.TopCenter).padding(top = 60.dp),
             )
 
