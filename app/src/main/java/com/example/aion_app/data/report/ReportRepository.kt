@@ -214,23 +214,40 @@ private fun scoreAboveText(where: String, percent: Int?, compared: String): Stri
     else
         "${where}가 ${compared}보다 높았습니다."
 
-/** 서버가 한글 이름(label)을 주므로 그대로 쓰고, 없을 때만 코드값을 바꾼다. */
+/**
+ * 행동 이름: 앱이 아는 코드(규칙모델 v3 의 behaviorType·part)는 앱 이름표를 먼저 쓴다.
+ * 서버 이름표(BEHAVIOR_KO)에는 행동이 3개뿐이라, 나머지는 영어 코드가 그대로 label 로 오기 때문이다.
+ * 앱이 모르는 코드일 때만 서버 label 을 쓴다.
+ */
 private fun BehaviorDto?.toInsight(): AiInsight? {
     if (this == null) return null
-    val name = label?.takeIf { it.isNotBlank() } ?: type.toBehaviorName() ?: return null
+    val name = type.toBehaviorName() ?: label?.takeIf { it.isNotBlank() } ?: type?.takeIf { it != "unknown" } ?: return null
 
     return AiInsight(
-        tag = "감지 성과",
+        tag = "AI 추정 행동",
         title = if (count != null && count > 0) "$name ${count}건" else "$name 행동",
         description = "가장 많이 감지된 행동이에요."
     )
 }
 
-private fun String?.toBehaviorName(): String? = when (this) {
-    null, "", "unknown" -> null
-    "left_arm", "right_arm", "arm", "arm_flapping" -> "팔 흔들기"
-    "head", "head_shaking", "head_banging" -> "머리 흔들기"
-    "body", "rocking", "body_rocking" -> "몸 흔들기"
-    "hand_biting" -> "손 물기"
-    else -> this
+/** 앱이 아는 코드 → 리포트 이름. 모르는 코드면 null (그때는 서버 label 을 쓴다) */
+private fun String?.toBehaviorName(): String? {
+    if (this == null || this == "" || this == "unknown") return null
+    // 규칙모델 v3 행동 유형 (DetectionSender 의 behaviorType) — 이름은 RuleV3Config 의 typeLabel
+    V3_TYPE_LABEL[this]?.let { return it }
+    return when (this) {
+        // 부위(part) 코드 — 예전 서버가 행동 대신 부위를 돌려줄 때를 대비
+        "left_arm", "right_arm", "arm" -> "팔 흔들기"
+        "left_hand", "right_hand", "hand" -> "손 동작"
+        "both_hands" -> "박수"
+        "head", "head_shaking", "head_banging" -> "머리 흔들기"
+        "shoulder" -> "어깨 으쓱"
+        "body", "rocking" -> "몸 흔들기"
+        "hand_biting" -> "손 물기"
+        else -> null
+    }
 }
+
+/** behaviorType 코드 → 리포트 이름 (예: arm_flapping → 팔 퍼덕이기) */
+private val V3_TYPE_LABEL: Map<String, String> =
+    com.example.aion_app.monitor.rule.BEHAVIORS.associate { it.typeCode to it.typeLabel }

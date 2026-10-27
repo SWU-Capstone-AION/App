@@ -38,6 +38,7 @@ import com.example.aion_app.monitor.rule.RuleV3
 import com.example.aion_app.monitor.rule.RuleV3Output
 import com.example.aion_app.monitor.rule.behaviorName
 import com.example.aion_app.monitor.rule.excludeFromTouchRule
+import com.example.aion_app.monitor.rule.partLabel
 import com.example.aion_app.monitor.ui.theme.ShareTechMono
 import kotlin.math.max
 
@@ -178,7 +179,7 @@ private fun TopBar(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (onBack != null) HudButton("← 뒤로", Ink, onBack)
-            Text("AION · 규칙모델 v3", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text("AION · 규칙모델 v${RuleV3.MODEL_VERSION}", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             Text(statusText, color = statusColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -215,6 +216,11 @@ private fun OutputPanel(out: RuleV3Output?, onCycleSensitivity: () -> Unit) {
         Gauge("규칙모델", t?.pRule, t?.pRule?.let { "%.2f".format(it) } ?: "판단 불가",
             tag = if (t != null && (t.pRuleRaw ?: 0.0) > 0.05) t.dominantName ?: "" else if (t?.ruleCalibrated == true) "보정" else "미보정")
         Gauge("학습모델", t?.pDl, t?.pDl?.let { "%.2f".format(it) } ?: "미연결")
+        Text(
+            "서버 부위: ${partLabel(t?.part) ?: "—"}" + (t?.part?.let { " ($it)" } ?: "") +
+                " · 행동: ${t?.behaviorType?.let { c -> BEHAVIORS.firstOrNull { it.typeCode == c }?.typeLabel ?: c } ?: "—"}",
+            color = Ink, fontFamily = Mono, fontSize = 11.sp,
+        )
         Text(
             "위험 ${out?.episodesTotal ?: 0}회 · 알림 ${out?.alertsSent ?: 0}회" +
                 (if (t?.alert?.repeated == true) " · 10분 안 반복 발생" else ""),

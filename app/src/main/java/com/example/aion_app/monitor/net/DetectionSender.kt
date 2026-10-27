@@ -65,14 +65,18 @@ object DetectionSender {
      *
      * score = 지속 시간 D (0~1). 1.0 = 앱이 '위험'을 띄우는 순간.
      *         예전 점수(가장 오래 반복한 부위 ÷ 3.9초)와 뜻이 같아서 서버는 그대로 쓰면 된다.
-     * part  = 지속 시간을 쌓은 행동의 부위 (left_arm / right_arm / head / body). TickState.part 참고.
+     * part  = 지속 시간을 쌓은 행동의 부위. TickState.part, RuleV3Config.BodyPart 참고.
+     *         left_arm / right_arm / left_hand / right_hand / both_hands / head / shoulder / body
+     * behaviorType = 같은 행동의 유형 코드 (예: arm_flapping, clapping, spinning). 서버는 이미 이 칸을
+     *         저장하고 리포트의 '가장 많이 감지된 행동'을 이 값으로 센다. 지속 시간이 0 이면 뺀다.
+     *         ⚠ 모델이 추정한 행동이다. 비슷한 행동끼리는 틀릴 수 있다 (예: 얼굴 앞 손가락 팔랑이기 ↔ 팔 퍼덕이기)
      *         지속 시간이 0 이면 빼고 보낸다 (예전과 같음).
      *
      * 위험이 시작되는 판정은 3초 제한 없이 바로 보낸다.
      * 3초 제한만 있으면 1.0 이 잠깐 머물다 내려갈 때 서버가 1.0 을 한 번도 못 받을 수 있다.
      */
     fun send(tick: TickState) {
-        send(tick.d, force = tick.alert.newEpisode, part = tick.part)
+        send(tick.d, force = tick.alert.newEpisode, part = tick.part, behaviorType = tick.behaviorType)
     }
 
     /**
@@ -80,7 +84,7 @@ object DetectionSender {
      * force = true 면 3초 제한을 무시하고 바로 보낸다 (감지 종료 시 0점 전송용).
      * part = null 이면 part 필드를 아예 빼고 보낸다.
      */
-    fun send(score: Double, force: Boolean = false, part: String? = null) {
+    fun send(score: Double, force: Boolean = false, part: String? = null, behaviorType: String? = null) {
         val now = System.currentTimeMillis()
         if (!force && now - lastSentAt < MIN_INTERVAL_MS) return
         lastSentAt = now
@@ -100,6 +104,7 @@ object DetectionSender {
             put("occurredAt", occurredAt)
             put("score", score.coerceIn(0.0, 1.0))
             if (part != null) put("part", part)
+            if (behaviorType != null) put("behaviorType", behaviorType)
             if (hr != null) {
                 put("heartRate", hr.heartRate)
                 put("heartRateAt", iso.format(Date(hr.heartRateAt)))
@@ -118,7 +123,7 @@ object DetectionSender {
                 }
                 conn.outputStream.use { it.write(body.toByteArray()) }
                 val code = conn.responseCode
-                Log.d("DetectionSender", "score=$score part=$part hr=${hr?.heartRate} risk=${hr?.hrRisk} → $code")
+                Log.d("DetectionSender", "score=$score part=$part type=$behaviorType hr=${hr?.heartRate} risk=${hr?.hrRisk} → $code")
                 conn.disconnect()
                 logSend(now, score, part, hr, code.toString())
             } catch (e: Exception) {

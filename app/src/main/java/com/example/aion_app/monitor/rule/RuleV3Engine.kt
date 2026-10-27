@@ -129,6 +129,8 @@ class TickState(
      * 지속 시간이 0 이면 null.
      */
     val part: String? = null,
+    /** 서버로 보내는 행동 유형 (예: arm_flapping). part 와 같은 행동 기준. 지속 시간이 0 이면 null */
+    val behaviorType: String? = null,
 ) {
     /** 가장 높은 행동 이름 (예: "왼 손·팔 퍼덕이기 (튕기기)") */
     val dominantName: String?
@@ -258,6 +260,7 @@ class RuleV3Engine(
 
     /** 지속 시간을 쌓고 있는 행동의 서버 부위 (지속 시간이 0 이 되면 지움) */
     private var driverPart: String? = null
+    private var driverType: String? = null
 
     private var sessionStartMs = 0L
     private var lastTickAt = -1.0
@@ -280,7 +283,7 @@ class RuleV3Engine(
         for (s in listOf(scale, fwHist, ratioFw, ratioEye, swHist)) { s.t.clear(); s.v.clear() }
         for (s in listOf(center, offs)) { s.t.clear(); s.x.clear(); s.y.clear() }
         lastEvalT = null; lastAnalysisT = -1e9; lastScale = null; lastScaleT = -1e9
-        accDur = 0.0; lastTickT = null; driverPart = null
+        accDur = 0.0; lastTickT = null; driverPart = null; driverType = null
         alertSt = AlertState()
         sessionStartMs = 0L; lastTickAt = -1.0; tickState = null
         timeline.clear()
@@ -908,13 +911,17 @@ class RuleV3Engine(
         val al = updateAlert(f.d, tNow)
         // 지속 시간이 쌓이는 동안의 1위 행동을 기억한다 (규칙모델 근거가 있을 때만)
         val dom = ev.dominant
-        if (f.d <= 0.0) driverPart = null
-        else if (dom != null && f.d > prevD && (ev.r ?: 0.0) >= PART_MIN_SCORE) driverPart = serverPart(dom, ev)
-        else if (driverPart == null && dom != null && (ev.r ?: 0.0) >= PART_MIN_SCORE) driverPart = serverPart(dom, ev)
+        val trusted = dom != null && (ev.r ?: 0.0) >= PART_MIN_SCORE
+        if (f.d <= 0.0) { driverPart = null; driverType = null }
+        else if (trusted && (f.d > prevD || driverPart == null)) {
+            driverPart = serverPart(dom!!, ev)
+            driverType = BEH[dom]?.typeCode
+        }
         val ts = TickState(
             t = tNow, ev = ev, touch = touch, pRuleRaw = ev.r, pRule = pRule, ruleCalibrated = ruleCal != null,
             pDlRaw = pDlRaw, pDl = pDl, p = f.p, mode = f.mode, d = f.d, stage = f.stage,
             alert = al, inEpisode = alertSt.inEpisode, part = if (f.d > 0.0) driverPart else null,
+            behaviorType = if (f.d > 0.0) driverType else null,
         )
         timeline.add(TimelinePoint(tNow, f.p, pRule, pDl, f.d, alertSt.inEpisode))
         while (timeline.isNotEmpty() && timeline[0].t < tNow - RuleV3.TIMELINE_WINDOW_S) timeline.removeAt(0)
@@ -957,23 +964,31 @@ class RuleV3Engine(
 private const val PART_MIN_SCORE = 0.1
 
 /**
- * 행동 → 서버가 아는 4개 부위.
- *  손·감각 행동(왼/오른손을 따로 봄) → 그 손의 팔 (L = 아동 본인의 왼쪽, 영상을 반전하지 않으므로)
- *  양손 행동(박수) → 손·팔 점수가 더 높은 쪽 팔
- *  머리 → head,  전신·어깨 → body
+ * 행동 → 서버로 보내는 부위 (Behavior.bodyPart).
+ *  팔·손 행동은 왼/오른손을 따로 보므로 그 쪽을 붙인다: left_arm / right_arm / left_hand / right_hand
+ *  (L = 아동 본인의 왼쪽. 영상을 반전하지 않으므로)
+ *  양손(박수) → both_hands,  머리 → head,  어깨 → shoulder,  몸통·점프·회전 → body
  */
 fun serverPart(key: String, ev: Evidence): String {
-    val side = ev.beh[key]?.side
-    if (side == SIDE_L) return "left_arm"
-    if (side == SIDE_R) return "right_arm"
-    return when (BEH[key]?.group) {
-        "머리" -> "head"
-        "손·손가락", "감각" -> {
-            fun arm(sd: String) = listOf("flap", "wave", "finger").maxOf { ev.inst["${it}_$sd"]?.rawScore ?: 0.0 }
-            if (arm(SIDE_L) > arm(SIDE_R)) "left_arm" else "right_arm"
+    val bp = BEH[key]?.bodyPart ?: BodyPart.BODY
+    if (bp == BodyPart.ARM || bp == BodyPart.HAND) {
+        val side = ev.beh[key]?.side ?: run {
+            // 손을 따로 보지 않는 경우(없음)에 대비: 팔·손 점수가 높은 쪽
+            fun sc(sd: String) = listOf("flap", "wave", "finger").maxOf { ev.inst["${it}_$sd"]?.rawScore ?: 0.0 }
+            if (sc(SIDE_L) > sc(SIDE_R)) SIDE_L else SIDE_R
         }
-        else -> "body"
+        return (if (side == SIDE_L) "left_" else "right_") + bp.code
     }
+    return bp.code
+}
+
+/** 서버 부위 코드 → 화면 이름 (예: left_hand → 왼손) */
+fun partLabel(code: String?): String? {
+    if (code == null) return null
+    val side = when { code.startsWith("left_") -> "왼"; code.startsWith("right_") -> "오른"; else -> "" }
+    val base = code.removePrefix("left_").removePrefix("right_")
+    val bp = BodyPart.entries.firstOrNull { it.code == base } ?: return code
+    return side + bp.label
 }
 
 /** 시각 목록 t 가 cutoff 보다 앞인 칸을 같이 들고 있는 모든 목록에서 지운다 */

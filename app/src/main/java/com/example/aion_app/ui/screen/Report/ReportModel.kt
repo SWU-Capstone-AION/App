@@ -49,7 +49,7 @@ data class ReportStudent(
 )
 
 data class AiInsight(
-    val tag: String,         // "취약 시간대", "감지 성과", "취약 요일"
+    val tag: String,         // "취약 시간대", "AI 추정 행동", "취약 요일"
     val title: String,       // "12~13시 집중 발생"
     val description: String  // 본문 설명
 )
@@ -296,7 +296,7 @@ fun previewDailyReport(): DailyReport = DailyReport(
     ),
     insights = listOf(
         AiInsight("취약 시간대", "14~15시 집중 발생", "14~15시 사이의 위험점수가 다른 시간대보다 평균적으로 13% 높았습니다."),
-        AiInsight("감지 성과", "몸 흔들기 7건", "가장 많이 감지된 행동이에요.")
+        AiInsight("AI 추정 행동", "몸 흔들기 7건", "가장 많이 감지된 행동이에요.")
     )
 )
 
@@ -316,7 +316,7 @@ fun previewWeeklyReport(): WeeklyReport = WeeklyReport(
         }
     },
     insights = listOf(
-        AiInsight("감지 성과", "손 물기 12건", "가장 많이 감지된 행동이에요."),
+        AiInsight("AI 추정 행동", "손 물기 12건", "가장 많이 감지된 행동이에요."),
         AiInsight("취약 시간대", "금요일 11~12시 집중 발생", "금요일 11~12시 사이의 위험점수가 다른 시간대보다 평균적으로 22% 높았습니다.")
     )
 )
@@ -340,6 +340,6 @@ fun previewMonthlyReport(): MonthlyReport = MonthlyReport(
     },
     insights = listOf(
         AiInsight("취약 요일", "수요일 집중 발생", "수요일의 위험 감지가 다른 요일보다 116% 많았습니다."),
-        AiInsight("감지 성과", "팔 흔들기 44건", "가장 많이 감지된 행동이에요.")
+        AiInsight("AI 추정 행동", "팔 흔들기 44건", "가장 많이 감지된 행동이에요.")
     )
 )

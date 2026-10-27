@@ -16,6 +16,13 @@ package com.example.aion_app.monitor.rule
 // 태블릿 터치 중에는 손·팔·손가락 행동 점수를 낮춤 (기능적 행동)
 // ============================================================
 object RuleV3 {
+    /**
+     * 규칙모델 버전. 화면 맨 위와 기록 CSV(model_version 칸)에 찍힌다.
+     * 바꿀 때마다 docs/RULE_MODEL_VERSIONS.md 에 무엇이 바뀌었는지 한 줄 남긴다.
+     *   작은 수정 → 3.n 의 n 을 올림,  크게 바뀌면 → 4.0
+     */
+    const val MODEL_VERSION = "3.4"
+
     const val FPS = 30
     const val WINDOW_S = 2.0              // 판정 구간 (학습모델과 같음)
     const val STRIDE_S = 0.5              // 판정 간격
@@ -140,62 +147,104 @@ data class Behavior(
     val fingerType: Boolean = false,
     val needAll: Boolean = false,
     val experimental: Boolean = false,
+    /** 서버로 보내는 부위. ARM/HAND 는 손을 따로 보는 행동이면 left_/right_ 가 붙는다 (BodyPart 참고) */
+    val bodyPart: BodyPart = BodyPart.BODY,
+    /** 서버로 보내는 행동 유형 (DetectionSender 의 behaviorType). 서버 리포트가 이 값으로 행동을 센다 */
+    val typeCode: String = key,
+    /** 리포트에 보이는 행동 이름 (ReportRepository) */
+    val typeLabel: String = label,
 )
+
+/**
+ * 서버로 보내는 부위 (DetectionSender 의 part).
+ * 예전 4가지(left_arm / right_arm / head / body)는 뜻이 그대로이고, 아래가 새로 늘었다.
+ *   left_hand / right_hand : 손가락·손을 얼굴에 대는 행동 (손가락 꼼지락, 얼굴 앞 팔랑이기, 눈 가리기, 귀 막기, 눈 비비기)
+ *   both_hands             : 양손을 함께 쓰는 행동 (박수)
+ *   shoulder               : 어깨 (으쓱하기)
+ * 점프·회전도 body 로 보낸다. 무슨 행동인지는 behaviorType 칸이 따로 알려준다 (jumping / spinning).
+ */
+enum class BodyPart(val code: String, val label: String) {
+    ARM("arm", "팔"),                 // → left_arm / right_arm
+    HAND("hand", "손"),               // → left_hand / right_hand
+    BOTH_HANDS("both_hands", "양손"),
+    HEAD("head", "머리"),
+    SHOULDER("shoulder", "어깨"),
+    BODY("body", "몸통"),
+}
 
 val BEHAVIORS: List<Behavior> = listOf(
     // 전신
     Behavior("body_rock", "몸 앞뒤 흔들기", "전신", BehaviorType.RHYTHM, VisKind.TRUNK, 0.4, 2.5,
-        listOf(Channel("trunk_sw", "어깨 너비 변화", 0.08), Channel("trunk_face", "얼굴 폭 변화", 0.08), Channel("trunk_zlean", "3D 앞뒤 기울기", 0.04))),
+        listOf(Channel("trunk_sw", "어깨 너비 변화", 0.08), Channel("trunk_face", "얼굴 폭 변화", 0.08), Channel("trunk_zlean", "3D 앞뒤 기울기", 0.04)), bodyPart = BodyPart.BODY,
+        typeCode = "body_rocking", typeLabel = "몸 앞뒤 흔들기"),
     Behavior("body_sway", "몸 좌우 흔들기", "전신", BehaviorType.RHYTHM, VisKind.TRUNK, 0.4, 2.5,
-        listOf(Channel("trunk_x", "어깨 좌우", 0.08), Channel("trunk_tilt", "어깨선 기울기", 0.10))),
+        listOf(Channel("trunk_x", "어깨 좌우", 0.08), Channel("trunk_tilt", "어깨선 기울기", 0.10)), bodyPart = BodyPart.BODY,
+        typeCode = "body_swaying", typeLabel = "몸 좌우 흔들기"),
     // 머리
     Behavior("head_roll", "머리 굴리기", "머리", BehaviorType.CIRCLE, VisKind.HEAD, 0.5, 3.0,
-        listOf(Channel("head_x", "코 좌우", 0.10), Channel("head_y", "코 상하", 0.10))),
+        listOf(Channel("head_x", "코 좌우", 0.10), Channel("head_y", "코 상하", 0.10)), bodyPart = BodyPart.HEAD,
+        typeCode = "head_rolling", typeLabel = "머리 굴리기"),
     Behavior("head_nod", "끄덕이기", "머리", BehaviorType.RHYTHM, VisKind.HEAD, 0.25, 1.5,
-        listOf(Channel("head_pitch", "코-귀 높이차", 0.15))),
+        listOf(Channel("head_pitch", "코-귀 높이차", 0.15)), bodyPart = BodyPart.HEAD,
+        typeCode = "head_nodding", typeLabel = "고개 끄덕이기"),
     Behavior("head_tilt", "갸웃거리기", "머리", BehaviorType.RHYTHM, VisKind.HEAD, 0.4, 2.0,
-        listOf(Channel("head_roll", "귀 선 기울기", 0.15))),
+        listOf(Channel("head_roll", "귀 선 기울기", 0.15)), bodyPart = BodyPart.HEAD,
+        typeCode = "head_tilting", typeLabel = "고개 갸웃거리기"),
     Behavior("head_turn", "고개 돌리기", "머리", BehaviorType.RHYTHM, VisKind.HEAD, 0.3, 2.0,
-        listOf(Channel("head_yaw", "고개 돌림", 0.25))),
+        listOf(Channel("head_yaw", "고개 돌림", 0.25)), bodyPart = BodyPart.HEAD,
+        typeCode = "head_turning", typeLabel = "고개 돌리기"),
     // 어깨
     Behavior("shrug", "으쓱하기", "어깨", BehaviorType.RHYTHM, VisKind.TRUNK, 0.4, 2.5,
         listOf(Channel("shrug_mid", "양 어깨", 0.06), Channel("shrug_l", "왼 어깨", 0.06), Channel("shrug_r", "오른 어깨", 0.06)),
-        winGate = WinGate.SHRUG, aux = listOf("ear_y", "sh_y")),
+        winGate = WinGate.SHRUG, aux = listOf("ear_y", "sh_y"), bodyPart = BodyPart.SHOULDER,
+        typeCode = "shoulder_shrugging", typeLabel = "어깨 으쓱하기"),
     Behavior("arch", "등 젖히기", "어깨", BehaviorType.RHYTHM, VisKind.HIPS, 0.6, 4.0,
         listOf(Channel("trunk_zlean", "3D 뒤로 기울기", 0.04), Channel("head_pitch", "고개 젖힘", 0.15)),
-        needAll = true, experimental = true),
+        needAll = true, experimental = true, bodyPart = BodyPart.BODY,
+        typeCode = "back_arching", typeLabel = "등 젖히기"),
     // 손·손가락
     Behavior("flap", "손·팔 퍼덕이기", "손·손가락", BehaviorType.RHYTHM, VisKind.HAND, 0.15, 1.0,
         listOf(Channel("hand_y", "손 상하", 0.15), Channel("elbow_y", "팔꿈치 상하", 0.12), Channel("wflex", "손목 꺾임", 0.5)),
-        sides = true, functional = true),
+        sides = true, functional = true, bodyPart = BodyPart.ARM,
+        typeCode = "arm_flapping", typeLabel = "팔 퍼덕이기"),
     Behavior("finger", "손가락 꼼지락·튕기기", "손·손가락", BehaviorType.RHYTHM, VisKind.HAND_MODEL, 0.12, 0.8,
         listOf(Channel("curl0", "엄지 굽힘", 0.35), Channel("curl1", "검지 굽힘", 0.35), Channel("curl2", "중지 굽힘", 0.35),
             Channel("curl3", "약지 굽힘", 0.35), Channel("curl4", "새끼 굽힘", 0.35), Channel("curlm", "평균 굽힘", 0.35)),
-        sides = true, functional = true, fingerType = true),
+        sides = true, functional = true, fingerType = true, bodyPart = BodyPart.HAND,
+        typeCode = "finger_flicking", typeLabel = "손가락 꼼지락"),
     Behavior("flutter", "얼굴 앞 손가락 팔랑이기", "손·손가락", BehaviorType.RHYTHM, VisKind.HAND_MODEL, 0.12, 0.8,
         listOf(Channel("curl1", "검지 굽힘", 0.35), Channel("curl2", "중지 굽힘", 0.35), Channel("curl3", "약지 굽힘", 0.35),
             Channel("curl4", "새끼 굽힘", 0.35), Channel("curlm", "평균 굽힘", 0.35)),
-        sides = true, gate = "g_flutter"),
+        sides = true, gate = "g_flutter", bodyPart = BodyPart.HAND,
+        typeCode = "finger_fluttering", typeLabel = "얼굴 앞 손가락 팔랑이기"),
     Behavior("clap", "박수", "손·손가락", BehaviorType.RHYTHM, VisKind.BOTH_HANDS, 0.2, 1.2,
-        listOf(Channel("hands_d", "양손 거리", 0.25)), winGate = WinGate.CLAP),
+        listOf(Channel("hands_d", "양손 거리", 0.25)), winGate = WinGate.CLAP, bodyPart = BodyPart.BOTH_HANDS,
+        typeCode = "clapping", typeLabel = "박수"),
     Behavior("wave", "손·팔 흔들기", "손·손가락", BehaviorType.RHYTHM, VisKind.HAND, 0.2, 1.2,
         listOf(Channel("hand_x", "손 좌우", 0.15), Channel("fore_x", "아래팔 좌우", 0.12), Channel("palm_open", "손바닥 회전", 0.4)),
-        sides = true, functional = true, winGate = WinGate.NOT_CLAP, aux = listOf("hands_d")),
+        sides = true, functional = true, winGate = WinGate.NOT_CLAP, aux = listOf("hands_d"), bodyPart = BodyPart.ARM,
+        typeCode = "arm_waving", typeLabel = "손·팔 흔들기"),
     // 감각
     Behavior("eye_cover", "눈 가리기", "감각", BehaviorType.HOLD, VisKind.HAND,
-        sides = true, gate = "g_eyecover", aux = listOf("hand_x", "hand_y", "curlm")),
+        sides = true, gate = "g_eyecover", aux = listOf("hand_x", "hand_y", "curlm"), bodyPart = BodyPart.HAND,
+        typeCode = "eye_covering", typeLabel = "눈 가리기"),
     Behavior("ear_cover", "귀 막기", "감각", BehaviorType.HOLD, VisKind.HAND,
-        sides = true, gate = "g_earcover", aux = listOf("hand_x", "hand_y", "curlm")),
+        sides = true, gate = "g_earcover", aux = listOf("hand_x", "hand_y", "curlm"), bodyPart = BodyPart.HAND,
+        typeCode = "ear_covering", typeLabel = "귀 막기"),
     Behavior("eye_rub", "눈 비비기", "감각", BehaviorType.RHYTHM, VisKind.HAND_MODEL, 0.2, 1.0,
         listOf(Channel("eyetip_x", "손끝 좌우", 0.08), Channel("eyetip_y", "손끝 상하", 0.08)),
-        sides = true, winGate = WinGate.EYE_RUB, aux = listOf("eyetip_d", "curlm")),
+        sides = true, winGate = WinGate.EYE_RUB, aux = listOf("eyetip_d", "curlm"), bodyPart = BodyPart.HAND,
+        typeCode = "eye_rubbing", typeLabel = "눈 비비기"),
     Behavior("hit", "자기 때리기", "감각", BehaviorType.RHYTHM, VisKind.HAND, 0.25, 1.5,
-        listOf(Channel("hit_d", "몸까지 거리", 0.25)), sides = true, winGate = WinGate.HIT),
+        listOf(Channel("hit_d", "몸까지 거리", 0.25)), sides = true, winGate = WinGate.HIT, bodyPart = BodyPart.ARM,
+        typeCode = "self_hitting", typeLabel = "자기 때리기"),
     // 전신 큰 움직임 (실험 — 앉은 자세에서는 드묾)
     Behavior("jump", "점프·바운스", "전신(실험)", BehaviorType.RHYTHM, VisKind.LOOSE, 0.3, 2.0,
-        listOf(Channel("whole_y", "큰 상하", 0.35)), experimental = true),
+        listOf(Channel("whole_y", "큰 상하", 0.35)), experimental = true, bodyPart = BodyPart.BODY,
+        typeCode = "jumping", typeLabel = "점프"),
     Behavior("spin", "회전", "전신(실험)", BehaviorType.RHYTHM, VisKind.LOOSE, 0.5, 3.0,
-        listOf(Channel("whole_rot", "몸 방향", 1.0)), experimental = true),
+        listOf(Channel("whole_rot", "몸 방향", 1.0)), experimental = true, bodyPart = BodyPart.BODY,
+        typeCode = "spinning", typeLabel = "회전"),
 )
 
 val BEH: Map<String, Behavior> = BEHAVIORS.associateBy { it.key }

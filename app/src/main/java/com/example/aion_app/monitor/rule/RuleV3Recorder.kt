@@ -74,6 +74,9 @@ class RuleV3Recorder {
         cols += if (t.touch.game) "1" else "0"
         cols += fps.toString()
         cols += if (t.alert.fire) "1" else "0"
+        cols += RuleV3.MODEL_VERSION
+        cols += t.part ?: ""
+        cols += t.behaviorType ?: ""
         for (b in BEHAVIORS) {
             val e = ev.beh[b.key]
             cols += f(e?.score)
@@ -100,6 +103,7 @@ class RuleV3Recorder {
             "t_sec", "time", "label", "r", "dominant", "dominant_side",
             "p_rule_raw", "p_rule", "rule_cal", "p_dl_raw", "p_dl", "p_ens", "D", "stage", "mode",
             "w", "tau", "duration_s", "sensitivity", "touch_f", "taps", "game", "fps", "alert",
+            "model_version", "part", "behavior_type",
         ) + BEHAVIORS.flatMap { listOf("${it.key}_score", "${it.key}_raw", "${it.key}_side") }
 
         private val TIME_FMT = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
