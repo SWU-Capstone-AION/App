@@ -25,12 +25,13 @@ import java.util.concurrent.Executors
  *   그 위에 관절을 그릴 때는 x 를 뒤집어야 한다 (RuleV3Overlay 참고).
  *
  * @param withHands false 면 손 모델을 끈다 (fps 가 20 아래로 떨어지는 기기용).
- *                  처음 붙을 때 값으로 고정된다.
+ * @param handEvery 손 모델을 몇 프레임에 한 번 돌릴지 (1 = 매 프레임). 둘 다 처음 붙을 때 값으로 고정된다.
  */
 @Composable
 fun PoseHandCameraView(
     modifier: Modifier = Modifier,
     withHands: Boolean = true,
+    handEvery: Int = DEFAULT_HAND_EVERY,
     onResult: (PoseHandLandmarkerHelper.ResultBundle) -> Unit,
     onError: (String) -> Unit,
 ) {
@@ -45,6 +46,7 @@ fun PoseHandCameraView(
         PoseHandLandmarkerHelper(
             context = context,
             withHands = withHands,
+            handEvery = handEvery,
             onResult = { currentOnResult(it) },
             onError = { currentOnError(it) },
         )
@@ -78,3 +80,6 @@ fun PoseHandCameraView(
         }
     )
 }
+
+/** 손 모델을 몇 프레임에 한 번 돌릴지 기본값 (아동 화면 뒤 감지와 모니터링 화면이 같이 쓴다) */
+const val DEFAULT_HAND_EVERY = 2

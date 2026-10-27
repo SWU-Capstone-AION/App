@@ -29,10 +29,15 @@ import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
  *
  * 분석이 밀리면 CameraX(KEEP_ONLY_LATEST)가 알아서 프레임을 버린다.
  * 태블릿에서 fps 가 20 아래로 나오면 [withHands] = false 로 손 모델을 끌 수 있다.
+ *
+ * fps 올리기: 손 모델은 [handEvery] 프레임에 한 번만 돌리고, 그 사이 프레임은 직전 손 결과를 쓴다.
+ *   실기기에서 손 모델을 켜면 17fps → 8~9fps 로 떨어졌다 (포즈보다 손 모델이 무겁다).
+ *   handEvery = 1 이면 예전과 같이 매 프레임 돌린다.
  */
 class PoseHandLandmarkerHelper(
     context: Context,
     private val withHands: Boolean = true,
+    private val handEvery: Int = 2,
     private val onResult: (ResultBundle) -> Unit,
     private val onError: (String) -> Unit,
 ) {
@@ -44,6 +49,10 @@ class PoseHandLandmarkerHelper(
         val inferenceTimeMs: Long,
         /** SystemClock.uptimeMillis() 기준. 터치 기록과 같은 시계 */
         val timestampMs: Long,
+        /** 이 프레임에서 손 모델을 새로 돌렸는지 (false = 직전 손 결과를 다시 씀) */
+        val handFresh: Boolean = true,
+        /** 실제로 쓰는 가속 (GPU / CPU) */
+        val delegate: String = "-",
     ) {
         /** 규칙모델 v3 입력으로 바꾼다. 사람이 안 잡혔으면 null */
         fun toFrameInput(): FrameInput? {
@@ -81,6 +90,10 @@ class PoseHandLandmarkerHelper(
 
     // VIDEO 모드도 타임스탬프가 반드시 이전보다 커야 한다 (같은 ms 면 1ms 민다)
     private var lastTimestampMs = 0L
+
+    // 손 모델을 건너뛴 프레임에서 다시 쓸 직전 결과
+    private var frameNo = 0L
+    private var lastHandResult: HandLandmarkerResult? = null
 
     var delegateName: String = "-"
         private set
@@ -151,7 +164,10 @@ class PoseHandLandmarkerHelper(
 
             val image = BitmapImageBuilder(rotated).build()
             val poseResult = pose.detectForVideo(image, timestamp)
-            val handResult = handLandmarker?.detectForVideo(image, timestamp)
+            val hl = handLandmarker
+            val fresh = hl != null && (handEvery <= 1 || frameNo % handEvery == 0L || lastHandResult == null)
+            val handResult = if (fresh) hl!!.detectForVideo(image, timestamp).also { lastHandResult = it } else lastHandResult
+            frameNo++
             onResult(
                 ResultBundle(
                     pose = poseResult,
@@ -160,6 +176,8 @@ class PoseHandLandmarkerHelper(
                     inputImageHeight = rotated.height,
                     inferenceTimeMs = SystemClock.uptimeMillis() - now,
                     timestampMs = timestamp,
+                    handFresh = fresh,
+                    delegate = delegateName,
                 )
             )
         } catch (t: Throwable) {
@@ -176,6 +194,8 @@ class PoseHandLandmarkerHelper(
         handLandmarker?.close()
         handLandmarker = null
         lastTimestampMs = 0L
+        lastHandResult = null
+        frameNo = 0L
     }
 
     companion object {

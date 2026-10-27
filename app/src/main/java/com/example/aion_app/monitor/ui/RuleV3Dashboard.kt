@@ -132,6 +132,9 @@ fun RuleV3Dashboard(
     onStop: () -> Unit,
     onToggleGame: () -> Unit,
     onToggleHands: () -> Unit,
+    handEvery: Int,
+    delegate: String,
+    onToggleHandEvery: () -> Unit,
     onCycleSensitivity: () -> Unit,
     record: RecordUi,
     onBack: (() -> Unit)?,
@@ -140,7 +143,7 @@ fun RuleV3Dashboard(
     Column(modifier = modifier.fillMaxSize().safeDrawingPadding()) {
         // 버튼·패널 영역의 터치는 '태블릿 터치(기능적 행동)'로 세지 않는다 (HTML 과 같음)
         Box(modifier = Modifier.excludeFromTouchRule("v3_top")) {
-            TopBar(out, fps, inferenceMs, running, onStart, onStop, onBack)
+            TopBar(out, fps, inferenceMs, delegate, running, onStart, onStop, onBack)
         }
         Row(modifier = Modifier.fillMaxWidth().weight(1f).padding(8.dp)) {
             Column(
@@ -150,7 +153,7 @@ fun RuleV3Dashboard(
             ) {
                 RecordPanel(record)
                 OutputPanel(out, onCycleSensitivity)
-                TouchPanel(out, gameActive, handsOn, onToggleGame, onToggleHands)
+                TouchPanel(out, gameActive, handsOn, onToggleGame, onToggleHands, handEvery, onToggleHandEvery)
             }
             Spacer(modifier = Modifier.weight(1f))
             Column(
@@ -166,7 +169,7 @@ fun RuleV3Dashboard(
 
 @Composable
 private fun TopBar(
-    out: RuleV3Output?, fps: Int, inferenceMs: Long?, running: Boolean,
+    out: RuleV3Output?, fps: Int, inferenceMs: Long?, delegate: String, running: Boolean,
     onStart: () -> Unit, onStop: () -> Unit, onBack: (() -> Unit)?,
 ) {
     val tick = out?.tick
@@ -185,7 +188,7 @@ private fun TopBar(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val low = fps < RuleV3.LOW_FPS
             Text(
-                "$fps fps" + (if (low) " · 손가락 정확도 낮음" else "") + (inferenceMs?.let { " · ${it}ms" } ?: ""),
+                "$fps fps" + (if (low) " · 손가락 정확도 낮음" else "") + (inferenceMs?.let { " · ${it}ms" } ?: "") + " · $delegate",
                 color = if (low) Amber else InkDim, fontFamily = Mono, fontSize = 12.sp,
             )
             if (running) HudButton("■ 정지", Red, onStop) else HudButton("▶ 시작", Blue, onStart)
@@ -205,7 +208,8 @@ private fun OutputPanel(out: RuleV3Output?, onCycleSensitivity: () -> Unit) {
             "앙상블 = %.1f × 학습 + %.1f × 규칙 · τ=%.2f 이상이 %.1f초 쌓이면 위험".format(
                 out?.ensembleW ?: DEFAULT_SENSITIVITY.ensembleW, 1 - (out?.ensembleW ?: DEFAULT_SENSITIVITY.ensembleW),
                 out?.tau ?: DEFAULT_SENSITIVITY.tau, dur,
-            ),
+            ) + ((if (out == null) DEFAULT_SENSITIVITY.confident else out.confidentLevel)
+                ?.let { " · 한 모델이 %.2f 이상이면 그 점수 사용".format(it) } ?: ""),
             color = InkDim, fontFamily = Mono, fontSize = 10.sp,
         )
         Gauge("앙상블 확률", t?.p, t?.p?.let { "%.2f".format(it) } ?: "—",
@@ -274,7 +278,10 @@ private fun RecordPanel(r: RecordUi) {
 }
 
 @Composable
-private fun TouchPanel(out: RuleV3Output?, gameActive: Boolean, handsOn: Boolean, onToggleGame: () -> Unit, onToggleHands: () -> Unit) {
+private fun TouchPanel(
+    out: RuleV3Output?, gameActive: Boolean, handsOn: Boolean, onToggleGame: () -> Unit, onToggleHands: () -> Unit,
+    handEvery: Int, onToggleHandEvery: () -> Unit,
+) {
     val touch = out?.tick?.touch
     Panel("기능적 행동 (터치)") {
         Gauge("터치 정도 f", touch?.f ?: 0.0, "%.2f".format(touch?.f ?: 0.0),
@@ -284,6 +291,10 @@ private fun TouchPanel(out: RuleV3Output?, gameActive: Boolean, handsOn: Boolean
             HudButton(if (gameActive) "게임 중 ●" else "게임 중", if (gameActive) Amber else InkDim, onToggleGame)
             HudButton(if (handsOn) "손 모델 켬" else "손 모델 끔 (빠름)", if (handsOn) Blue else InkDim, onToggleHands)
         }
+        if (handsOn) HudButton(
+            if (handEvery == 1) "손 모델: 매 프레임" else "손 모델: ${handEvery}프레임마다 (빠름)",
+            if (handEvery == 1) InkDim else Blue, onToggleHandEvery,
+        )
     }
 }
 

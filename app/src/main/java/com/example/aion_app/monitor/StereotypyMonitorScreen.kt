@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.compose.runtime.key
 import com.example.aion_app.monitor.audio.AlarmSound
+import com.example.aion_app.monitor.camera.DEFAULT_HAND_EVERY
 import com.example.aion_app.monitor.camera.PoseHandCameraView
 import com.example.aion_app.monitor.ml.StereotypyMlDetector
 import com.example.aion_app.monitor.net.DetectionSender
@@ -111,6 +112,8 @@ fun StereotypyMonitorScreen(
     var running by remember { mutableStateOf(true) }
     var gameActive by remember { mutableStateOf(false) }
     var handsOn by remember { mutableStateOf(true) }
+    // 손 모델을 몇 프레임에 한 번 돌릴지 (fps 비교 시험용: 1 = 매 프레임, 2 = 두 프레임에 한 번)
+    var handEvery by remember { mutableIntStateOf(DEFAULT_HAND_EVERY) }
     val alarmSound = remember { AlarmSound() }
 
     // 판정 기록 (CSV). 라벨 버튼으로 '지금 상동행동 중'을 표시한다
@@ -118,7 +121,7 @@ fun StereotypyMonitorScreen(
     var recording by remember { mutableStateOf(false) }
     var labelOn by remember { mutableStateOf(false) }
     var recordRows by remember { mutableIntStateOf(0) }
-    var savedFile by remember { mutableStateOf<File?>(null) }
+    var savedFiles by remember { mutableStateOf<List<File>>(emptyList()) }
 
     // 학습모델(TFLite). 없으면 규칙모델 단독
     val mlDetector = remember { StereotypyMlDetector.createOrNull(context) }
@@ -133,11 +136,12 @@ fun StereotypyMonitorScreen(
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
         if (hasCameraPermission) {
-            // 손 모델을 켜고 끌 때는 카메라·검출기를 새로 만든다
-            key(handsOn) {
+            // 손 모델을 켜고 끄거나 주기를 바꿀 때는 카메라·검출기를 새로 만든다
+            key(handsOn, handEvery) {
                 PoseHandCameraView(
                     modifier = Modifier.fillMaxSize(),
                     withHands = handsOn,
+                    handEvery = handEvery,
                     onResult = { b ->
                         bundle = b
                         val now = SystemClock.uptimeMillis()
@@ -149,7 +153,9 @@ fun StereotypyMonitorScreen(
                         if (!running || MinigameGate.active) return@PoseHandCameraView
 
                         val dl = mlDetector?.update(b.timestampMs, b.pose.landmarks().firstOrNull())?.score?.toDouble()
-                        val o = engine.process(b.timestampMs, b.toFrameInput(), dl)
+                        val input = b.toFrameInput()
+                        recorder.addFrame(b.timestampMs, input, b.inputImageWidth, b.inputImageHeight, b.handFresh)
+                        val o = engine.process(b.timestampMs, input, dl)
                         out = o
                         val tick = o.tick ?: return@PoseHandCameraView
                         if (o.ticked) {
@@ -191,6 +197,9 @@ fun StereotypyMonitorScreen(
                     engine.setGameActive(gameActive)
                 },
                 onToggleHands = { handsOn = !handsOn },
+                handEvery = handEvery,
+                delegate = bundle?.delegate ?: "-",
+                onToggleHandEvery = { handEvery = if (handEvery == 1) 2 else 1 },
                 onCycleSensitivity = {
                     // 보통 → 민감 → 매우 민감 → 보통 … (이 화면에서만 바뀜. 아동 화면 뒤 감지는 기본값 '민감')
                     val all = Sensitivity.entries
@@ -201,9 +210,11 @@ fun StereotypyMonitorScreen(
                     recording = recording,
                     label = labelOn,
                     rows = recordRows,
-                    savedPath = savedFile?.let { "Android/data/${context.packageName}/files/records/${it.name}" },
+                    savedPath = savedFiles.firstOrNull()?.let {
+                        "Android/data/${context.packageName}/files/records/${it.name}" + (if (savedFiles.size > 1) " (+관절 좌표)" else "")
+                    },
                     onToggleRecord = {
-                        if (recorder.recording) recorder.stop() else { recorder.start(); savedFile = null; recordRows = 0 }
+                        if (recorder.recording) recorder.stop() else { recorder.start(); savedFiles = emptyList(); recordRows = 0 }
                         recording = recorder.recording
                     },
                     onToggleLabel = {
@@ -212,10 +223,10 @@ fun StereotypyMonitorScreen(
                     },
                     onSave = {
                         recorder.stop(); recording = false
-                        savedFile = recorder.save(context)
-                        status = savedFile?.let { "저장됨: ${it.name}" } ?: "저장할 기록이 없습니다"
+                        savedFiles = recorder.save(context)
+                        status = if (savedFiles.isEmpty()) "저장할 기록이 없습니다" else "저장됨: " + savedFiles.joinToString { it.name }
                     },
-                    onShare = { savedFile?.let { RuleV3Recorder.share(context, it) } },
+                    onShare = { RuleV3Recorder.share(context, savedFiles) },
                 ),
                 onBack = onBack,
                 modifier = Modifier.fillMaxSize(),
