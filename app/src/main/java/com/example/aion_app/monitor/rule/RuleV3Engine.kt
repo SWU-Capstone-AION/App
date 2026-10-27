@@ -81,6 +81,8 @@ class Evidence(
     val dominant: String?,
     val beh: Map<String, BehEvidence>,
     val touch: TouchContext?,
+    /** 손(L/R)별 근거 (flap_L, flap_R …). beh 는 행동마다 높은 쪽 손 하나만 남긴다 */
+    val inst: Map<String, BehEvidence> = emptyMap(),
 )
 
 /** 확률 보정 (설정 파일의 rule_calibration / dl_calibration) */
@@ -120,6 +122,13 @@ class TickState(
     val stage: Int,
     val alert: AlertResult,
     val inEpisode: Boolean,
+    /**
+     * 서버로 보내는 부위 (left_arm / right_arm / head / body).
+     * 지금 1위 행동이 아니라 '지속 시간을 쌓은 행동'의 부위다. 행동이 끝나고 지속 시간이 줄어드는 동안에도
+     * 그 부위를 유지한다 (그때의 1위 행동은 점수 0 에 가까운 아무 행동이라 부위가 엉뚱해진다).
+     * 지속 시간이 0 이면 null.
+     */
+    val part: String? = null,
 ) {
     /** 가장 높은 행동 이름 (예: "왼 손·팔 퍼덕이기 (튕기기)") */
     val dominantName: String?
@@ -247,6 +256,9 @@ class RuleV3Engine(
     private var lastTickT: Double? = null
     private var alertSt = AlertState()
 
+    /** 지속 시간을 쌓고 있는 행동의 서버 부위 (지속 시간이 0 이 되면 지움) */
+    private var driverPart: String? = null
+
     private var sessionStartMs = 0L
     private var lastTickAt = -1.0
     private var tickState: TickState? = null
@@ -268,7 +280,7 @@ class RuleV3Engine(
         for (s in listOf(scale, fwHist, ratioFw, ratioEye, swHist)) { s.t.clear(); s.v.clear() }
         for (s in listOf(center, offs)) { s.t.clear(); s.x.clear(); s.y.clear() }
         lastEvalT = null; lastAnalysisT = -1e9; lastScale = null; lastScaleT = -1e9
-        accDur = 0.0; lastTickT = null
+        accDur = 0.0; lastTickT = null; driverPart = null
         alertSt = AlertState()
         sessionStartMs = 0L; lastTickAt = -1.0; tickState = null
         timeline.clear()
@@ -795,7 +807,7 @@ class RuleV3Engine(
         var r: Double? = null
         var dominant: String? = null
         for ((k, e) in beh) if (r == null || e.score > r) { r = e.score; dominant = k }
-        return Evidence(r, dominant, beh, touch)
+        return Evidence(r, dominant, beh, touch, ei)
     }
 
     // ---------- 확률 보정 ----------
@@ -891,12 +903,18 @@ class RuleV3Engine(
         val feats = ruleFeatures(ev)
         val pRule = if (ev.r == null) null else applyCalibration(ruleCal, ev.r, feats)
         val pDl = if (pDlRaw == null) null else applyCalibration(dlCal, pDlRaw, mapOf("p" to logit(pDlRaw)))
+        val prevD = accDur / durationS
         val f = fuseTick(tNow, pRule, pDl, ensembleW, decisionTau)
         val al = updateAlert(f.d, tNow)
+        // 지속 시간이 쌓이는 동안의 1위 행동을 기억한다 (규칙모델 근거가 있을 때만)
+        val dom = ev.dominant
+        if (f.d <= 0.0) driverPart = null
+        else if (dom != null && f.d > prevD && (ev.r ?: 0.0) >= PART_MIN_SCORE) driverPart = serverPart(dom, ev)
+        else if (driverPart == null && dom != null && (ev.r ?: 0.0) >= PART_MIN_SCORE) driverPart = serverPart(dom, ev)
         val ts = TickState(
             t = tNow, ev = ev, touch = touch, pRuleRaw = ev.r, pRule = pRule, ruleCalibrated = ruleCal != null,
             pDlRaw = pDlRaw, pDl = pDl, p = f.p, mode = f.mode, d = f.d, stage = f.stage,
-            alert = al, inEpisode = alertSt.inEpisode,
+            alert = al, inEpisode = alertSt.inEpisode, part = if (f.d > 0.0) driverPart else null,
         )
         timeline.add(TimelinePoint(tNow, f.p, pRule, pDl, f.d, alertSt.inEpisode))
         while (timeline.isNotEmpty() && timeline[0].t < tNow - RuleV3.TIMELINE_WINDOW_S) timeline.removeAt(0)
@@ -932,6 +950,29 @@ class RuleV3Engine(
             alertsSent = alertSt.sent, episodesTotal = alertSt.total, timeline = ArrayList(timeline),
             durationS = durationS, ensembleW = ensembleW, tau = decisionTau, sensitivity = sensitivity,
         )
+    }
+}
+
+/** 서버 부위를 정할 때 규칙모델 행동 점수가 이 이상이어야 그 행동을 믿는다 */
+private const val PART_MIN_SCORE = 0.1
+
+/**
+ * 행동 → 서버가 아는 4개 부위.
+ *  손·감각 행동(왼/오른손을 따로 봄) → 그 손의 팔 (L = 아동 본인의 왼쪽, 영상을 반전하지 않으므로)
+ *  양손 행동(박수) → 손·팔 점수가 더 높은 쪽 팔
+ *  머리 → head,  전신·어깨 → body
+ */
+fun serverPart(key: String, ev: Evidence): String {
+    val side = ev.beh[key]?.side
+    if (side == SIDE_L) return "left_arm"
+    if (side == SIDE_R) return "right_arm"
+    return when (BEH[key]?.group) {
+        "머리" -> "head"
+        "손·손가락", "감각" -> {
+            fun arm(sd: String) = listOf("flap", "wave", "finger").maxOf { ev.inst["${it}_$sd"]?.rawScore ?: 0.0 }
+            if (arm(SIDE_L) > arm(SIDE_R)) "left_arm" else "right_arm"
+        }
+        else -> "body"
     }
 }
 
