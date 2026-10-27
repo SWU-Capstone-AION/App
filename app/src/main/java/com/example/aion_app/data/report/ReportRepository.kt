@@ -3,6 +3,7 @@ package com.example.aion_app.data.report
 import android.util.Log
 import com.example.aion_app.data.network.ApiClient
 import com.example.aion_app.ui.screen.report.AiInsight
+import com.example.aion_app.ui.screen.report.BehaviorCount
 import com.example.aion_app.ui.screen.report.ChartBar
 import com.example.aion_app.ui.screen.report.DailyReport
 import com.example.aion_app.ui.screen.report.HeatCell
@@ -11,7 +12,9 @@ import com.example.aion_app.ui.screen.report.ReportDates
 import com.example.aion_app.ui.screen.report.RiskLevel
 import com.example.aion_app.ui.screen.report.WeeklyReport
 import com.example.aion_app.ui.screen.report.buildMonthCalendar
+import java.text.Collator
 import java.util.Calendar
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
@@ -81,7 +84,7 @@ private fun DailyReportDto.toDailyReport(day: Calendar): DailyReport {
                 )
             )
         }
-        topBehavior.toInsight()?.let { add(it) }
+        behaviorInsight(behaviors, topBehavior)?.let { add(it) }
     }
 
     return DailyReport(
@@ -101,7 +104,7 @@ private fun WeeklyReportDto.toWeeklyReport(monday: Calendar): WeeklyReport {
     }
 
     val insights = buildList {
-        topBehavior.toInsight()?.let { add(it) }
+        behaviorInsight(behaviors, topBehavior)?.let { add(it) }
 
         val dayName = peakCell?.weekday?.let { WEEKDAY_NAMES.getOrNull(it) }
         val hour = peakCell?.hour
@@ -175,7 +178,7 @@ private fun MonthlyReportDto.toMonthlyReport(month: Calendar): MonthlyReport {
                 )
             )
         }
-        topBehavior.toInsight()?.let { add(it) }
+        behaviorInsight(behaviors, topBehavior)?.let { add(it) }
     }
 
     return MonthlyReport(
@@ -214,19 +217,37 @@ private fun scoreAboveText(where: String, percent: Int?, compared: String): Stri
     else
         "${where}가 ${compared}보다 높았습니다."
 
+private val KOREAN = Collator.getInstance(Locale.KOREAN)
+
 /**
- * 행동 이름: 앱이 아는 코드(규칙모델 v3 의 behaviorType·part)는 앱 이름표를 먼저 쓴다.
- * 서버 이름표(BEHAVIOR_KO)에는 행동이 3개뿐이라, 나머지는 영어 코드가 그대로 label 로 오기 때문이다.
+ * 행동 카드. 감지된 행동을 전부 보여준다.
+ * 행동 이름: 앱이 아는 코드(규칙모델 v3 의 behaviorType·part)는 앱 이름표를 먼저 쓰고,
  * 앱이 모르는 코드일 때만 서버 label 을 쓴다.
+ * 정렬: 건수 많은 순 → 건수가 같으면 이름 가나다순 (서버도 같은 순서로 주지만 이름을 바꿨으니 다시 맞춘다).
+ * 이름이 같은 행동(예: left_arm·right_arm → 팔 흔들기)은 한 줄로 합친다.
+ * behaviors 를 안 주는 예전 서버면 topBehavior 1개만 쓴다.
  */
-private fun BehaviorDto?.toInsight(): AiInsight? {
-    if (this == null) return null
-    val name = type.toBehaviorName() ?: label?.takeIf { it.isNotBlank() } ?: type?.takeIf { it != "unknown" } ?: return null
+private fun behaviorInsight(behaviors: List<BehaviorDto>?, top: BehaviorDto?): AiInsight? {
+    val source = behaviors?.takeIf { it.isNotEmpty() } ?: listOfNotNull(top)
+    val rows = source
+        .mapNotNull { b ->
+            val name = b.type.toBehaviorName()
+                ?: b.label?.takeIf { it.isNotBlank() }
+                ?: b.type?.takeIf { it != "unknown" }
+                ?: return@mapNotNull null
+            name to (b.count ?: 0)
+        }
+        .groupBy({ it.first }, { it.second })
+        .map { (name, counts) -> BehaviorCount(name, counts.sum()) }
+        .filter { it.count > 0 }
+        .sortedWith(compareByDescending<BehaviorCount> { it.count }.thenBy(KOREAN) { it.name })
+    if (rows.isEmpty()) return null
 
     return AiInsight(
         tag = "AI 추정 행동",
-        title = if (count != null && count > 0) "$name ${count}건" else "$name 행동",
-        description = "가장 많이 감지된 행동이에요."
+        title = "${rows[0].name} ${rows[0].count}건",
+        description = "가장 많이 감지된 행동이에요.",
+        behaviors = rows
     )
 }
 
