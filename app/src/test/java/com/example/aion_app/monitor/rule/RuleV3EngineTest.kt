@@ -107,6 +107,7 @@ class RuleV3EngineTest {
         // 왼팔 퍼덕 → 위험이 될 때와, 멈춘 뒤 지속 시간이 줄어드는 동안 모두 left_arm
         val engine = RuleV3Engine()
         val parts = HashSet<String?>()
+        val types = HashSet<String?>()
         var sawAlarmWithOne = false
         for (i in 0 until 16 * 30) {
             val t = i / 30.0
@@ -114,10 +115,11 @@ class RuleV3EngineTest {
             val mv = if (ph in 0.0..5.0) sin(2 * PI * ph / 0.5) else 0.0
             val o = engine.process(100_000 + Math.round(t * 1000), frame(leftWristDy = mv), 0.2)
             val tick = o.tick ?: continue
-            if (o.ticked && tick.d > 0) parts.add(tick.part)
+            if (o.ticked && tick.d > 0) { parts.add(tick.part); types.add(tick.behaviorType) }
             if (tick.alert.newEpisode && tick.d >= 1.0) sawAlarmWithOne = true
         }
         assertEquals(setOf<String?>("left_arm"), parts)
+        assertEquals(setOf<String?>("arm_flapping"), types)
         assertTrue(sawAlarmWithOne)
     }
 
@@ -128,14 +130,30 @@ class RuleV3EngineTest {
             return Evidence(0.9, key, mapOf(key to e(key, side, 0.9)), null, inst.mapValues { (k, v) -> e(k, k.substringAfterLast("_"), v) })
         }
         assertEquals("left_arm", serverPart("flap", ev("flap", SIDE_L)))
-        assertEquals("right_arm", serverPart("eye_cover", ev("eye_cover", SIDE_R)))
+        assertEquals("right_arm", serverPart("wave", ev("wave", SIDE_R)))
+        assertEquals("right_arm", serverPart("hit", ev("hit", SIDE_R)))
+        assertEquals("left_hand", serverPart("finger", ev("finger", SIDE_L)))
+        assertEquals("right_hand", serverPart("flutter", ev("flutter", SIDE_R)))
+        assertEquals("right_hand", serverPart("eye_cover", ev("eye_cover", SIDE_R)))
+        assertEquals("left_hand", serverPart("ear_cover", ev("ear_cover", SIDE_L)))
+        assertEquals("both_hands", serverPart("clap", ev("clap", null)))
         assertEquals("head", serverPart("head_nod", ev("head_nod", null)))
+        assertEquals("shoulder", serverPart("shrug", ev("shrug", null)))
         assertEquals("body", serverPart("body_rock", ev("body_rock", null)))
-        assertEquals("body", serverPart("shrug", ev("shrug", null)))
+        assertEquals("body", serverPart("arch", ev("arch", null)))
         assertEquals("body", serverPart("jump", ev("jump", null)))
-        // 박수(양손): 손·팔 점수가 높은 쪽 팔
-        assertEquals("left_arm", serverPart("clap", ev("clap", null, mapOf("flap_L" to 0.4, "wave_R" to 0.2))))
-        assertEquals("right_arm", serverPart("clap", ev("clap", null, mapOf("flap_L" to 0.1, "wave_R" to 0.3))))
+        assertEquals("body", serverPart("spin", ev("spin", null)))
+        // 모든 행동이 부위를 가진다
+        for (b in BEHAVIORS) assertTrue(partLabel(serverPart(b.key, ev(b.key, if (b.sides) SIDE_L else null))) != null)
+        assertEquals("왼손", partLabel("left_hand"))
+        // 행동 유형 코드: 겹치지 않고 서버 칸 길이(30자) 안
+        val codes = BEHAVIORS.map { it.typeCode }
+        assertEquals(codes.size, codes.toSet().size)
+        assertTrue(codes.all { it.length <= 30 && it.matches(Regex("[a-z_]+")) })
+        assertEquals("arm_flapping", BEH.getValue("flap").typeCode)
+        assertEquals("팔 퍼덕이기", BEH.getValue("flap").typeLabel)
+        assertEquals("spinning", BEH.getValue("spin").typeCode)
+        assertEquals("양손", partLabel("both_hands"))
     }
 
     @Test
