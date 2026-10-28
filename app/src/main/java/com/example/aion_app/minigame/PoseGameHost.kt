@@ -47,8 +47,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -72,15 +70,6 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-
-/**
- * 손 아이콘용 Paint. 프레임마다 새로 만들면 낭비라 한 번만 만들어 재사용한다.
- * 그리기는 UI 스레드에서만 일어나므로 공유해도 안전하다.
- */
-private val handPaint = android.graphics.Paint().apply {
-    isAntiAlias = true
-    textAlign = android.graphics.Paint.Align.CENTER
-}
 
 private val PillBackground = Color(0xE6E0E0E0)
 private val PillText = Color(0xFF1A1A1A)
@@ -269,10 +258,8 @@ fun <S : MinigameStatus> PoseGameHost(
                 .fillMaxSize()
                 .onSizeChanged { overlaySize.set(it) }
         ) {
-            if (state != null) {
-                draw(this, state)
-                drawHands(state)
-            }
+            // 손 그림은 게임마다 다르다(잡초는 손바닥, 칠판은 지우개). 각 게임이 직접 그린다.
+            if (state != null) draw(this, state)
         }
 
         Pill(
@@ -413,28 +400,6 @@ private fun BoxScope.IntroOverlay(
     }
 }
 
-/**
- * 손목 위치에 손바닥 아이콘을 그린다.
- * 아이가 "내 손이 저기구나"를 한눈에 알아야 해서 크게 그리고, 배경이 밝든 어둡든
- * 보이도록 그림자를 깐다. 크기는 어깨폭 기준이라 아이가 가까이 오면 함께 커진다.
- */
-private fun DrawScope.drawHands(state: MinigameStatus) {
-    val handSize = state.handSize
-    if (handSize <= 1f) return
-
-    handPaint.textSize = handSize
-    handPaint.setShadowLayer(handSize * 0.12f, 0f, handSize * 0.03f, android.graphics.Color.argb(140, 0, 0, 0))
-    val metrics = handPaint.fontMetrics
-    val baselineOffset = -(metrics.ascent + metrics.descent) / 2f
-
-    drawIntoCanvas { canvas ->
-        state.wrists.forEach { wrist ->
-            canvas.nativeCanvas.drawText(HAND_ICON, wrist.x, wrist.y + baselineOffset, handPaint)
-        }
-    }
-}
-
-private const val HAND_ICON = "✋"
 
 /**
  * 게임 완료 팝업. 아동 홈의 진정 제안 팝업과 같은 모양(흰 카드 + 동그란 아이콘 + 아래 꽉 찬 [확인] 버튼)으로 맞췄다.

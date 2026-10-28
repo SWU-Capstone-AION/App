@@ -1,5 +1,7 @@
 package com.example.aion_app.minigame.weed
 
+import com.example.aion_app.minigame.HandPose
+import com.example.aion_app.minigame.HandView
 import com.example.aion_app.minigame.MinigameStatus
 import com.example.aion_app.minigame.NUDGE_HOW_TO_QUIT_MS
 import com.example.aion_app.minigame.NUDGE_KEEP_GOING_MS
@@ -19,9 +21,17 @@ import kotlin.random.Random
  *
  * 좌표계: 화면 픽셀 (x 오른쪽 +, y 아래쪽 +)
  * 스케일 기준: S = 두 어깨 사이의 픽셀 거리
+ *
+ * 잡는 방식은 실제 잡초를 뽑는 동작을 따라간다.
+ *   1) 손바닥을 잡초에 가져간다
+ *   2) 손을 쥔다        → 잡힌다
+ *   3) 쥔 채 위로 올린다 → 뽑힌다. 중간에 손을 펴면 놓친다
  */
 
 enum class WeedState { IDLE, GRABBED, PULLED }
+
+/** 손이 왼쪽인지 오른쪽인지. 어느 손이 잡고 있는지 표시하는 데 쓴다. */
+enum class HandSide { LEFT, RIGHT }
 
 /** 매 프레임 엔진이 뱉는 출력. UI는 이것만 보고 그린다. */
 data class WeedView(
@@ -29,12 +39,17 @@ data class WeedView(
     val pos: Vec2,
     val height: Float,
     val state: WeedState,
+    /** 잡고 있는 손의 위치. 잎이 이쪽으로 쏠린다. 안 잡혔으면 null */
+    val handPos: Vec2? = null,
+    /** 0 = 막 잡은 순간, 1 = 뽑히기 직전. 당긴 만큼 줄기가 늘어난다 */
+    val pullProgress: Float = 0f,
+    /** 뽑힌 직후 위로 사라지는 연출. 1 → 0 으로 줄어든다 */
+    val fade: Float = 0f,
 )
 
 data class GameSnapshot(
     val weeds: List<WeedView> = emptyList(),
-    override val wrists: List<Vec2> = emptyList(),
-    override val handSize: Float = 0f,
+    override val hands: List<HandView> = emptyList(),
     val pulled: Int = 0,
     val total: Int = 0,
     override val progress: Float = 0f,
@@ -61,8 +76,16 @@ class WeedGameEngine(
     private val weedHeightInS: Float = 0.35f,
     /** 히트박스 가로 반폭 (S 배수) */
     private val hitHalfWidthInS: Float = 0.22f,
-    /** 스치듯 지나가는 것을 거르기 위한 최소 연속 프레임 */
-    private val grabFramesRequired: Int = 4,
+    /**
+     * 손을 쥐었을 때 필요한 최소 연속 프레임.
+     * 쥐는 동작 자체가 "잡겠다"는 뜻이라 오래 기다릴 필요가 없다.
+     */
+    private val grabFramesWithFist: Int = 2,
+    /**
+     * 손을 안 쥐었을 때 필요한 연속 프레임.
+     * 손 모양이 잘 안 읽히는 아이도 **가만히 대고 있으면 결국 잡힌다**. 게임이 막히지 않게 하는 안전장치다.
+     */
+    private val grabFramesOpenHand: Int = 14,
     /** 잡초 높이의 몇 배만큼 위로 당겨야 뽑히는가. 낮으면 살짝만 올려도 뽑힌다. */
     private val pullRatio: Float = 0.8f,
     /** 잡은 뒤 손이 이만큼 옆으로 벗어나면 취소 (S 배수) */
@@ -80,7 +103,43 @@ class WeedGameEngine(
         var state = WeedState.IDLE
         var pos = Vec2(0f, 0f)
         var grabFrames = 0
-        var grabWristY = 0f
+
+        /** 잡은 순간의 손 높이. 여기서 얼마나 올렸는지로 뽑기를 판단한다 */
+        var grabHandY = 0f
+        var holderSide: HandSide? = null
+        var holderPos: Vec2? = null
+        var pullProgress = 0f
+        var pulledAtMs = 0L
+    }
+
+    /** 한 프레임 동안의 손. 쥔 정도는 엔진이 완충한 값이다. */
+    private class Hand(
+        val side: HandSide,
+        val pos: Vec2,
+        val grip: Float,
+        val closed: Boolean,
+    )
+
+    /** 손마다 쥔 정도를 완충해 둔다. 한 프레임 튀는 값으로 잡았다 놓았다 하지 않도록. */
+    private class GripFilter {
+        var grip = 0f
+        var closed = false
+
+        fun update(raw: Float): Float {
+            grip += (raw - grip) * GRIP_SMOOTHING
+            // 쥘 때와 펼 때의 기준을 다르게 둬서 경계에서 깜빡이지 않게 한다.
+            closed = when {
+                grip >= HandPose.GRIP_CLOSED -> true
+                grip <= HandPose.GRIP_OPEN -> false
+                else -> closed
+            }
+            return grip
+        }
+
+        fun reset() {
+            grip = 0f
+            closed = false
+        }
     }
 
     private val weeds = mutableListOf<WeedItem>()
@@ -89,15 +148,21 @@ class WeedGameEngine(
     private var anchorCenter: Vec2? = null
     private var anchorS = 0f
 
+    private val leftGrip = GripFilter()
+    private val rightGrip = GripFilter()
+
     private var pulledCount = 0
     private var lastUpdateMs = 0L
     private var idleElapsedMs = 0L
     private var lastActiveAt = 0L
+    private var nowMs = 0L
 
     fun reset() {
         weeds.clear()
         anchorCenter = null
         anchorS = 0f
+        leftGrip.reset()
+        rightGrip.reset()
         pulledCount = 0
         idleElapsedMs = 0L
         lastActiveAt = 0L
@@ -113,12 +178,15 @@ class WeedGameEngine(
     fun update(pose: PoseInput, nowMs: Long): GameSnapshot {
         val dt = if (lastUpdateMs == 0L) 0L else (nowMs - lastUpdateMs).coerceAtLeast(0L)
         lastUpdateMs = nowMs
+        this.nowMs = nowMs
 
         val ls = pose.leftShoulder
         val rs = pose.rightShoulder
 
         // 어깨가 안 잡히면 아이가 자리에 없는 것. 게임을 멈추고 무반응 타이머도 세지 않는다.
         if (ls == null || rs == null) {
+            leftGrip.reset()
+            rightGrip.reset()
             return snapshot(poseVisible = false)
         }
 
@@ -130,16 +198,28 @@ class WeedGameEngine(
         spawnIfNeeded()
         projectWeeds(center, s, pose.viewWidth, pose.viewHeight)
 
-        val wrists = listOfNotNull(pose.leftWrist, pose.rightWrist)
-        val interacted = stepStateMachine(wrists, s)
+        val hands = listOfNotNull(
+            track(HandSide.LEFT, pose.leftHand, leftGrip),
+            track(HandSide.RIGHT, pose.rightHand, rightGrip),
+        )
+        val interacted = stepStateMachine(hands, s)
 
         idleElapsedMs = if (interacted) 0L else idleElapsedMs + dt
         if (interacted) lastActiveAt = nowMs
 
-        return snapshot(poseVisible = true, wrists = wrists)
+        return snapshot(poseVisible = true, hands = hands)
     }
 
     // ---------------------------------------------------------------- 내부
+
+    private fun track(side: HandSide, hand: HandPose?, filter: GripFilter): Hand? {
+        if (hand == null) {
+            filter.reset()
+            return null
+        }
+        val grip = filter.update(hand.grip)
+        return Hand(side, hand.pos, grip, filter.closed)
+    }
 
     private fun updateAnchor(ls: Vec2, rs: Vec2) {
         val center = Vec2((ls.x + rs.x) / 2f, (ls.y + rs.y) / 2f)
@@ -235,74 +315,113 @@ class WeedGameEngine(
      * 잡초마다 따로 판정하면, 겹쳐 있는 잡초가 전부 GRABBED 가 되고
      * 팔을 한 번 올릴 때 그것들이 한꺼번에 뽑힌다. 그래서
      *   1) 이미 잡은 게 있으면 그 한 포기만 처리하고
-     *   2) 잡은 게 없을 때만 손목에 가장 가까운 한 포기를 후보로 고른다.
+     *   2) 잡은 게 없을 때만 손에 가장 가까운 한 포기를 후보로 고른다.
      */
-    private fun stepStateMachine(wrists: List<Vec2>, s: Float): Boolean {
+    private fun stepStateMachine(hands: List<Hand>, s: Float): Boolean {
         val weedHeight = weedHeightInS * s
         val pullDistance = weedHeight * pullRatio
         val cancelDistance = cancelDistanceInS * s
 
         val held = weeds.firstOrNull { it.state == WeedState.GRABBED }
-        if (held != null) {
-            weeds.forEach { if (it !== held) it.grabFrames = 0 }
-            // 당기는 중에는 손목이 히트박스 위로 벗어나므로 가로 거리만 본다.
-            val near = wrists.minByOrNull { abs(it.x - held.pos.x) }
-            return when {
-                near == null || abs(near.x - held.pos.x) > cancelDistance -> {
-                    held.state = WeedState.IDLE
-                    held.grabFrames = 0
-                    false
-                }
-                held.grabWristY - near.y >= pullDistance -> {
-                    held.state = WeedState.PULLED
-                    pulledCount++
-                    true
-                }
-                else -> false
-            }
-        }
+        if (held != null) return stepHeld(held, hands, pullDistance, cancelDistance)
 
         // 겹쳐 있어도 가장 가까운 한 포기만 후보가 된다.
         var candidate: WeedItem? = null
-        var candidateWrist: Vec2? = null
+        var candidateHand: Hand? = null
         var bestDistance = Float.MAX_VALUE
         weeds.forEach { w ->
             if (w.state != WeedState.IDLE) return@forEach
-            wrists.forEach { wrist ->
-                if (!inHitbox(w, wrist, s)) return@forEach
-                val distance = kotlin.math.hypot(wrist.x - w.pos.x, wrist.y - w.pos.y)
+            hands.forEach { hand ->
+                if (!inHitbox(w, hand.pos, s)) return@forEach
+                val distance = kotlin.math.hypot(hand.pos.x - w.pos.x, hand.pos.y - w.pos.y)
                 if (distance < bestDistance) {
                     bestDistance = distance
                     candidate = w
-                    candidateWrist = wrist
+                    candidateHand = hand
                 }
             }
         }
 
         val target = candidate
-        val wrist = candidateWrist
+        val hand = candidateHand
         weeds.forEach { if (it !== target) it.grabFrames = 0 }
-        if (target == null || wrist == null) return false
+        if (target == null || hand == null) return false
 
         target.grabFrames++
-        if (target.grabFrames < grabFramesRequired) return false
+        // 손을 쥐면 바로, 펴고 있으면 한참 대고 있어야 잡힌다.
+        val required = if (hand.closed) grabFramesWithFist else grabFramesOpenHand
+        if (target.grabFrames < required) return false
 
         target.state = WeedState.GRABBED
-        target.grabWristY = wrist.y   // 잡은 순간의 높이를 기억
+        target.grabHandY = hand.pos.y    // 잡은 순간의 높이를 기억
+        target.holderSide = hand.side
+        target.holderPos = hand.pos
+        target.pullProgress = 0f
         return true
     }
 
-    private fun inHitbox(w: WeedItem, wrist: Vec2, s: Float): Boolean {
+    /**
+     * 잡고 있는 한 포기를 처리한다.
+     * 손을 펴면 놓치고, 쥔 채 위로 올리면 뽑힌다. 그 사이 진행률이 매 프레임 바뀐다.
+     */
+    private fun stepHeld(
+        held: WeedItem,
+        hands: List<Hand>,
+        pullDistance: Float,
+        cancelDistance: Float,
+    ): Boolean {
+        weeds.forEach { if (it !== held) it.grabFrames = 0 }
+
+        // 잡은 손을 계속 따라간다. 그 손이 사라지면 반대 손이라도 가까우면 이어받는다.
+        val hand = hands.firstOrNull { it.side == held.holderSide }
+            ?: hands.minByOrNull { abs(it.pos.x - held.pos.x) }
+
+        // 당기는 중에는 손이 히트박스 위로 벗어나므로 가로 거리만 본다.
+        if (hand == null || abs(hand.pos.x - held.pos.x) > cancelDistance) {
+            release(held)
+            return false
+        }
+        // 손을 펴면 놓친다. 실제로 잡초를 놓는 것과 같다.
+        if (!hand.closed) {
+            release(held)
+            return false
+        }
+
+        held.holderSide = hand.side
+        held.holderPos = hand.pos
+
+        val lifted = held.grabHandY - hand.pos.y
+        held.pullProgress = (lifted / pullDistance).coerceIn(0f, 1f)
+
+        if (lifted >= pullDistance) {
+            held.state = WeedState.PULLED
+            held.pulledAtMs = nowMs
+            held.pullProgress = 1f
+            pulledCount++
+            return true
+        }
+        return false
+    }
+
+    private fun release(weed: WeedItem) {
+        weed.state = WeedState.IDLE
+        weed.grabFrames = 0
+        weed.holderSide = null
+        weed.holderPos = null
+        weed.pullProgress = 0f
+    }
+
+    private fun inHitbox(w: WeedItem, hand: Vec2, s: Float): Boolean {
         val halfWidth = hitHalfWidthInS * s
         val height = weedHeightInS * s
-        return abs(wrist.x - w.pos.x) <= halfWidth &&
-            wrist.y >= w.pos.y - height &&
-            wrist.y <= w.pos.y + height * 0.3f
+        return abs(hand.x - w.pos.x) <= halfWidth &&
+            hand.y >= w.pos.y - height &&
+            hand.y <= w.pos.y + height * 0.3f
     }
 
     private fun snapshot(
         poseVisible: Boolean,
-        wrists: List<Vec2> = emptyList(),
+        hands: List<Hand> = emptyList(),
     ): GameSnapshot {
         val total = weeds.size
         val progress = if (total == 0) 0f else pulledCount.toFloat() / total
@@ -313,10 +432,19 @@ class WeedGameEngine(
             idleElapsedMs >= nudgeKeepGoingAfterMs -> Nudge.KEEP_GOING
             else -> Nudge.NONE
         }
+        val heldSide = weeds.firstOrNull { it.state == WeedState.GRABBED }?.holderSide
+        val weedHeight = weedHeightInS * anchorS
+
         return GameSnapshot(
-            weeds = weeds.map { WeedView(it.id, it.pos, weedHeightInS * anchorS, it.state) },
-            wrists = wrists,
-            handSize = handSizeInS * anchorS,
+            weeds = weeds.mapNotNull { it.toView(weedHeight) },
+            hands = hands.map {
+                HandView(
+                    pos = it.pos,
+                    size = handSizeInS * anchorS,
+                    grip = it.grip,
+                    holding = it.side == heldSide,
+                )
+            },
             pulled = pulledCount,
             total = total,
             progress = progress,
@@ -327,8 +455,41 @@ class WeedGameEngine(
         )
     }
 
+    /** 뽑힌 잡초는 잠깐 위로 떠오르며 사라진다. 그 시간이 지나면 그리지 않는다. */
+    private fun WeedItem.toView(height: Float): WeedView? {
+        if (state == WeedState.PULLED) {
+            if (pulledAtMs == 0L) return null
+            val elapsed = nowMs - pulledAtMs
+            if (elapsed >= PULL_FADE_MS) return null
+            val fade = 1f - elapsed.toFloat() / PULL_FADE_MS
+            return WeedView(
+                id = id,
+                pos = Vec2(pos.x, pos.y - (1f - fade) * height * 0.9f),
+                height = height,
+                state = WeedState.PULLED,
+                handPos = holderPos,
+                pullProgress = 1f,
+                fade = fade,
+            )
+        }
+        return WeedView(
+            id = id,
+            pos = pos,
+            height = height,
+            state = state,
+            handPos = if (state == WeedState.GRABBED) holderPos else null,
+            pullProgress = pullProgress,
+        )
+    }
+
     private companion object {
         const val SMOOTHING = 0.25f
         const val EPSILON = 1e-4f
+
+        /** 쥔 정도 완충. 낮출수록 둔해지고 높일수록 민감해진다 */
+        const val GRIP_SMOOTHING = 0.35f
+
+        /** 뽑힌 잡초가 떠오르며 사라지는 시간(ms) */
+        const val PULL_FADE_MS = 350L
     }
 }

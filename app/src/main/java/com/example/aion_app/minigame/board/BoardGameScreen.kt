@@ -2,17 +2,28 @@ package com.example.aion_app.minigame.board
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import com.example.aion_app.minigame.HandView
 import com.example.aion_app.minigame.PoseGameHost
 import java.util.concurrent.atomic.AtomicBoolean
 
 private val BoardGreen = Color(0xFF2E4A3A)
 private val Chalk = Color(0xFFF2F2F2)
+
+/** 칠판 지우개 — 나무 손잡이 + 아래쪽 펠트 */
+private val EraserWood = Color(0xFFD9A441)
+private val EraserWoodDark = Color(0xFFB07F2C)
+private val EraserFelt = Color(0xFF2F3A42)
+private val EraserShadow = Color(0x4D000000)
+
+/** 손에 들린 것처럼 살짝 기울여 둔다 */
+private const val ERASER_TILT = -8f
 
 /**
  * 칠판 지우기 미니게임 화면.
@@ -62,16 +73,61 @@ fun BoardGameScreen(
 private fun DrawScope.drawBoard(snapshot: BoardSnapshot) {
     snapshot.cells.forEach { cell -> drawCell(cell) }
 
-    // 지우개 위치. 디버그가 아니라 아이에게 주는 피드백이라 항상 그린다.
-    if (snapshot.eraserRadius > 0f) {
-        snapshot.wrists.forEach { wrist ->
-            drawCircle(
-                color = Chalk.copy(alpha = 0.45f),
-                radius = snapshot.eraserRadius,
-                center = Offset(wrist.x, wrist.y),
-                style = Stroke(width = 5f),
-            )
-        }
+    // 손 자리에는 손 대신 칠판 지우개를 그린다.
+    // 디버그 표시가 아니라 "이걸로 문지르면 된다"는 아이에게 주는 안내라 항상 그린다.
+    snapshot.hands.forEach { drawEraser(it) }
+}
+
+/**
+ * 칠판 지우개 한 개.
+ * 위쪽은 나무 손잡이, 아래쪽은 펠트. 펠트 끝에 분필 가루를 한 줄 얹어
+ * 어느 쪽으로 문지르는 것인지 바로 보이게 했다.
+ */
+private fun DrawScope.drawEraser(hand: HandView) {
+    val width = hand.size
+    if (width <= 1f) return
+
+    val height = width * 0.62f
+    val left = hand.pos.x - width / 2f
+    val top = hand.pos.y - height / 2f
+    val corner = CornerRadius(height * 0.22f, height * 0.22f)
+
+    rotate(degrees = ERASER_TILT, pivot = Offset(hand.pos.x, hand.pos.y)) {
+        drawRoundRect(
+            color = EraserShadow,
+            topLeft = Offset(left, top + height * 0.1f),
+            size = Size(width, height),
+            cornerRadius = corner,
+        )
+        // 나무 손잡이
+        drawRoundRect(
+            color = EraserWood,
+            topLeft = Offset(left, top),
+            size = Size(width, height),
+            cornerRadius = corner,
+        )
+        // 손잡이 아래쪽 그늘 — 두께가 있어 보이게
+        drawRoundRect(
+            color = EraserWoodDark,
+            topLeft = Offset(left, top + height * 0.38f),
+            size = Size(width, height * 0.24f),
+            cornerRadius = CornerRadius(height * 0.08f, height * 0.08f),
+        )
+        // 펠트
+        drawRoundRect(
+            color = EraserFelt,
+            topLeft = Offset(left, top + height * 0.55f),
+            size = Size(width, height * 0.45f),
+            cornerRadius = corner,
+        )
+        // 분필 가루
+        drawLine(
+            color = Chalk.copy(alpha = 0.55f),
+            start = Offset(left + width * 0.12f, top + height * 0.95f),
+            end = Offset(left + width * 0.88f, top + height * 0.95f),
+            strokeWidth = height * 0.07f,
+            cap = StrokeCap.Round,
+        )
     }
 }
 
