@@ -1,5 +1,6 @@
 package com.example.aion_app.minigame.board
 
+import com.example.aion_app.minigame.HandView
 import com.example.aion_app.minigame.MinigameStatus
 import com.example.aion_app.minigame.NUDGE_HOW_TO_QUIT_MS
 import com.example.aion_app.minigame.NUDGE_KEEP_GOING_MS
@@ -36,8 +37,7 @@ data class BoardSnapshot(
     val cells: List<ChalkCell> = emptyList(),
     /** 지우개 반경(픽셀). 아이가 어디를 문지르는지 보여주는 데 쓴다. */
     val eraserRadius: Float = 0f,
-    override val wrists: List<Vec2> = emptyList(),
-    override val handSize: Float = 0f,
+    override val hands: List<HandView> = emptyList(),
     override val progress: Float = 0f,
     override val poseVisible: Boolean = false,
     override val nudge: Nudge = Nudge.NONE,
@@ -54,14 +54,19 @@ class BoardGameEngine(
     private val boardHeightInS: Float = 2.0f,
     /** 칠판 중심을 어깨 중심에서 위로 올리는 양 (S 배수). 앉은 자세면 아래쪽은 책상에 가린다. */
     private val boardLiftInS: Float = 0.45f,
-    /** 손 아이콘 크기 (S 배수). 아이가 한눈에 알아볼 만큼 크게. */
-    private val handSizeInS: Float = 0.55f,
-    /** 지우개 반경 (S 배수). 손 하나가 덮는 크기. */
-    private val eraserRadiusInS: Float = 0.3f,
+    /** 지우개 그림 크기 (S 배수). 지우는 범위와 비슷해야 "닿는 만큼 지워진다"가 납득된다. */
+    private val eraserIconInS: Float = 0.66f,
+    /** 지우개 반경 (S 배수). 한 번 문질러 덮이는 범위. */
+    private val eraserRadiusInS: Float = 0.36f,
     /** 지우개 한가운데가 닿았을 때 초당 지워지는 양. 낮추면 여러 번 문질러야 한다. */
-    private val erasePerSecond: Float = 1.8f,
+    private val erasePerSecond: Float = 4.5f,
+    /**
+     * 지우개 가장자리가 지우는 힘(한가운데 대비).
+     * 0 이면 테두리는 거의 안 지워져서 같은 자리를 몇 번씩 지나가야 한다.
+     */
+    private val eraserEdgePower: Float = 0.6f,
     /** 이 비율만큼 지우면 완료. 구석 한 칸까지 강요하지 않는다. */
-    private val clearThreshold: Float = 0.93f,
+    private val clearThreshold: Float = 0.9f,
     private val nudgeKeepGoingAfterMs: Long = NUDGE_KEEP_GOING_MS,
     private val nudgeHowToQuitAfterMs: Long = NUDGE_HOW_TO_QUIT_MS,
 ) {
@@ -117,18 +122,19 @@ class BoardGameEngine(
         val rect = boardRect(center, s, pose.viewWidth, pose.viewHeight)
         val eraserRadius = eraserRadiusInS * s
         // 칠판 근처(칠판 + 지우개 반경)에 있는 손만 쓴다.
-        // 내린 손(책상·무릎)이나 화면 가장자리에서 추정된 손목까지 손 아이콘으로 그려져
-        // 한 손만 들어도 손이 두 개 보였다. 칠판 밖의 손은 원래도 지우지 못하므로 동작은 같다.
-        val wrists = listOfNotNull(pose.leftWrist, pose.rightWrist)
+        // 내린 손(책상·무릎)이나 화면 가장자리에서 추정된 손까지 지우개로 그려져
+        // 한 손만 들어도 지우개가 두 개 보였다. 칠판 밖의 손은 원래도 지우지 못하므로 동작은 같다.
+        val hands = pose.hands
+            .map { it.pos }
             .filter { rect.contains(it, margin = eraserRadius) }
 
-        val erased = erase(wrists, rect, eraserRadius, dt)
+        val erased = erase(hands, rect, eraserRadius, dt)
         idleElapsedMs = if (erased) 0L else idleElapsedMs + dtMs
         if (erased) lastActiveAt = nowMs
 
         return snapshot(
             poseVisible = true,
-            wrists = wrists,
+            hands = hands,
             rect = rect,
             eraserRadius = eraserRadius,
         )
@@ -173,16 +179,16 @@ class BoardGameEngine(
     }
 
     /**
-     * 손목 주변을 지운다. 지우개 한가운데가 가장 빨리 지워지고 가장자리로 갈수록 느려진다.
+     * 손바닥 주변을 지운다. 지우개 한가운데가 가장 빨리 지워지고 가장자리로 갈수록 느려진다.
      * 문지르는 속도가 아니라 머문 시간으로 계산하므로 FPS 가 달라져도 체감이 같다.
      */
     private fun erase(
-        wrists: List<Vec2>,
+        hands: List<Vec2>,
         rect: BoardRect,
         eraserRadius: Float,
         dt: Float,
     ): Boolean {
-        if (wrists.isEmpty() || dt <= 0f || eraserRadius <= 0f) return false
+        if (hands.isEmpty() || dt <= 0f || eraserRadius <= 0f) return false
 
         val cellWidth = rect.width / columns
         val cellHeight = rect.height / rows
@@ -196,10 +202,12 @@ class BoardGameEngine(
                 val cellX = rect.left + (column + 0.5f) * cellWidth
                 val cellY = rect.top + (row + 0.5f) * cellHeight
 
-                val nearest = wrists.minOf { hypot(it.x - cellX, it.y - cellY) }
+                val nearest = hands.minOf { hypot(it.x - cellX, it.y - cellY) }
                 if (nearest > eraserRadius) continue
 
-                val falloff = 1f - nearest / eraserRadius
+                // 한가운데가 가장 빠르되, 가장자리도 eraserEdgePower 만큼은 지운다.
+                val center = 1f - nearest / eraserRadius
+                val falloff = eraserEdgePower + (1f - eraserEdgePower) * center
                 val next = max(0f, dirt[index] - erasePerSecond * dt * falloff)
                 if (next < dirt[index] - ERASE_EPSILON) erased = true
                 dirt[index] = next
@@ -210,7 +218,7 @@ class BoardGameEngine(
 
     private fun snapshot(
         poseVisible: Boolean,
-        wrists: List<Vec2> = emptyList(),
+        hands: List<Vec2> = emptyList(),
         rect: BoardRect? = null,
         eraserRadius: Float = 0f,
     ): BoardSnapshot {
@@ -254,8 +262,7 @@ class BoardGameEngine(
         return BoardSnapshot(
             cells = cells,
             eraserRadius = eraserRadius,
-            wrists = wrists,
-            handSize = handSizeInS * anchorS,
+            hands = hands.map { HandView(pos = it, size = eraserIconInS * anchorS) },
             progress = progress.coerceIn(0f, 1f),
             poseVisible = poseVisible,
             nudge = nudge,

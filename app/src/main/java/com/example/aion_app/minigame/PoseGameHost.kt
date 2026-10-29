@@ -47,9 +47,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -72,15 +72,6 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-
-/**
- * 손 아이콘용 Paint. 프레임마다 새로 만들면 낭비라 한 번만 만들어 재사용한다.
- * 그리기는 UI 스레드에서만 일어나므로 공유해도 안전하다.
- */
-private val handPaint = android.graphics.Paint().apply {
-    isAntiAlias = true
-    textAlign = android.graphics.Paint.Align.CENTER
-}
 
 private val PillBackground = Color(0xE6E0E0E0)
 private val PillText = Color(0xFF1A1A1A)
@@ -176,6 +167,9 @@ fun <S : MinigameStatus> PoseGameHost(
 
     // 오버레이 크기는 추론 콜백(백그라운드 스레드)에서 읽으므로 원자적으로 보관한다.
     val overlaySize = remember { AtomicReference(IntSize.Zero) }
+
+    // 제목 띠가 끝나는 높이(픽셀). 게임 요소가 글자와 겹치지 않도록 엔진에 넘긴다.
+    val titleBottom = remember { AtomicReference(0f) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
 
@@ -191,7 +185,7 @@ fun <S : MinigameStatus> PoseGameHost(
                         bundle = bundle,
                         viewWidth = size.width.toFloat(),
                         viewHeight = size.height.toFloat(),
-                    )
+                    ).copy(topInset = titleBottom.get())
                     val next = update(pose, System.currentTimeMillis())
                     mainHandler.post { snapshot = next }
                 }
@@ -269,15 +263,17 @@ fun <S : MinigameStatus> PoseGameHost(
                 .fillMaxSize()
                 .onSizeChanged { overlaySize.set(it) }
         ) {
-            if (state != null) {
-                draw(this, state)
-                drawHands(state)
-            }
+            // 손 그림은 게임마다 다르다(잡초는 손바닥, 칠판은 지우개). 각 게임이 직접 그린다.
+            if (state != null) draw(this, state)
         }
 
         Pill(
             text = title,
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 24.dp)
+                // 띠가 실제로 끝나는 높이를 재서 엔진에 알린다. 글꼴 크기가 바뀌어도 따라간다.
+                .onGloballyPositioned { titleBottom.set(it.boundsInParent().bottom) },
             bold = true,
         )
 
@@ -413,28 +409,6 @@ private fun BoxScope.IntroOverlay(
     }
 }
 
-/**
- * 손목 위치에 손바닥 아이콘을 그린다.
- * 아이가 "내 손이 저기구나"를 한눈에 알아야 해서 크게 그리고, 배경이 밝든 어둡든
- * 보이도록 그림자를 깐다. 크기는 어깨폭 기준이라 아이가 가까이 오면 함께 커진다.
- */
-private fun DrawScope.drawHands(state: MinigameStatus) {
-    val handSize = state.handSize
-    if (handSize <= 1f) return
-
-    handPaint.textSize = handSize
-    handPaint.setShadowLayer(handSize * 0.12f, 0f, handSize * 0.03f, android.graphics.Color.argb(140, 0, 0, 0))
-    val metrics = handPaint.fontMetrics
-    val baselineOffset = -(metrics.ascent + metrics.descent) / 2f
-
-    drawIntoCanvas { canvas ->
-        state.wrists.forEach { wrist ->
-            canvas.nativeCanvas.drawText(HAND_ICON, wrist.x, wrist.y + baselineOffset, handPaint)
-        }
-    }
-}
-
-private const val HAND_ICON = "✋"
 
 /**
  * 게임 완료 팝업. 아동 홈의 진정 제안 팝업과 같은 모양(흰 카드 + 동그란 아이콘 + 아래 꽉 찬 [확인] 버튼)으로 맞췄다.

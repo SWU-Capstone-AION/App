@@ -24,9 +24,8 @@ interface MinigameStatus {
     val progress: Float
     /** 어깨가 잡히는가. 안 잡히면 아이가 자리에 없는 것으로 본다. */
     val poseVisible: Boolean
-    val wrists: List<Vec2>
-    /** 손 아이콘 크기(픽셀). 어깨폭 기준이라 아이가 가까이 오면 함께 커진다. */
-    val handSize: Float
+    /** 화면에 보이는 손. 게임마다 다른 그림(손바닥·지우개)으로 그린다. */
+    val hands: List<HandView>
     val nudge: Nudge
     val cleared: Boolean
     /**
@@ -36,3 +35,21 @@ interface MinigameStatus {
      */
     val lastActiveAt: Long
 }
+
+/**
+ * 화면에 그릴 손 하나.
+ *
+ * [grip] 과 [holding] 이 매 프레임 바뀌므로, 게임은 이것만 보고 손 그림을
+ * 편 손 → 쥔 손으로 실시간으로 바꿀 수 있다.
+ *
+ * @param pos 손바닥 중심(픽셀)
+ * @param size 손 그림 크기(픽셀). 어깨폭 기준이라 아이가 가까이 오면 함께 커진다
+ * @param grip 0 = 편 손, 1 = 쥔 주먹
+ * @param holding 지금 무언가를 잡고 있는가(잡초를 쥔 상태)
+ */
+data class HandView(
+    val pos: Vec2,
+    val size: Float,
+    val grip: Float = 0f,
+    val holding: Boolean = false,
+)
