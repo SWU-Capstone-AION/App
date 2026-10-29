@@ -44,7 +44,8 @@ fun MyInfoScreen(
     isTeacher: Boolean = false,
     profileImageUri: Uri? = null,
     onBackClick: () -> Unit = {},
-    onEditClick: () -> Unit = {}
+    onEditClick: () -> Unit = {},
+    onTabSelect: (String) -> Unit = {}     // 하단탭 이동 콜백
 ) {
     Scaffold(
         topBar = {
@@ -53,7 +54,7 @@ fun MyInfoScreen(
                 onBackClick = onBackClick
             )
         },
-        bottomBar = { AionBottomNavBar(selected = "mypage") },
+        bottomBar = { AionBottomNavBar(selected = "mypage", onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
         Column(

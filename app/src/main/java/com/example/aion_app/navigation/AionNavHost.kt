@@ -130,16 +130,26 @@ fun AionNavHost() {
             // ===== 하단탭 공용 이동 로직 =====
             // (지역변수라 선언보다 아래에서만 참조 가능 → NavHost 블록 맨 위에 둠)
             val onTabSelect: (String) -> Unit = { tab ->
-                val route = when (tab) {
-                    "home" -> Route.HOME
-                    "report" -> Route.REPORT
-                    "mypage" -> Route.MYPAGE
-                    else -> Route.HOME
-                }
-                navController.navigate(route) {
-                    popUpTo(Route.HOME) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
+                if (tab == "home") {
+                    // 홈은 늘 스택 맨 아래에 있으므로, 그 위 화면들을 모두 걷어내고 홈으로 돌아간다.
+                    // (예전 방식은 popUpTo(HOME) + restoreState 때문에 방금 걷어낸 화면이
+                    //  다시 복원돼서, 알림센터·내 정보 수정 등에서 홈을 눌러도 그대로였다)
+                    val wentBack = navController.popBackStack(Route.HOME, inclusive = false)
+                    if (!wentBack && navController.currentDestination?.route != Route.HOME) {
+                        // 스택에 홈이 없는 드문 경우 대비
+                        navController.navigate(Route.HOME) { launchSingleTop = true }
+                    }
+                } else {
+                    val route = when (tab) {
+                        "report" -> Route.REPORT
+                        "mypage" -> Route.MYPAGE
+                        else -> Route.HOME
+                    }
+                    navController.navigate(route) {
+                        popUpTo(Route.HOME) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 }
             }
 
@@ -819,7 +829,8 @@ fun AionNavHost() {
                     onBackClick = { navController.popBackStack() },
                     onEditClick = {
                         navController.navigate(Route.MY_INFO_EDIT)
-                    }
+                    },
+                    onTabSelect = onTabSelect
                 )
             }
 
@@ -842,7 +853,8 @@ fun AionNavHost() {
                     onSaveClick = { newInfo ->
                         viewModel.updateMyInfo(newInfo)
                         navController.popBackStack()
-                    }
+                    },
+                    onTabSelect = onTabSelect
                 )
             }
 
@@ -903,7 +915,8 @@ fun AionNavHost() {
                     onBackClick = { navController.popBackStack() },
                     onNextClick = { _, _ ->
                         navController.navigate(Route.PASSWORD_CHANGE)
-                    }
+                    },
+                    onTabSelect = onTabSelect
                 )
             }
 
@@ -919,7 +932,8 @@ fun AionNavHost() {
                                 inclusive = true
                             }
                         }
-                    }
+                    },
+                    onTabSelect = onTabSelect
                 )
             }
         }
