@@ -8,11 +8,13 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.WavingHand
 import androidx.compose.material3.Icon
@@ -34,6 +36,7 @@ import com.example.aion_app.ui.screen.kids.reward.KidsMarblePouchDialog
 import com.example.aion_app.ui.screen.kids.reward.KidsRewardDialog
 import com.example.aion_app.ui.screen.kids.reward.Marble
 import com.example.aion_app.ui.screen.kids.reward.MarbleRecord
+import com.example.aion_app.ui.screen.kids.tutorial.KidsArTutorialDialog
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.DarkHover
@@ -185,10 +188,16 @@ fun KidsHomeScreen(
     // 구슬 주머니 팝업. 화면 안에서만 열고 닫는 값이라 여기서 들고 있는다.
     var pouchOpen by remember { mutableStateOf(false) }
 
-    // 진정 팝업·호흡으로 넘어가면 주머니는 닫는다.
+    // AR 게임 튜토리얼. '놀이 방법' 버튼으로 연다.
+    var tutorialOpen by remember { mutableStateOf(false) }
+
+    // 진정 팝업·호흡으로 넘어가면 주머니·튜토리얼은 닫는다.
     // 안 닫으면 호흡을 마치고 돌아왔을 때 주머니가 뜬금없이 다시 떠 있다.
     LaunchedEffect(mode) {
-        if (mode != KidsHomeMode.CALM) pouchOpen = false
+        if (mode != KidsHomeMode.CALM) {
+            pouchOpen = false
+            tutorialOpen = false
+        }
     }
 
     // 마지막으로 팝업을 띄운 시각. 쿨다운 판단에만 쓴다.
@@ -254,6 +263,8 @@ fun KidsHomeScreen(
                     history = marbleHistory,
                     onClose = { pouchOpen = false }
                 )
+            } else if (mode == KidsHomeMode.CALM && tutorialOpen) {
+                KidsArTutorialDialog(onClose = { tutorialOpen = false })
             }
 
             if (mode.isPrompt) {
@@ -333,6 +344,16 @@ fun KidsHomeScreen(
                 modifier = Modifier.weight(1f)
             )
         }
+
+        // AR 게임 튜토리얼 진입. 놀이 버튼 줄 오른쪽 바깥에 같은 높이로 붙인다.
+        // 줄 폭(329)을 그대로 둬야 아래 도움 버튼과 가장자리가 맞는다.
+        KidsTutorialButton(
+            onClick = { tutorialOpen = true },
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 100.dp)
+                .offset(x = KidsContentWidth / 2 + 13.dp + KidsTutorialButtonWidth / 2)
+        )
 
         // 모니터링 진입. 아이가 늘 쓰는 기능이 아니라서 로고 아래 작게 둔다.
         KidsMonitorButton(
@@ -458,6 +479,39 @@ private fun KidsMinigameButton(
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = White
+        )
+    }
+}
+
+// ============================================================
+// 놀이 방법(AR 게임 튜토리얼) 버튼
+// ============================================================
+// 놀이 버튼과 같은 높이지만 흰 바탕으로 한 단계 낮춘다. 놀이 자체가 아니라 설명이라서.
+// 글자 없이 물음표만 둔다. 글을 못 읽는 아이도 '물어보는 곳'으로 알아보고,
+// 놀이 버튼 옆에서 글자가 경쟁하지 않는다.
+private val KidsTutorialButtonWidth = 92.dp
+
+@Composable
+private fun KidsTutorialButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .width(KidsTutorialButtonWidth)
+            .height(KidsItemHeight)
+            .clip(RoundedCornerShape(KidsCorner))
+            .background(White)
+            .border(1.dp, LightActive, RoundedCornerShape(KidsCorner))
+            .clickable { onClick() },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+            contentDescription = "놀이 방법",
+            tint = Normal,
+            modifier = Modifier.size(24.dp)
         )
     }
 }

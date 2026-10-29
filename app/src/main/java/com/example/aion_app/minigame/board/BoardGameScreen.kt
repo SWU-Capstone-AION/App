@@ -9,8 +9,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
+import com.example.aion_app.minigame.GameIntroStep
 import com.example.aion_app.minigame.HandView
 import com.example.aion_app.minigame.PoseGameHost
+import com.example.aion_app.ui.screen.kids.tutorial.ArtBoardClean
+import com.example.aion_app.ui.screen.kids.tutorial.ArtBoardRaise
+import com.example.aion_app.ui.screen.kids.tutorial.ArtBoardRub
 import java.util.concurrent.atomic.AtomicBoolean
 
 private val BoardGreen = Color(0xFF2E4A3A)
@@ -53,7 +57,12 @@ fun BoardGameScreen(
 
     PoseGameHost(
         title = "칠판을 깨끗하게 지워보자!",
-        introMessage = "손바닥으로 칠판을 쓱쓱 문질러 줘!\n천천히 해도 괜찮아.",
+        introSteps = listOf(
+            GameIntroStep("손을\n칠판 쪽으로 들어") { ArtBoardRaise(it) },
+            GameIntroStep("손바닥으로\n쓱쓱 문질러") { ArtBoardRub(it) },
+            GameIntroStep("얼룩이 사라지면\n반짝!") { ArtBoardClean(it) },
+        ),
+        introTip = "구석이 조금 남아도 괜찮아. 거의 다 지우면 끝이야.",
         clearedMessage = "칠판이 반짝반짝해졌어!",
         idleStartHint = "손바닥을 들어 칠판을 쓱쓱 문질러 볼까?",
         idleResumeHint = "얼룩이 조금 남았어! 손을 들어 마저 지워 볼까?",
