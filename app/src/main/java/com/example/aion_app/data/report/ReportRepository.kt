@@ -170,11 +170,22 @@ private fun MonthlyReportDto.toMonthlyReport(month: Calendar): MonthlyReport {
         val dayName = peakDay?.let { WEEKDAY_NAMES.getOrNull(it) }
         val dangerCount = peakWeekday?.danger ?: byWeekday[peakDay]?.danger
         if (dayName != null && dangerCount != null && dangerCount > 0) {
+            // 그래프에서 평균 점수가 가장 높은 요일 (기록 없는 요일은 뺀다)
+            val topAvgDay = bars.filter { it.score != null }.maxByOrNull { it.score!! }?.key
+            val topAvgName = topAvgDay?.let { WEEKDAY_NAMES.getOrNull(it) }
+
+            // 1등 요일이 서로 다를 때만 그래프 기준 문장을 덧붙인다
+            val countText = "${dayName}요일에 위험 감지가 ${dangerCount}건으로 가장 많았어요."
+            val description = if (topAvgName != null && topAvgDay != peakDay)
+                "$countText 평균 위험 점수는 ${topAvgName}요일이 가장 높았어요."
+            else
+                countText
+
             add(
                 AiInsight(
                     tag = "취약 요일",
                     title = "${dayName}요일 위험 감지 최다",
-                    description = "${dayName}요일에 위험 감지가 ${dangerCount}건으로 가장 많았어요."
+                    description = description
                 )
             )
         }
