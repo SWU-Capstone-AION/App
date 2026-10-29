@@ -81,7 +81,6 @@ import com.example.aion_app.ui.screen.login.LoginViewModel
 
 import androidx.compose.runtime.collectAsState
 import com.example.aion_app.data.messaging.AlertBus
-import com.example.aion_app.data.messaging.AlertKind
 import com.example.aion_app.ui.screen.home.Student
 import com.example.aion_app.ui.screen.home.StudentStatus
 import com.example.aion_app.ui.screen.home.StressLevel
@@ -95,6 +94,7 @@ import com.example.aion_app.ui.screen.kids.ChildInviteViewModel
 
 import androidx.compose.runtime.LaunchedEffect
 import com.example.aion_app.ui.screen.home.HomeViewModel
+import com.example.aion_app.ui.screen.home.AlertPopupDialog
 import com.example.aion_app.ui.screen.home.ClassStats
 
 @Composable
@@ -620,7 +620,6 @@ fun AionNavHost() {
 
             // ===== 홈 =====
             composable(Route.HOME) {
-                val dangerAlert by AlertBus.dangerAlert.collectAsState()
                 val myInfoViewModel: MyInfoViewModel = viewModel()
                 val homeViewModel: HomeViewModel = viewModel()
 
@@ -652,20 +651,7 @@ fun AionNavHost() {
                         cautionCount = homeViewModel.todayCautionCount,
                         dangerCount = homeViewModel.todayDangerCount
                     ),
-                    dangerAlert = dangerAlert?.let { alert ->
-                        Student(
-                            id = alert.childId,
-                            name = alert.childName,
-                            gender = alert.gender,
-                            age = alert.age,
-                            status = StudentStatus.ACTIVE,
-                            stressScore = 100,
-                            stressLevel = StressLevel.DANGER,
-                            heartRate = null
-                        )
-                    },
-                    alertKind = dangerAlert?.kind ?: AlertKind.DANGER,
-                    onDangerAlertConfirm = { AlertBus.clear() },
+                    // 위험·도움 요청 팝업은 화면 바깥(아래 '교사앱 알림 팝업')에서 띄운다
                     onNotificationClick = {
                         navController.navigate(Route.NOTIFICATION)
                     },
@@ -934,6 +920,45 @@ fun AionNavHost() {
                         }
                     },
                     onTabSelect = onTabSelect
+                )
+            }
+        }
+
+        // ===== 교사앱 알림 팝업 =====
+        // 예전에는 홈 화면 안에서만 팝업을 그려서, 리포트·마이페이지에 있으면 팝업이 안 떴다.
+        // NavHost 바깥에 두어 교사앱 어느 화면에서든 뜨게 한다.
+        val currentRoute = backStackEntry?.destination?.route
+        val isTeacherScreen = Route.isTeacherRoute(currentRoute)
+
+        if (isTeacherScreen) {
+            // 홈은 자기 화면에서 5초마다 알림을 조회한다.
+            // 다른 화면에서도 같은 주기로 조회해서, FCM 이 늦게 와도 5초 안에 팝업이 뜨게 한다.
+            // 같은 알림이 두 번 잡혀도 AlertBus 가 alertId 로 걸러 준다.
+            if (currentRoute != Route.HOME) {
+                val alertPollViewModel: HomeViewModel = viewModel(key = "teacher_alert_poll")
+                LaunchedEffect(currentRoute) {
+                    while (true) {
+                        alertPollViewModel.loadAlerts()
+                        kotlinx.coroutines.delay(5_000)
+                    }
+                }
+            }
+
+            val dangerAlert by AlertBus.dangerAlert.collectAsState()
+            dangerAlert?.let { alert ->
+                AlertPopupDialog(
+                    student = Student(
+                        id = alert.childId,
+                        name = alert.childName,
+                        gender = alert.gender,
+                        age = alert.age,
+                        status = StudentStatus.ACTIVE,
+                        stressScore = 100,
+                        stressLevel = StressLevel.DANGER,
+                        heartRate = null
+                    ),
+                    kind = alert.kind,
+                    onConfirm = { AlertBus.clear() }
                 )
             }
         }

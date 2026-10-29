@@ -50,6 +50,20 @@ object Route {
     const val REPORT = "report"
     const val REPORT_DETAIL = "report_detail"   // 사용: "report_detail/{studentId}"
 
+    // ===== 교사앱 화면 =====
+    // 이 화면들에 있을 때는 위험·도움 요청 팝업을 띄운다.
+    // (리포트 상세는 "report_detail/{studentId}" 모양이라 따로 앞부분으로 비교한다)
+    val TEACHER_ROUTES = setOf(
+        HOME, NOTIFICATION,
+        REPORT,
+        MYPAGE, MY_INFO, MY_INFO_EDIT,
+        CHILD_LIST, CHILD_LINK,
+        PASSWORD_CHANGE_CHECK, PASSWORD_CHANGE,
+    )
+
+    fun isTeacherRoute(route: String?): Boolean =
+        route != null && (route in TEACHER_ROUTES || route.startsWith(REPORT_DETAIL))
+
     // 상동행동 모니터링
     const val MONITOR = "monitor"
 

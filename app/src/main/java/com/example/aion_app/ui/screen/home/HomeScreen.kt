@@ -277,10 +277,13 @@ private fun AddChildButton(onClick: () -> Unit) {
 // 놓치면 안 되는 알림이라 바깥을 눌러도 닫히지 않게 한다.
 // (뒤로가기도 막아 두어 확인 버튼으로만 닫히도록)
 //
+// 홈뿐 아니라 리포트·마이페이지 등 교사앱 어느 화면에서든 뜨도록
+// AionNavHost 가 화면 바깥에서 이 팝업을 띄운다.
+//
 // 위험은 빨강(Red), 도움 요청은 메인 파랑(Normal)을 쓴다.
 // 도움 요청은 위험 상황이 아니라 아이가 스스로 부른 것이라 톤을 낮춘다.
 @Composable
-private fun AlertPopupDialog(
+fun AlertPopupDialog(
     student: Student,
     kind: AlertKind,
     onConfirm: () -> Unit
