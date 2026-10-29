@@ -81,7 +81,6 @@ import com.example.aion_app.ui.screen.login.LoginViewModel
 
 import androidx.compose.runtime.collectAsState
 import com.example.aion_app.data.messaging.AlertBus
-import com.example.aion_app.data.messaging.AlertKind
 import com.example.aion_app.ui.screen.home.Student
 import com.example.aion_app.ui.screen.home.StudentStatus
 import com.example.aion_app.ui.screen.home.StressLevel
@@ -95,6 +94,7 @@ import com.example.aion_app.ui.screen.kids.ChildInviteViewModel
 
 import androidx.compose.runtime.LaunchedEffect
 import com.example.aion_app.ui.screen.home.HomeViewModel
+import com.example.aion_app.ui.screen.home.AlertPopupDialog
 import com.example.aion_app.ui.screen.home.ClassStats
 
 @Composable
@@ -130,16 +130,26 @@ fun AionNavHost() {
             // ===== 하단탭 공용 이동 로직 =====
             // (지역변수라 선언보다 아래에서만 참조 가능 → NavHost 블록 맨 위에 둠)
             val onTabSelect: (String) -> Unit = { tab ->
-                val route = when (tab) {
-                    "home" -> Route.HOME
-                    "report" -> Route.REPORT
-                    "mypage" -> Route.MYPAGE
-                    else -> Route.HOME
-                }
-                navController.navigate(route) {
-                    popUpTo(Route.HOME) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
+                if (tab == "home") {
+                    // 홈은 늘 스택 맨 아래에 있으므로, 그 위 화면들을 모두 걷어내고 홈으로 돌아간다.
+                    // (예전 방식은 popUpTo(HOME) + restoreState 때문에 방금 걷어낸 화면이
+                    //  다시 복원돼서, 알림센터·내 정보 수정 등에서 홈을 눌러도 그대로였다)
+                    val wentBack = navController.popBackStack(Route.HOME, inclusive = false)
+                    if (!wentBack && navController.currentDestination?.route != Route.HOME) {
+                        // 스택에 홈이 없는 드문 경우 대비
+                        navController.navigate(Route.HOME) { launchSingleTop = true }
+                    }
+                } else {
+                    val route = when (tab) {
+                        "report" -> Route.REPORT
+                        "mypage" -> Route.MYPAGE
+                        else -> Route.HOME
+                    }
+                    navController.navigate(route) {
+                        popUpTo(Route.HOME) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 }
             }
 
@@ -610,7 +620,6 @@ fun AionNavHost() {
 
             // ===== 홈 =====
             composable(Route.HOME) {
-                val dangerAlert by AlertBus.dangerAlert.collectAsState()
                 val myInfoViewModel: MyInfoViewModel = viewModel()
                 val homeViewModel: HomeViewModel = viewModel()
 
@@ -642,20 +651,7 @@ fun AionNavHost() {
                         cautionCount = homeViewModel.todayCautionCount,
                         dangerCount = homeViewModel.todayDangerCount
                     ),
-                    dangerAlert = dangerAlert?.let { alert ->
-                        Student(
-                            id = alert.childId,
-                            name = alert.childName,
-                            gender = alert.gender,
-                            age = alert.age,
-                            status = StudentStatus.ACTIVE,
-                            stressScore = 100,
-                            stressLevel = StressLevel.DANGER,
-                            heartRate = null
-                        )
-                    },
-                    alertKind = dangerAlert?.kind ?: AlertKind.DANGER,
-                    onDangerAlertConfirm = { AlertBus.clear() },
+                    // 위험·도움 요청 팝업은 화면 바깥(아래 '교사앱 알림 팝업')에서 띄운다
                     onNotificationClick = {
                         navController.navigate(Route.NOTIFICATION)
                     },
@@ -680,6 +676,12 @@ fun AionNavHost() {
             composable(Route.CHILD_LINK) {
                 val childLinkViewModel: ChildLinkViewModel = viewModel()
 
+                // 어디서 들어왔는지에 따라 하단탭 표시를 맞춘다
+                // (아동 목록 = 마이페이지 쪽, 그 외 = 홈)
+                val cameFromChildList = remember {
+                    navController.previousBackStackEntry?.destination?.route == Route.CHILD_LIST
+                }
+
                 ChildLinkScreen(
                     isSearching = childLinkViewModel.isSearching,
                     hasSearched = childLinkViewModel.hasSearched,
@@ -696,7 +698,9 @@ fun AionNavHost() {
                     },
                     onCreateAccountClick = {
                         // TODO: 교사가 대신 가입시키는 흐름 (별도 작업)
-                    }
+                    },
+                    selectedTab = if (cameFromChildList) "mypage" else "home",
+                    onTabSelect = onTabSelect
                 )
             }
 
@@ -819,7 +823,8 @@ fun AionNavHost() {
                     onBackClick = { navController.popBackStack() },
                     onEditClick = {
                         navController.navigate(Route.MY_INFO_EDIT)
-                    }
+                    },
+                    onTabSelect = onTabSelect
                 )
             }
 
@@ -842,7 +847,8 @@ fun AionNavHost() {
                     onSaveClick = { newInfo ->
                         viewModel.updateMyInfo(newInfo)
                         navController.popBackStack()
-                    }
+                    },
+                    onTabSelect = onTabSelect
                 )
             }
 
@@ -859,7 +865,8 @@ fun AionNavHost() {
                     errorMessage = childListViewModel.errorMessage,
                     onBackClick = { navController.popBackStack() },
                     onUnlink = { child -> childListViewModel.unlink(child.uid) },
-                    onAddChildClick = { navController.navigate(Route.CHILD_LINK) }
+                    onAddChildClick = { navController.navigate(Route.CHILD_LINK) },
+                    onTabSelect = onTabSelect
                 )
             }
 
@@ -903,7 +910,8 @@ fun AionNavHost() {
                     onBackClick = { navController.popBackStack() },
                     onNextClick = { _, _ ->
                         navController.navigate(Route.PASSWORD_CHANGE)
-                    }
+                    },
+                    onTabSelect = onTabSelect
                 )
             }
 
@@ -919,7 +927,49 @@ fun AionNavHost() {
                                 inclusive = true
                             }
                         }
+                    },
+                    onTabSelect = onTabSelect
+                )
+            }
+        }
+
+        // ===== 교사앱 알림 팝업 =====
+        // 예전에는 홈 화면 안에서만 팝업을 그려서, 리포트·마이페이지에 있으면 팝업이 안 떴다.
+        // NavHost 바깥에 두어 교사앱 어느 화면에서든 뜨게 한다.
+        val currentRoute = backStackEntry?.destination?.route
+        val isTeacherScreen = Route.isTeacherRoute(currentRoute)
+
+        if (isTeacherScreen) {
+            // 홈은 자기 화면에서 5초마다 알림을 조회한다.
+            // 다른 화면에서도 같은 주기로 조회해서, FCM 이 늦게 와도 5초 안에 팝업이 뜨게 한다.
+            // 같은 알림이 두 번 잡혀도 AlertBus 가 alertId 로 걸러 준다.
+            if (currentRoute != Route.HOME) {
+                val alertPollViewModel: HomeViewModel = viewModel(key = "teacher_alert_poll")
+                LaunchedEffect(currentRoute) {
+                    while (true) {
+                        alertPollViewModel.loadAlerts()
+                        kotlinx.coroutines.delay(5_000)
                     }
+                }
+            }
+
+            val dangerAlert by AlertBus.dangerAlert.collectAsState()
+            dangerAlert?.let { alert ->
+                AlertPopupDialog(
+                    student = Student(
+                        id = alert.childId,
+                        name = alert.childName,
+                        gender = alert.gender,
+                        age = alert.age,
+                        status = StudentStatus.ACTIVE,
+                        stressScore = 100,
+                        stressLevel = StressLevel.DANGER,
+                        heartRate = null
+                    ),
+                    kind = alert.kind,
+                    onConfirm = { AlertBus.clear() },
+                    // 팝업이 떠 있는 중에 새 알림이 오면 흔들림 애니메이션
+                    alertKey = alert
                 )
             }
         }

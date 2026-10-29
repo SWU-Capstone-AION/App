@@ -80,7 +80,8 @@ fun MyInfoEditScreen(
     // 감각 자극·행동 특성은 아동에게만 해당하는 항목이라 교사에게는 감춘다
     isTeacher: Boolean = false,
     onBackClick: () -> Unit = {},
-    onSaveClick: (MyInfo) -> Unit = {}
+    onSaveClick: (MyInfo) -> Unit = {},
+    onTabSelect: (String) -> Unit = {}     // 하단탭 이동 콜백
 ) {
     // 편집 가능한 state
     var name by remember { mutableStateOf(initialName) }
@@ -147,7 +148,7 @@ fun MyInfoEditScreen(
                 onBackClick = onBackClick
             )
         },
-        bottomBar = { AionBottomNavBar(selected = "mypage") },
+        bottomBar = { AionBottomNavBar(selected = "mypage", onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
         Column(

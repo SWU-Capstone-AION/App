@@ -12,7 +12,8 @@ import com.example.aion_app.ui.theme.AionTheme
 @Composable
 fun PasswordChangeCheckScreen(
     onBackClick: () -> Unit = {},
-    onNextClick: (id: String, currentPw: String) -> Unit = { _, _ -> }
+    onNextClick: (id: String, currentPw: String) -> Unit = { _, _ -> },
+    onTabSelect: (String) -> Unit = {}     // 하단탭 이동 콜백
 ) {
     var id by remember { mutableStateOf("") }
     var currentPw by remember { mutableStateOf("") }
@@ -21,7 +22,7 @@ fun PasswordChangeCheckScreen(
 
     Scaffold(
         topBar = { AionTopBar(title = "비밀번호 변경", onBackClick = onBackClick) },
-        bottomBar = { AionBottomNavBar() }
+        bottomBar = { AionBottomNavBar(selected = "mypage", onSelect = onTabSelect) }
     ) { padding ->
         Column(
             modifier = Modifier

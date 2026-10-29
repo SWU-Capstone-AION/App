@@ -26,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aion_app.data.auth.ChildSearchResult
+import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.theme.AionTheme
 import com.example.aion_app.ui.theme.GrayText
@@ -53,6 +54,9 @@ fun ChildLinkScreen(
     onSearch: (String) -> Unit = {},
     onRequestLink: (ChildSearchResult) -> Unit = {},
     onCreateAccountClick: () -> Unit = {},
+    // 하단탭에서 켜 둘 탭. 홈에서 들어오면 "home", 아동 목록(마이페이지)에서 들어오면 "mypage"
+    selectedTab: String = "home",
+    onTabSelect: (String) -> Unit = {},     // 하단탭 이동 콜백
 ) {
     var loginId by remember { mutableStateOf("") }
     // 검색 결과 카드를 눌러 선택해야 연결 요청 버튼이 뜬다
@@ -60,6 +64,7 @@ fun ChildLinkScreen(
 
     Scaffold(
         topBar = { AionTopBar(title = "아이디로 찾기", onBackClick = onBackClick) },
+        bottomBar = { AionBottomNavBar(selected = selectedTab, onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
         Column(

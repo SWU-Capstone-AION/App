@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.aion_app.data.auth.LinkedChild
+import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.home.ChildAvatar
 import com.example.aion_app.ui.theme.AionTheme
@@ -48,12 +49,15 @@ fun ChildListScreen(
     onBackClick: () -> Unit = {},
     onUnlink: (LinkedChild) -> Unit = {},
     onAddChildClick: () -> Unit = {},
+    onTabSelect: (String) -> Unit = {},     // 하단탭 이동 콜백
 ) {
     // 삭제 확인 대화상자에 띄울 아동. null이면 안 뜬다.
     var childToUnlink by remember { mutableStateOf<LinkedChild?>(null) }
 
     Scaffold(
         topBar = { AionTopBar(title = "아동 목록", onBackClick = onBackClick) },
+        // 마이페이지에서 들어오는 화면이라 마이페이지 탭을 켜 둔다
+        bottomBar = { AionBottomNavBar(selected = "mypage", onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
         Column(
