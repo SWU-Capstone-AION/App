@@ -23,7 +23,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -286,8 +296,48 @@ private fun AddChildButton(onClick: () -> Unit) {
 fun AlertPopupDialog(
     student: Student,
     kind: AlertKind,
-    onConfirm: () -> Unit
+    onConfirm: () -> Unit,
+    // 알림 한 건을 구분하는 값. 팝업이 떠 있는 동안 이 값이 바뀌면
+    // '새 알림이 또 왔다'는 뜻이라 팝업을 흔들고 「새 알림」 표시를 띄운다.
+    alertKey: Any? = null
 ) {
+    // ===== 새 알림 애니메이션 =====
+    // 팝업이 이미 떠 있는데 알림이 또 오면 내용만 바뀌어서 알아채기 어려웠다.
+    // 그래서 좌우로 흔들고 살짝 커졌다 돌아오게 한다.
+    val density = LocalDensity.current.density
+    val shakeX = remember { Animatable(0f) }
+    val bump = remember { Animatable(1f) }
+    // 처음 뜰 때는 흔들지 않는다 (그건 원래 팝업이 뜨는 것)
+    var isFirstAlert by remember { mutableStateOf(true) }
+    // 팝업이 떠 있는 동안 추가로 온 알림 수
+    var extraCount by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(alertKey) {
+        if (isFirstAlert) {
+            isFirstAlert = false
+            return@LaunchedEffect
+        }
+        extraCount++
+
+        launch {
+            bump.animateTo(1.06f, tween(durationMillis = 120))
+            bump.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+        }
+        shakeX.animateTo(
+            targetValue = 0f,
+            animationSpec = keyframes {
+                durationMillis = 480
+                -14f * density at 60
+                14f * density at 120
+                -10f * density at 180
+                10f * density at 240
+                -6f * density at 300
+                6f * density at 360
+                0f at 480
+            }
+        )
+    }
+
     val accentColor = when (kind) {
         AlertKind.DANGER -> Red
         AlertKind.HELP -> Normal
@@ -304,12 +354,33 @@ fun AlertPopupDialog(
     Dialog(onDismissRequest = { /* 확인 버튼으로만 닫는다 */ }) {
         Column(
             modifier = Modifier
+                .graphicsLayer {
+                    translationX = shakeX.value
+                    scaleX = bump.value
+                    scaleY = bump.value
+                }
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(White),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(28.dp))
+            // 팝업이 떠 있는 동안 알림이 또 왔을 때만 보이는 표시
+            if (extraCount > 0) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "새 알림 +$extraCount",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = White,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(accentColor)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+            } else {
+                Spacer(modifier = Modifier.height(28.dp))
+            }
 
             when (kind) {
                 AlertKind.DANGER -> Icon(

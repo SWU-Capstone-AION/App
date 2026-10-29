@@ -958,7 +958,9 @@ fun AionNavHost() {
                         heartRate = null
                     ),
                     kind = alert.kind,
-                    onConfirm = { AlertBus.clear() }
+                    onConfirm = { AlertBus.clear() },
+                    // 팝업이 떠 있는 중에 새 알림이 오면 흔들림 애니메이션
+                    alertKey = alert
                 )
             }
         }
