@@ -48,6 +48,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -165,6 +167,9 @@ fun <S : MinigameStatus> PoseGameHost(
 
     // 오버레이 크기는 추론 콜백(백그라운드 스레드)에서 읽으므로 원자적으로 보관한다.
     val overlaySize = remember { AtomicReference(IntSize.Zero) }
+
+    // 제목 띠가 끝나는 높이(픽셀). 게임 요소가 글자와 겹치지 않도록 엔진에 넘긴다.
+    val titleBottom = remember { AtomicReference(0f) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
 
@@ -180,7 +185,7 @@ fun <S : MinigameStatus> PoseGameHost(
                         bundle = bundle,
                         viewWidth = size.width.toFloat(),
                         viewHeight = size.height.toFloat(),
-                    )
+                    ).copy(topInset = titleBottom.get())
                     val next = update(pose, System.currentTimeMillis())
                     mainHandler.post { snapshot = next }
                 }
@@ -264,7 +269,11 @@ fun <S : MinigameStatus> PoseGameHost(
 
         Pill(
             text = title,
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 24.dp),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 24.dp)
+                // 띠가 실제로 끝나는 높이를 재서 엔진에 알린다. 글꼴 크기가 바뀌어도 따라간다.
+                .onGloballyPositioned { titleBottom.set(it.boundsInParent().bottom) },
             bold = true,
         )
 

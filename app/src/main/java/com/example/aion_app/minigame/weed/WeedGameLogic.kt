@@ -61,15 +61,22 @@ data class GameSnapshot(
 
 class WeedGameEngine(
     /** 생성할 잡초 개수. 목업보다 적은 게 맞다 — 너무 많으면 겹쳐서 구분이 안 된다. */
-    private val weedCount: Int = 8,
+    private val weedCount: Int = 6,
     /**
      * 어깨 폭(S) 배수로 표현한 생성 반경.
      * 화면 밖으로 나가면 어차피 아래 clampToScreen 이 당겨오므로, 여기서도 여유 있게 잡지 않는다.
      */
     private val minRadiusInS: Float = 1.0f,
     private val maxRadiusInS: Float = 1.35f,
-    /** 위쪽 반원에 배치할 비율. 앉은 자세면 아래쪽은 책상에 가린다. */
-    private val upperHalfBias: Float = 0.7f,
+    /**
+     * 잡초를 놓는 각도 구간. 화면 좌표계라 0 = 오른쪽, PI/2 = 아래, PI = 왼쪽, 1.5PI = 위(얼굴)다.
+     * 어깨 중심 위쪽은 얼굴 자리이므로 비워 두고, 양옆에서 몸 앞쪽에 걸친 구간에만 놓는다.
+     * 어깨선보다 살짝 위까지만 올라간다.
+     */
+    private val bandStartRad: Float = (-0.15 * Math.PI).toFloat(),
+    private val bandEndRad: Float = (1.15 * Math.PI).toFloat(),
+    /** 잡초끼리 최소로 떨어져 있어야 하는 거리 (S 배수). 히트박스 폭(0.44S)보다 넓게 잡는다. */
+    private val minSeparationInS: Float = 0.55f,
     /** 손 아이콘 크기 (S 배수). 잡초(0.35S)보다 작아야 무엇을 잡는지 가리지 않는다. */
     private val handSizeInS: Float = 0.26f,
     /** 잡초 높이 (S 배수) */
@@ -103,6 +110,10 @@ class WeedGameEngine(
         var state = WeedState.IDLE
         var pos = Vec2(0f, 0f)
         var grabFrames = 0
+
+        /** 이번 프레임에 실제로 쓰인 반경(픽셀)과 화면이 허용하는 최대 반경 */
+        var drawRadius = 0f
+        var limitRadius = Float.MAX_VALUE
 
         /** 잡은 순간의 손 높이. 여기서 얼마나 올렸는지로 뽑기를 판단한다 */
         var grabHandY = 0f
@@ -196,7 +207,7 @@ class WeedGameEngine(
         if (s <= 1f) return snapshot(poseVisible = false)
 
         spawnIfNeeded()
-        projectWeeds(center, s, pose.viewWidth, pose.viewHeight)
+        projectWeeds(center, s, pose.viewWidth, pose.viewHeight, pose.topInset)
 
         val hands = listOfNotNull(
             track(HandSide.LEFT, pose.leftHand, leftGrip),
@@ -239,21 +250,25 @@ class WeedGameEngine(
         }
     }
 
+    /**
+     * 잡초를 겹치지 않게, 얼굴을 피해 몸 주변에 뿌린다.
+     *
+     * 각도를 완전히 무작위로 뽑으면 두 포기가 거의 같은 방향에 서서 그림이 포개진다.
+     * 그래서 [bandStartRad]~[bandEndRad] 구간을 포기 수만큼 구역으로 나누고 한 구역에
+     * 한 포기씩 넣은 뒤, 구역 안에서만 흔들어 기계적으로 늘어선 느낌을 없앤다.
+     */
     private fun spawnIfNeeded() {
         if (weeds.isNotEmpty()) return
+        if (weedCount <= 0) return
+
+        val sector = (bandEndRad - bandStartRad) / weedCount
         repeat(weedCount) { i ->
+            val jitter = ((random.nextFloat() - 0.5f) * sector * SECTOR_JITTER)
+            val angle = bandStartRad + sector * (i + 0.5f) + jitter
             val radius = minRadiusInS + random.nextFloat() * (maxRadiusInS - minRadiusInS)
-            weeds += WeedItem(i, randomAngle(), radius)
+            weeds += WeedItem(i, angle, radius)
         }
     }
-
-    /** 화면 좌표계는 y가 아래로 증가하므로, 위쪽 반원은 sin < 0 즉 각도 (PI, 2PI). */
-    private fun randomAngle(): Float =
-        if (random.nextFloat() < upperHalfBias) {
-            (Math.PI + random.nextDouble() * Math.PI).toFloat()
-        } else {
-            (random.nextDouble() * Math.PI).toFloat()
-        }
 
     /**
      * 잡초는 화면 절대 좌표가 아니라 몸 기준 (각도, S 배수)로 저장된다.
@@ -265,22 +280,66 @@ class WeedGameEngine(
      * 그래서 각도는 그대로 두고 반경만 화면 안쪽으로 줄인다. 각도가 유지되므로
      * 잡초가 한쪽에 뭉치지 않고, 아이는 자리에서 움직이지 않고도 전부 볼 수 있다.
      */
-    private fun projectWeeds(center: Vec2, s: Float, viewWidth: Float, viewHeight: Float) {
+    private fun projectWeeds(
+        center: Vec2,
+        s: Float,
+        viewWidth: Float,
+        viewHeight: Float,
+        topInset: Float,
+    ) {
         val halfWidth = hitHalfWidthInS * s
         val height = weedHeightInS * s
+        // 화면이 좁아도 이보다 가까이 당기지는 않는다. 몸 위로 잡초가 쌓이는 것을 막는다.
+        val floorRadius = minRadiusInS * 0.6f * s
+
         weeds.forEach { w ->
             val dx = cos(w.angleRad)
             val dy = sin(w.angleRad)
             val desired = w.radiusInS * s
-            val limit = maxRadiusOnScreen(center, dx, dy, viewWidth, viewHeight, halfWidth, height)
-            val radius = if (limit < 0f) desired else min(desired, limit)
-            w.pos = Vec2(center.x + dx * radius, center.y + dy * radius)
+            val limit =
+                maxRadiusOnScreen(center, dx, dy, viewWidth, viewHeight, halfWidth, height, topInset)
+            w.limitRadius = if (limit < 0f) Float.MAX_VALUE else max(limit, floorRadius)
+            w.drawRadius = min(desired, w.limitRadius)
+            w.pos = Vec2(center.x + dx * w.drawRadius, center.y + dy * w.drawRadius)
+        }
+
+        separate(center, s)
+    }
+
+    /**
+     * 화면 제한에 걸려 서로 당겨 들어온 잡초를 떼어 놓는다.
+     * 각도는 그대로 두고 바깥쪽 잡초를 조금 더 바깥으로 밀기 때문에 배치가 흐트러지지 않는다.
+     */
+    private fun separate(center: Vec2, s: Float) {
+        val minGap = minSeparationInS * s
+        if (minGap <= 0f || weeds.size < 2) return
+
+        repeat(SEPARATION_PASSES) {
+            for (i in weeds.indices) {
+                for (j in i + 1 until weeds.size) {
+                    val a = weeds[i]
+                    val b = weeds[j]
+                    val gap = kotlin.math.hypot(a.pos.x - b.pos.x, a.pos.y - b.pos.y)
+                    if (gap >= minGap) continue
+
+                    val outer = if (a.drawRadius >= b.drawRadius) a else b
+                    val pushed = min(outer.limitRadius, outer.drawRadius + (minGap - gap) * 0.5f)
+                    if (pushed <= outer.drawRadius) continue
+
+                    outer.drawRadius = pushed
+                    outer.pos = Vec2(
+                        center.x + cos(outer.angleRad) * pushed,
+                        center.y + sin(outer.angleRad) * pushed,
+                    )
+                }
+            }
         }
     }
 
     /**
      * 중심에서 (dx, dy) 방향으로 나갈 수 있는 최대 반경(픽셀).
      * 잡초는 밑동에서 위로 자라므로 위쪽 여백을 잎 높이만큼 더 준다.
+     * [topInset] 아래에만 놓아 제목 문구와 겹치지 않게 한다.
      * 화면 크기를 모르면(-1) 호출부에서 제한을 걸지 않는다.
      */
     private fun maxRadiusOnScreen(
@@ -291,12 +350,13 @@ class WeedGameEngine(
         viewHeight: Float,
         halfWidth: Float,
         height: Float,
+        topInset: Float,
     ): Float {
         if (viewWidth <= 0f || viewHeight <= 0f) return -1f
 
         val minX = halfWidth
         val maxX = viewWidth - halfWidth
-        val minY = height * 1.15f
+        val minY = max(height * 1.15f, topInset + height * 1.05f)
         val maxY = viewHeight - height * 0.4f
         if (minX >= maxX || minY >= maxY) return -1f
 
@@ -488,6 +548,12 @@ class WeedGameEngine(
 
         /** 쥔 정도 완충. 낮출수록 둔해지고 높일수록 민감해진다 */
         const val GRIP_SMOOTHING = 0.35f
+
+        /** 구역 안에서 각도를 흔드는 폭(구역 너비 대비). 1 에 가까울수록 다시 겹칠 수 있다 */
+        const val SECTOR_JITTER = 0.6f
+
+        /** 겹침을 푸는 반복 횟수 */
+        const val SEPARATION_PASSES = 3
 
         /** 뽑힌 잡초가 떠오르며 사라지는 시간(ms) */
         const val PULL_FADE_MS = 350L

@@ -41,6 +41,11 @@ data class PoseInput(
     val rightHand: HandPose? = null,
     val viewWidth: Float = 0f,
     val viewHeight: Float = 0f,
+    /**
+     * 화면 위쪽에서 비워 둬야 하는 높이(픽셀).
+     * 안내 문구 띠가 차지하는 만큼으로, 게임 요소가 글자와 겹치지 않도록 이 아래에만 놓는다.
+     */
+    val topInset: Float = 0f,
 ) {
     /** 잡힌 손만 모아서 준다. 한 손만 들었으면 하나. */
     val hands: List<HandPose> get() = listOfNotNull(leftHand, rightHand)
