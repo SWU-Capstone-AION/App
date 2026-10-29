@@ -174,10 +174,10 @@ private fun MonthlyReportDto.toMonthlyReport(month: Calendar): MonthlyReport {
             val topAvgDay = bars.filter { it.score != null }.maxByOrNull { it.score!! }?.key
             val topAvgName = topAvgDay?.let { WEEKDAY_NAMES.getOrNull(it) }
 
-            // 1등 요일이 서로 다를 때만 그래프 기준 문장을 덧붙인다
+            // 1등 요일이 서로 다를 때만 그래프 기준 문장을 다음 줄에 덧붙인다
             val countText = "${dayName}요일에 위험 감지가 ${dangerCount}건으로 가장 많았어요."
             val description = if (topAvgName != null && topAvgDay != peakDay)
-                "$countText 평균 위험 점수는 ${topAvgName}요일이 가장 높았어요."
+                "$countText\n평균 위험 점수는 ${topAvgName}요일이 가장 높았어요."
             else
                 countText
 
