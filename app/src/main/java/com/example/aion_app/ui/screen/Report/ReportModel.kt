@@ -350,7 +350,7 @@ fun previewMonthlyReport(): MonthlyReport = MonthlyReport(
         )
     },
     insights = listOf(
-        AiInsight("취약 요일", "수요일 집중 발생", "수요일의 위험 감지가 다른 요일보다 116% 많았습니다."),
+        AiInsight("취약 요일", "수요일 위험 감지 최다", "수요일에 위험 감지가 3건으로 가장 많았어요."),
         AiInsight(
             "AI 추정 행동", "몸 앞뒤 흔들기 12건", "가장 많이 감지된 행동이에요.",
             behaviors = listOf(

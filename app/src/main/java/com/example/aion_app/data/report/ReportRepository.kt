@@ -163,18 +163,29 @@ private fun MonthlyReportDto.toMonthlyReport(month: Calendar): MonthlyReport {
     }
 
     val insights = buildList {
-        val dayName = peakWeekday?.weekday?.let { WEEKDAY_NAMES.getOrNull(it) }
-        if (dayName != null) {
-            // 월간 퍼센트는 점수가 아니라 '위험 건수' 기준이다
-            val percent = peakWeekday.percentAboveAverage.toPercent()
+        // 취약 요일은 '위험 감지 건수'가 가장 많은 요일이다 (달력 빨간 점과 같은 기준).
+        // 위 막대그래프(평균 점수)와 1등 요일이 다를 수 있어서,
+        // 제목·문장에 '위험 감지 건수' 기준임을 드러내고 % 대신 실제 건수를 보여준다.
+        val peakDay = peakWeekday?.weekday
+        val dayName = peakDay?.let { WEEKDAY_NAMES.getOrNull(it) }
+        val dangerCount = peakWeekday?.danger ?: byWeekday[peakDay]?.danger
+        if (dayName != null && dangerCount != null && dangerCount > 0) {
+            // 그래프에서 평균 점수가 가장 높은 요일 (기록 없는 요일은 뺀다)
+            val topAvgDay = bars.filter { it.score != null }.maxByOrNull { it.score!! }?.key
+            val topAvgName = topAvgDay?.let { WEEKDAY_NAMES.getOrNull(it) }
+
+            // 1등 요일이 서로 다를 때만 그래프 기준 문장을 다음 줄에 덧붙인다
+            val countText = "${dayName}요일에 위험 감지가 ${dangerCount}건으로 가장 많았어요."
+            val description = if (topAvgName != null && topAvgDay != peakDay)
+                "$countText\n평균 위험 점수는 ${topAvgName}요일이 가장 높았어요."
+            else
+                countText
+
             add(
                 AiInsight(
                     tag = "취약 요일",
-                    title = "${dayName}요일 집중 발생",
-                    description = if (percent != null && percent > 0)
-                        "${dayName}요일의 위험 감지가 다른 요일보다 $percent% 많았습니다."
-                    else
-                        "${dayName}요일에 위험 감지가 가장 많았습니다."
+                    title = "${dayName}요일 위험 감지 최다",
+                    description = description
                 )
             )
         }
