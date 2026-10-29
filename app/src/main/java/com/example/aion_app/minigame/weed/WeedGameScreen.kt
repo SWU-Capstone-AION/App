@@ -8,9 +8,13 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import com.example.aion_app.minigame.GameIntroStep
 import com.example.aion_app.minigame.HandView
 import com.example.aion_app.minigame.PoseGameHost
 import com.example.aion_app.minigame.drawEmoji
+import com.example.aion_app.ui.screen.kids.tutorial.ArtWeedGrip
+import com.example.aion_app.ui.screen.kids.tutorial.ArtWeedPull
+import com.example.aion_app.ui.screen.kids.tutorial.ArtWeedReach
 import java.util.concurrent.atomic.AtomicBoolean
 
 private val WeedGreen = Color(0xFF7FC97F)
@@ -55,7 +59,12 @@ fun WeedGameScreen(
 
     PoseGameHost(
         title = "잡초를 전부 뽑아보자!",
-        introMessage = "잡초에 손을 대고 손을 꼭 쥐어 봐!\n쥔 채로 위로 올리면 쑥 뽑혀.",
+        introSteps = listOf(
+            GameIntroStep("손바닥을\n잡초에 대") { ArtWeedReach(it) },
+            GameIntroStep("손을\n꼭 쥐어") { ArtWeedGrip(it) },
+            GameIntroStep("쥔 채로\n위로 쑥!") { ArtWeedPull(it) },
+        ),
+        introTip = "손을 펴면 잡초를 놓쳐. 다시 쥐면 돼! 잡초 6개를 다 뽑으면 끝이야.",
         clearedMessage = "잡초를 다 뽑았어!",
         idleStartHint = "잡초에 손을 대고 손을 꼭 쥐어 볼까?",
         idleResumeHint = "잡초가 조금 남았어! 하나만 더 뽑아 볼까?",

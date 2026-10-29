@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,7 +31,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,6 +66,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.aion_app.monitor.pose.PoseLandmarkerHelper
 import com.example.aion_app.ui.screen.kids.KidsDialogScrim
 import com.example.aion_app.ui.theme.AionTextDark
+import com.example.aion_app.ui.theme.AionTextValue
+import com.example.aion_app.ui.theme.Light
 import com.example.aion_app.ui.theme.LightActive
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.White
@@ -88,7 +93,8 @@ private val FillColor = Color(0xFFB0B0B0)
  * 기존 monitor.pose.PoseLandmarkerHelper 를 그대로 재사용한다.
  * 헬퍼가 이미 전면 카메라 미러링을 처리하므로 좌표를 다시 뒤집지 않는다.
  *
- * @param introMessage 시작 전 안내창에 띄울 문구.
+ * @param introSteps 시작 전 안내창에 그림으로 보여 줄 단계 (세 개 기준).
+ * @param introTip 단계 아래 작은 도움말. 막히기 쉬운 점이나 끝나는 조건을 한 줄로.
  * @param idleStartHint 1분 동안 동작이 없는데 아직 하나도 못 했을 때 (방법을 알려준다)
  * @param idleResumeHint 1분 동안 동작이 없는데 하다가 멈췄을 때 (남은 걸 마저 하자고 권한다)
  * @param update 매 프레임 호출. **MediaPipe 결과 콜백(백그라운드 스레드)에서 돌아간다.**
@@ -102,9 +108,8 @@ private val FillColor = Color(0xFFB0B0B0)
 @Composable
 fun <S : MinigameStatus> PoseGameHost(
     title: String,
-    // 시작 전 안내창 문구. 두 줄 기준으로 쓴다.
-    //   1줄 = 무엇을 하는지, 2줄 = 부담 덜어주는 말
-    introMessage: String,
+    introSteps: List<GameIntroStep>,
+    introTip: String,
     clearedMessage: String,
     idleStartHint: String = "천천히 한 번 해 볼까?",
     idleResumeHint: String = "아직 남았어! 조금만 더 해볼까?",
@@ -151,7 +156,7 @@ fun <S : MinigameStatus> PoseGameHost(
     // 안내창을 닫기 전에는 게임 판정을 멈춘다.
     //
     // 카메라 바인딩과 MediaPipe 모델 로딩은 안내창 뒤에서 그대로 진행시킨다.
-    // 아이가 문구를 읽는 동안 준비가 끝나므로 '시작할게요'를 누르면 바로 반응한다.
+    // 아이가 문구를 읽는 동안 준비가 끝나므로 '시작'를 누르면 바로 반응한다.
     //
     // ⚠ started 는 MediaPipe 결과 콜백(백그라운드 스레드)에서 읽는다.
     //   Compose State 를 그대로 읽으면 스레드 안전하지 않아 AtomicBoolean 을 따로 둔다.
@@ -159,7 +164,7 @@ fun <S : MinigameStatus> PoseGameHost(
     val started = remember { AtomicBoolean(false) }
 
     // 3분 동안 아무 동작이 없으면 홈으로 돌아간다 (안내 없이 바로).
-    // 동작 여부는 게임 엔진이 잰다 (잡초 잡기·뽑기, 칠판 지우기). 안내창에서 '시작할게요'를 안 누른 채로
+    // 동작 여부는 게임 엔진이 잰다 (잡초 잡기·뽑기, 칠판 지우기). 안내창에서 '시작'를 안 누른 채로
     // 있거나, 시작했는데 카메라 결과가 아직 없거나, 완료 화면에서 그대로 있어도 똑같이 3분이면 돌아간다.
     val exit by rememberUpdatedState(onExit)
     val enteredAt = remember { System.currentTimeMillis() }
@@ -340,7 +345,8 @@ fun <S : MinigameStatus> PoseGameHost(
         if (introVisible) {
             IntroOverlay(
                 title = title,
-                message = introMessage,
+                steps = introSteps,
+                tip = introTip,
                 onStart = {
                     started.set(true)
                     startedAt = System.currentTimeMillis()
@@ -352,7 +358,10 @@ fun <S : MinigameStatus> PoseGameHost(
 }
 
 /**
- * 게임 시작 전 안내창.
+ * 게임 시작 전 안내창. 게임 방법을 그림 세 단계로 보여 준다.
+ *
+ * 완료 팝업(ClearedOverlay)과 같은 모양이다: 흰 카드 + 아래 꽉 찬 버튼.
+ * 게임 화면은 시안 배율 틀(KidsDesignScale) 밖이라 크기·글자를 아동 홈 팝업의 약 1.3배로 잡았다.
  *
  * 버튼 말고 아무 데나 눌러도 시작된다. 아이가 버튼을 정확히 못 눌러
  * 화면 앞에서 멈춰 있는 상황을 막기 위해서다.
@@ -361,46 +370,121 @@ fun <S : MinigameStatus> PoseGameHost(
 @Composable
 private fun BoxScope.IntroOverlay(
     title: String,
-    message: String,
+    steps: List<GameIntroStep>,
+    tip: String,
     onStart: () -> Unit,
 ) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color(0xCC000000))
-            .clickable { onStart() },
+            .background(KidsDialogScrim)
+            // 설명을 보지 않고 넘어가지 않도록 바깥을 눌러도 시작되지 않는다.
+            // 뒤쪽이 눌리는 것만 막고 아무 일도 하지 않는다.
+            .clickable(enabled = true) { },
         contentAlignment = Alignment.Center,
     ) {
         Column(
+            modifier = Modifier
+                .width(660.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(White),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            Spacer(Modifier.height(30.dp))
+
             Text(
                 text = title,
-                color = Color.White,
+                color = AionTextDark,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
             )
 
+            Spacer(Modifier.height(6.dp))
+
             Text(
-                text = message,
-                color = Color.White,
-                fontSize = 20.sp,
-                lineHeight = 32.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.widthIn(max = 460.dp).padding(horizontal = 32.dp),
+                text = "이렇게 해 봐",
+                color = AionTextValue,
+                fontSize = 18.sp,
             )
 
+            Spacer(Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                steps.forEachIndexed { i, step ->
+                    if (i > 0) {
+                        // 단계 사이 화살표. 그림 높이의 가운데쯤에 오도록 내린다.
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = LightActive,
+                            modifier = Modifier.padding(top = 64.dp).size(28.dp),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        step.art(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(Light)
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = step.caption,
+                            color = AionTextDark,
+                            fontSize = 18.sp,
+                            lineHeight = 26.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 30.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Light)
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Lightbulb,
+                    contentDescription = null,
+                    tint = Normal,
+                    modifier = Modifier.size(24.dp),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = tip,
+                    color = AionTextValue,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp,
+                )
+            }
+
+            Spacer(Modifier.height(26.dp))
+
             Box(
-                Modifier
-                    .padding(top = 4.dp)
-                    .background(Color.White, RoundedCornerShape(28.dp))
-                    .clickable { onStart() }
-                    .padding(horizontal = 40.dp, vertical = 16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .background(Normal)
+                    .clickable { onStart() },
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "시작할게요",
-                    color = PillText,
+                    text = "시작",
+                    color = White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                 )
