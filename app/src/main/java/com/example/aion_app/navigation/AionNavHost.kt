@@ -857,7 +857,8 @@ fun AionNavHost() {
                     errorMessage = childListViewModel.errorMessage,
                     onBackClick = { navController.popBackStack() },
                     onUnlink = { child -> childListViewModel.unlink(child.uid) },
-                    onAddChildClick = { navController.navigate(Route.CHILD_LINK) }
+                    onAddChildClick = { navController.navigate(Route.CHILD_LINK) },
+                    onTabSelect = onTabSelect
                 )
             }
 
