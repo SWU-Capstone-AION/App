@@ -676,6 +676,12 @@ fun AionNavHost() {
             composable(Route.CHILD_LINK) {
                 val childLinkViewModel: ChildLinkViewModel = viewModel()
 
+                // 어디서 들어왔는지에 따라 하단탭 표시를 맞춘다
+                // (아동 목록 = 마이페이지 쪽, 그 외 = 홈)
+                val cameFromChildList = remember {
+                    navController.previousBackStackEntry?.destination?.route == Route.CHILD_LIST
+                }
+
                 ChildLinkScreen(
                     isSearching = childLinkViewModel.isSearching,
                     hasSearched = childLinkViewModel.hasSearched,
@@ -692,7 +698,9 @@ fun AionNavHost() {
                     },
                     onCreateAccountClick = {
                         // TODO: 교사가 대신 가입시키는 흐름 (별도 작업)
-                    }
+                    },
+                    selectedTab = if (cameFromChildList) "mypage" else "home",
+                    onTabSelect = onTabSelect
                 )
             }
 
