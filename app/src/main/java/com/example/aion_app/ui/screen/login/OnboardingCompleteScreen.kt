@@ -33,16 +33,11 @@ fun OnboardingCompleteScreen(
     ) {
         Spacer(modifier = Modifier.height(120.dp))
 
-        // ===== 로고: 심볼(∞) + 워드마크(AION) =====
+        // ===== 로고: 심볼(∞) + 워드마크(AION) 한 장 =====
+        // 디자인팀 11/3 수정: 심볼+텍스트를 같이 쓸 때는 심볼이 그라데이션인 새 로고 사용
         Image(
-            painter = painterResource(R.drawable.logo_symbol),
+            painter = painterResource(R.drawable.logo_symbol_text_blue),
             contentDescription = "AION 로고",
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.width(68.dp)
-        )
-        Image(
-            painter = painterResource(R.drawable.logo_text),
-            contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier.width(72.dp)
         )

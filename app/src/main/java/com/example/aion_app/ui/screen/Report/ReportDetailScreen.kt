@@ -130,8 +130,7 @@ private fun ReportDetailContent(
             AionTopBar(
                 title = "상세 리포트",
                 onBackClick = onBackClick,
-                iconStartPadding = 8.dp,      // 아이콘 꼭짓점을 기간 탭 왼쪽(20dp)에 맞춤
-                dividerColor = AionTextDark   // #2D3C4A
+                iconStartPadding = 8.dp       // 아이콘 꼭짓점을 기간 탭 왼쪽(20dp)에 맞춤
             )
         },
         bottomBar = { AionBottomNavBar(selected = "report", onSelect = onTabSelect) },

@@ -26,8 +26,8 @@ import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.RedError
 
 // 로고 크기 (프리뷰 보고 이 두 값만 조절하면 됨)
-private val LogoSymbolWidth = 79.dp
-private val LogoTextWidth = 75.dp
+// 심볼+텍스트 로고 너비. 크기 조절이 필요하면 이 값만 바꾸면 된다.
+private val LogoWidth = 79.dp
 
 // ============================================================
 // 시안 1p — 아동용 로그인
@@ -50,19 +50,11 @@ fun KidsLoginScreen(
     KidsScreenFrame {
         Spacer(Modifier.height(32.dp))
 
-        // ===== 로고: 심볼(∞) + 워드마크(AION) =====
-        // logo_text.png 는 캔버스에 위아래 여백이 포함돼 있어 Spacer 없이도 간격이 생긴다.
         Image(
-            painter = painterResource(R.drawable.logo_symbol),
+            painter = painterResource(R.drawable.logo_symbol_text_blue),
             contentDescription = "AION 로고",
             contentScale = ContentScale.Fit,
-            modifier = Modifier.width(LogoSymbolWidth)
-        )
-        Image(
-            painter = painterResource(R.drawable.logo_text),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.width(LogoTextWidth)
+            modifier = Modifier.width(LogoWidth)
         )
 
         Spacer(Modifier.height(32.dp))

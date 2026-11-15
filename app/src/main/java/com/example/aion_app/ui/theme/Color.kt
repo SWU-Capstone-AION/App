@@ -91,5 +91,8 @@ val TextPrimary  = Color(0xFF222222)   // 팀 화면들이 쓰는 본문 색
 val AionTextDark = Color(0xFF2D3C4A)   // 시안 기준 본문 색
 val AionTextValue = Color(0xFF3A4D5F)  // 시안 기준 '값' 색 (마이페이지 이름·성별·생년월일)
 
+// ---------- 헤더 ----------
+val HeaderStroke = GreyNormalHover
+
 // ---------- 상태 ----------
 val RedError = Color(0xFFE53935)   // 팀 에러 색
