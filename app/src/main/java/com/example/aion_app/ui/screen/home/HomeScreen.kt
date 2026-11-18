@@ -471,12 +471,13 @@ private fun HomeTopBar(
     ) {
         // 로고
         Image(
-            painter = painterResource(id = R.drawable.aion_logo),
+            painter = painterResource(id = R.drawable.logo_symbol_gradient),
             contentDescription = "AION 로고",
-            modifier = Modifier.size(40.dp)
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.width(64.dp)
         )
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
 
         // 교사 이름 + 날짜
         Column(
@@ -522,6 +523,7 @@ private fun RecentAlertBanner(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Min)
             .clip(RoundedCornerShape(12.dp))
             .background(
                 brush = Brush.verticalGradient(
@@ -538,7 +540,7 @@ private fun RecentAlertBanner(
         Box(
             modifier = Modifier
                 .width(4.dp)
-                .height(64.dp)
+                .fillMaxHeight()
                 .background(Normal)
         )
 

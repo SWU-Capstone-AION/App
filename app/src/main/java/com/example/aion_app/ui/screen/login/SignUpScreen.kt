@@ -32,8 +32,8 @@ import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 
-// 로고 크기 (프리뷰 보고 이 두 값만 조절하면 됨)
-private val LogoWidth = 76.dp
+// 로고 크기 (프리뷰 보고 이 값만 조절하면 됨)
+private val LogoWidth = 128.dp
 
 @Composable
 fun SignUpScreen(
@@ -73,7 +73,7 @@ fun SignUpScreen(
             modifier = Modifier.width(LogoWidth)
         )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // 시안 1p: 제목은 "로그인". "가입 유형 선택" 라벨 없이 버튼만 노출.
         Text("로그인", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)

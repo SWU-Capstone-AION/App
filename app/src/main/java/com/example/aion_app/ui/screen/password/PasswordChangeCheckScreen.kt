@@ -21,7 +21,7 @@ fun PasswordChangeCheckScreen(
     var showIdNotFoundDialog by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = { AionTopBar(title = "비밀번호 변경", onBackClick = onBackClick) },
+        topBar = { AionTopBar(title = "비밀번호 변경", onBackClick = onBackClick, iconStartPadding = 8.dp) },
         bottomBar = { AionBottomNavBar(selected = "mypage", onSelect = onTabSelect) }
     ) { padding ->
         Column(

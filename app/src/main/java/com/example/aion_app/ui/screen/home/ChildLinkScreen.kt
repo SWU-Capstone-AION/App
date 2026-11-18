@@ -63,7 +63,7 @@ fun ChildLinkScreen(
     var isSelected by remember { mutableStateOf(false) }
 
     Scaffold(
-        topBar = { AionTopBar(title = "아이디로 찾기", onBackClick = onBackClick) },
+        topBar = { AionTopBar(title = "아이디로 찾기", onBackClick = onBackClick, iconStartPadding = 8.dp) },
         bottomBar = { AionBottomNavBar(selected = selectedTab, onSelect = onTabSelect) },
         containerColor = White
     ) { innerPadding ->
