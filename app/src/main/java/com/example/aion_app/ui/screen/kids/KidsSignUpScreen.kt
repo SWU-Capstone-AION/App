@@ -361,16 +361,10 @@ fun KidsOnboardingCompleteScreen(
         Spacer(Modifier.height(150.dp))
 
         Image(
-            painter = painterResource(R.drawable.logo_symbol),
+            painter = painterResource(R.drawable.logo_symbol_text_blue),
             contentDescription = "AION 로고",
             contentScale = ContentScale.Fit,
             modifier = Modifier.width(79.dp)
-        )
-        Image(
-            painter = painterResource(R.drawable.logo_text),
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.width(75.dp)
         )
 
         Spacer(Modifier.height(28.dp))

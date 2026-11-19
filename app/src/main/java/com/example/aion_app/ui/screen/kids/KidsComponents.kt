@@ -509,7 +509,7 @@ fun KidsOrb(
 // 상단 바 (AION 로고 + 구슬주머니 + 마이페이지)
 // ------------------------------------------------------------
 // points 가 null 이면 구슬주머니를 숨긴다 (호흡 화면).
-// onDark 는 배경이 어두운 호흡 화면용 — 마이페이지 아이콘을 흰색 버전으로 바꾼다.
+// onDark 는 배경이 어두운 호흡 화면용 — 로고와 마이페이지 아이콘을 흰색 버전으로 바꾼다.
 // onPointsClick 을 넘기면 배지를 눌러 구슬 주머니 팝업을 열 수 있다.
 //   (안 넘기면 표시만 되고 눌리지 않는다 — 호흡 화면 등)
 @Composable
@@ -530,10 +530,15 @@ fun BoxScope.KidsHomeTopBar(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Image(
-            painter = painterResource(R.drawable.logo_text),
+            painter = painterResource(
+                if (onDark) R.drawable.logo_text_white else R.drawable.logo_text_blue
+            ),
             contentDescription = "AION",
             contentScale = ContentScale.Fit,
-            modifier = Modifier.width(72.dp)
+            modifier = Modifier
+                .padding(start = 5.dp)
+                .width(60.dp)
+                .height(40.dp)
         )
 
         Image(

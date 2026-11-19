@@ -25,6 +25,7 @@ import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.theme.Light
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GrayText
+import com.example.aion_app.ui.theme.HeaderStroke
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 import android.net.Uri
@@ -148,7 +149,7 @@ private fun MyPageTopBar() {
                 modifier = Modifier.align(Alignment.Center)
             )
         }
-        HorizontalDivider(color = Color(0xFFEEEEEE), thickness = 0.5.dp)
+        HorizontalDivider(color = HeaderStroke, thickness = 0.5.dp)
     }
 }
 

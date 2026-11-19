@@ -32,9 +32,8 @@ import com.example.aion_app.ui.theme.LightHover
 import com.example.aion_app.ui.theme.TextPrimary
 import com.example.aion_app.ui.theme.White
 
-// 로고 크기 (프리뷰 보고 이 두 값만 조절하면 됨)
-private val LogoSymbolWidth = 72.dp
-private val LogoTextWidth = 76.dp
+// 로고 크기 (프리뷰 보고 이 값만 조절하면 됨)
+private val LogoWidth = 128.dp
 
 @Composable
 fun SignUpScreen(
@@ -64,23 +63,17 @@ fun SignUpScreen(
         // ===== 로고 헤더 =====
         Spacer(modifier = Modifier.height(120.dp))
 
-        // ===== 로고: 심볼(∞) + 워드마크(AION) =====
-        // logo_text.png 는 캔버스에 위아래 여백이 포함돼 있어(글자 390x106 / 캔버스 476x268)
-        // 두 이미지 사이에 Spacer 를 두지 않아도 자연스러운 간격이 생긴다.
+        // ===== 로고: 심볼(∞) + 워드마크(AION) 한 장 =====
+        // 디자인팀 11/3 수정: 심볼+텍스트를 같이 쓸 때는 심볼이 그라데이션인 새 로고 사용
+        // (구글 드라이브 AION_design > NEW_Logo > Symbol+Text Logo_Blue)
         Image(
-            painter = painterResource(R.drawable.logo_symbol),
+            painter = painterResource(R.drawable.logo_symbol_text_blue),
             contentDescription = "AION 로고",
             contentScale = ContentScale.Fit,
-            modifier = Modifier.width(LogoSymbolWidth)
-        )
-        Image(
-            painter = painterResource(R.drawable.logo_text),
-            contentDescription = null,   // 위 이미지가 이미 "AION 로고"로 읽힘
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.width(LogoTextWidth)
+            modifier = Modifier.width(LogoWidth)
         )
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // 시안 1p: 제목은 "로그인". "가입 유형 선택" 라벨 없이 버튼만 노출.
         Text("로그인", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)

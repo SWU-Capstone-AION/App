@@ -51,7 +51,8 @@ fun MyInfoScreen(
         topBar = {
             AionTopBar(
                 title = "내 정보",
-                onBackClick = onBackClick
+                onBackClick = onBackClick,
+                iconStartPadding = 8.dp
             )
         },
         bottomBar = { AionBottomNavBar(selected = "mypage", onSelect = onTabSelect) },

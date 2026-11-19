@@ -55,7 +55,7 @@ fun ChildListScreen(
     var childToUnlink by remember { mutableStateOf<LinkedChild?>(null) }
 
     Scaffold(
-        topBar = { AionTopBar(title = "아동 목록", onBackClick = onBackClick) },
+        topBar = { AionTopBar(title = "아동 목록", onBackClick = onBackClick, iconStartPadding = 8.dp) },
         // 마이페이지에서 들어오는 화면이라 마이페이지 탭을 켜 둔다
         bottomBar = { AionBottomNavBar(selected = "mypage", onSelect = onTabSelect) },
         containerColor = White

@@ -34,7 +34,6 @@ import com.example.aion_app.R
 import com.example.aion_app.ui.component.AionBottomNavBar
 import com.example.aion_app.ui.component.AionTopBar
 import com.example.aion_app.ui.theme.AionTheme
-import com.example.aion_app.ui.theme.AionTextDark
 import com.example.aion_app.ui.theme.Normal
 import com.example.aion_app.ui.theme.GreyLightHover
 import com.example.aion_app.ui.theme.GrayText
@@ -64,12 +63,10 @@ fun NotificationScreen(
 
     Scaffold(
         topBar = {
-            // 칩 위 스트로크: 디자인 확정 색 #2D3C4A
             AionTopBar(
                 title = "알림센터",
                 onBackClick = onBackClick,
-                iconStartPadding = 8.dp,  // 아이콘 꼭짓점을 칩 왼쪽(20dp)에 맞춤
-                dividerColor = AionTextDark
+                iconStartPadding = 8.dp   // 아이콘 꼭짓점을 칩 왼쪽(20dp)에 맞춤
             )
         },
         bottomBar = { AionBottomNavBar(selected = "home", onSelect = onTabSelect) },
